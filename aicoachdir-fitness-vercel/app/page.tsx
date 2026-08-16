@@ -1,4 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
+import SiteHeader from "@/components/SiteHeader";
 
 const plan = {
   name: "AI Fitness Coach 2.0",
@@ -10,17 +12,23 @@ const plan = {
 export default function HomePage() {
   return (
     <main className="site-shell">
-      <header className="nav">
-        <Link href="/" className="brand" aria-label="AI Coach Directory home">
-          <span className="brand-mark">AI</span>
-          <span className="brand-name">COACH DIRECTORY</span>
-        </Link>
-        <nav className="nav-links" aria-label="Primary navigation">
-          <a href="#how-it-works">How it works</a>
-          <Link href="/terms">Terms</Link>
-          <Link href="/fitness/signup" className="nav-cta">Start Fitness Coach</Link>
-        </nav>
-      </header>
+      <SiteHeader />
+
+      <section className="brand-showcase" aria-label="AI Coach Directory">
+        <Image
+          src="/images/ai-coach-directory-logo.jpg"
+          alt="AI Coach Directory logo"
+          width={220}
+          height={220}
+          priority
+          className="brand-showcase-logo"
+        />
+        <div>
+          <p className="eyebrow">AI COACH DIRECTORY</p>
+          <h2>Coaching support powered by AI, built around your goals.</h2>
+          <p>AI Fitness Coach 2.0 is part of the AI Coach Directory from KCB Integrative LLC.</p>
+        </div>
+      </section>
 
       <section className="hero-copy-section">
         <p className="eyebrow">AI FITNESS COACH</p>
@@ -31,7 +39,14 @@ export default function HomePage() {
       </section>
 
       <section className="fitness-visual" aria-label="AI Coaching for Fitness">
-        <img src="/images/ai-coaching-for-fitness.jpg" alt="AI Coaching for Fitness promotional artwork" />
+        <Image
+          src="/images/ai-coaching-for-fitness.jpg"
+          alt="AI Coaching for Fitness promotional artwork"
+          width={1536}
+          height={1024}
+          priority
+          className="fitness-hero-image"
+        />
       </section>
 
       <section className="coach-offer" aria-labelledby="coach-offer-title">
@@ -89,8 +104,11 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer>
-        <span>KCB Integrative LLC</span>
+      <footer className="site-footer">
+        <div className="footer-brand">
+          <Image src="/images/ai-coach-directory-logo.jpg" alt="AI Coach Directory" width={58} height={58} className="footer-logo" />
+          <span>KCB Integrative LLC · AI Coach Directory</span>
+        </div>
         <div className="footer-links">
           <Link href="/terms">Terms & Conditions</Link>
           <Link href="/fitness/signup">Subscription Signup</Link>
