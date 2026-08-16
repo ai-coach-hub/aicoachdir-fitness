@@ -1,25 +1,26 @@
 import Link from "next/link";
 import TermsDocument from "@/components/TermsDocument";
-import TermsGate from "@/components/TermsGate";
 
-export default function FitnessSignupPage() {
+export default function TermsPage() {
   return (
-    <main className="signup-shell">
+    <main className="legal-shell">
       <header className="nav compact">
         <Link href="/" className="brand">
           <span className="brand-mark">AI</span>
           <span className="brand-name">COACH DIRECTORY</span>
         </Link>
-        <Link href="/" className="back-link">← Back to Fitness Coach</Link>
+        <Link href="/fitness/signup" className="nav-cta">Review & Subscribe</Link>
       </header>
 
-      <TermsGate>
+      <section className="legal-page-card">
+        <p className="eyebrow">KCB INTEGRATIVE LLC</p>
+        <h1>Terms & Conditions</h1>
         <TermsDocument />
-      </TermsGate>
+      </section>
 
-      <footer className="signup-footer">
+      <footer>
         <span>KCB Integrative LLC</span>
-        <Link href="/terms">Open full Terms page</Link>
+        <Link href="/fitness/signup">Fitness Coach Subscription</Link>
       </footer>
     </main>
   );

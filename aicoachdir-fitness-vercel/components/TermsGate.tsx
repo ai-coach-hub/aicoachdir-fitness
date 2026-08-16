@@ -1,8 +1,13 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
+import { TERMS_VERSION } from "@/lib/termsMeta";
 
-export default function TermsGate() {
+const ACCEPTANCE_TEXT =
+  "I have read and agree to the Terms & Conditions and acknowledge the Privacy Policy, including the arbitration agreement, class-action waiver, AI limitations, fitness assumption-of-risk provisions, and automatic-renewal terms. I confirm that I am at least 18 years old.";
+
+export default function TermsGate({ children }: { children: ReactNode }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [reachedBottom, setReachedBottom] = useState(false);
   const [agreed, setAgreed] = useState(false);
@@ -15,7 +20,7 @@ export default function TermsGate() {
   function handleScroll() {
     const el = scroller.current;
     if (!el) return;
-    const tolerance = 8;
+    const tolerance = 10;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - tolerance) {
       setReachedBottom(true);
     }
@@ -23,10 +28,16 @@ export default function TermsGate() {
 
   function continueToSignup() {
     if (!reachedBottom || !agreed || !signupUrl) return;
+
     const acceptance = {
-      termsVersion: "fitness-v1",
+      termsVersion: TERMS_VERSION,
       acceptedAt: new Date().toISOString(),
+      acceptanceText: ACCEPTANCE_TEXT,
+      plan: "AI Fitness Coach 2.0",
+      price: "$15/month",
+      includedUses: 400,
     };
+
     sessionStorage.setItem("fitnessTermsAcceptance", JSON.stringify(acceptance));
     window.location.assign(signupUrl);
   }
@@ -36,35 +47,30 @@ export default function TermsGate() {
       <div className="terms-heading">
         <p className="eyebrow">STEP 1 OF 2</p>
         <h1>Review the Terms & Conditions</h1>
-        <p>You must scroll to the end of the terms and affirm your agreement before continuing to subscription signup.</p>
+        <p>
+          Read the complete terms below. The agreement checkbox unlocks only after you scroll to the end.
+        </p>
       </div>
 
-      <div className="terms-scroll" ref={scroller} onScroll={handleScroll} tabIndex={0}>
-        <h2>AI Fitness Coach Terms & Conditions</h2>
-        <p><strong>Important:</strong> Replace this sample text with your attorney-approved Terms & Conditions before publishing.</p>
-        <h3>1. Service</h3>
-        <p>The AI Fitness Coach provides automated informational coaching intended to support general fitness planning, motivation, and habit development.</p>
-        <h3>2. Not Medical Care</h3>
-        <p>The service is not a physician, physical therapist, dietitian, emergency service, or substitute for professional medical evaluation, diagnosis, or treatment.</p>
-        <h3>3. Your Responsibilities</h3>
-        <p>You are responsible for deciding whether an exercise, activity, or recommendation is appropriate for you and for stopping activity that causes pain, dizziness, unusual shortness of breath, or other concerning symptoms.</p>
-        <h3>4. Account and Subscription</h3>
-        <p>Access may require a paid subscription. Subscription billing, account access, renewal, cancellation, and payment processing may be handled through the connected Pickaxe and Stripe services.</p>
-        <h3>5. AI Limitations</h3>
-        <p>AI-generated responses can be incomplete or incorrect. You should independently evaluate recommendations, especially when they relate to health, safety, nutrition, injury, or physical limitations.</p>
-        <h3>6. Privacy</h3>
-        <p>Do not submit information you do not want processed through the service. Your final published terms should link to and incorporate your approved privacy policy and describe applicable data practices.</p>
-        <h3>7. Billing and Cancellation</h3>
-        <p>Your final published terms should state the subscription price, billing frequency, renewal terms, cancellation process, refund policy, and how changes to pricing or service will be handled.</p>
-        <h3>8. Acceptable Use</h3>
-        <p>You agree not to misuse the service, interfere with its operation, attempt unauthorized access, or use it for unlawful purposes.</p>
-        <h3>9. Availability</h3>
-        <p>Service availability can vary due to maintenance, third-party services, model providers, connectivity, or other operational conditions.</p>
-        <h3>10. Changes</h3>
-        <p>Your final terms should explain how updated terms are communicated and when revised terms become effective.</p>
-        <h3>11. Contact</h3>
-        <p>Your final terms should include the correct legal business name, contact information, governing law, and any required consumer notices.</p>
-        <div className="terms-end"><strong>End of Terms</strong><span>✓ You have reached the bottom.</span></div>
+      <div className="plan-summary" aria-label="Subscription summary">
+        <div><span>Plan</span><strong>AI Fitness Coach 2.0</strong></div>
+        <div><span>Price</span><strong>$15 / month</strong></div>
+        <div><span>Included usage</span><strong>400 uses / month</strong></div>
+        <div><span>Renewal</span><strong>Automatic until canceled</strong></div>
+      </div>
+
+      <div
+        className="terms-scroll"
+        ref={scroller}
+        onScroll={handleScroll}
+        tabIndex={0}
+        aria-label="Terms and Conditions. Scroll to the end to enable agreement."
+      >
+        {children}
+        <div className="terms-end">
+          <strong>End of Terms & Conditions</strong>
+          <span>✓ You have reached the end.</span>
+        </div>
       </div>
 
       <div className="agreement-area">
@@ -75,11 +81,15 @@ export default function TermsGate() {
             disabled={!reachedBottom}
             onChange={(e) => setAgreed(e.target.checked)}
           />
-          <span>I have read and agree to the Terms & Conditions.</span>
+          <span>{ACCEPTANCE_TEXT}</span>
         </label>
 
-        {!reachedBottom && <p className="status-note">Scroll through the complete terms to unlock agreement.</p>}
-        {reachedBottom && !agreed && <p className="status-note success">Terms reviewed. Check the box to continue.</p>}
+        {!reachedBottom && (
+          <p className="status-note">Scroll through the complete Terms & Conditions to unlock agreement.</p>
+        )}
+        {reachedBottom && !agreed && (
+          <p className="status-note success">You reached the end. Check the agreement box to continue.</p>
+        )}
 
         <button
           className="primary-button full-button"
@@ -91,10 +101,13 @@ export default function TermsGate() {
 
         {!signupUrl && (
           <p className="config-warning">
-            Developer setup required: add NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL in Vercel Environment Variables.
+            Setup required: add NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL in Vercel Environment Variables.
           </p>
         )}
-        <p className="microcopy center">Step 2 opens your Pickaxe-hosted signup/subscription experience connected to Stripe.</p>
+
+        <p className="microcopy center">
+          Step 2 opens the Pickaxe-hosted membership and subscription flow connected to Stripe.
+        </p>
       </div>
     </section>
   );

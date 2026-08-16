@@ -1,23 +1,39 @@
-# AI Coach Directory - Fitness Coach Vercel Starter
+# AI Coach Directory - AI Fitness Coach 2.0 Vercel Starter
 
-A small Next.js App Router starter for launching the AI Fitness Coach first while keeping Pickaxe as the hosted account/access/billing layer connected to Stripe.
+Updated Vercel-ready Next.js starter for the AI Fitness Coach 2.0 subscription flow.
 
-## Flow
+## What changed in this version
+
+- Uses the supplied **AI Coaching for Fitness** image locally at `/public/images/ai-coaching-for-fitness.jpg`.
+- Places that image directly above the AI Fitness Coach 2.0 subscription card.
+- Displays the current offer as **$15/month** with **400 uses/month**.
+- Replaces the previous short/sample Terms with the supplied full Terms & Conditions.
+- Keeps the scroll-to-end requirement before the user can check the agreement box.
+- Uses the requested acknowledgement text:
+
+  > I have read and agree to the Terms & Conditions and acknowledge the Privacy Policy, including the arbitration agreement, class-action waiver, AI limitations, fitness assumption-of-risk provisions, and automatic-renewal terms. I confirm that I am at least 18 years old.
+
+- Removes the previous confidentiality-style marketing claim.
+- Adds a standalone `/terms` route in addition to the gated `/fitness/signup` flow.
+
+## Customer flow
 
 1. Visitor lands on the Vercel-hosted Fitness Coach page.
-2. Visitor selects **Start Your Fitness Coach**.
-3. `/fitness/signup` requires the visitor to scroll to the bottom of the Terms & Conditions.
-4. The agreement checkbox is disabled until the bottom is reached.
-5. After checking agreement, **Continue to Secure Subscription** redirects to the fitness-only Pickaxe deployment/signup URL.
-6. Pickaxe handles its connected Stripe subscription and access provisioning.
+2. Visitor selects **Review Terms & Get Started**.
+3. `/fitness/signup` displays the complete Terms & Conditions inside a required scroll area.
+4. The agreement checkbox remains disabled until the visitor reaches the end.
+5. After agreement, **Continue to Secure Subscription** redirects to the Pickaxe Fitness Coach portal.
+6. Pickaxe handles account access and the connected Stripe subscription flow.
 
-## Important before launch
+## Vercel environment variable
 
-- Replace the sample Terms & Conditions with attorney-approved text.
-- Create/confirm a FITNESS-ONLY paid access group/deployment in Pickaxe.
-- Put that Pickaxe URL into `NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL` in Vercel Environment Variables.
-- Test the complete flow in Stripe test mode before going live.
-- The starter stores the acceptance version/time only in browser sessionStorage. For durable legal/audit records, add a server-side datastore and save the terms version, acceptance timestamp, user identifier, and other fields your legal counsel recommends.
+Add this in Vercel Project Settings -> Environment Variables:
+
+```text
+NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL=https://studio.pickaxe.co/...
+```
+
+Use the customer-facing Pickaxe portal URL for the AI Fitness Coach 2.0 membership.
 
 ## Local development
 
@@ -27,12 +43,20 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open http://localhost:3000
+Open `http://localhost:3000`.
 
-## Deploy to Vercel
+## Deploying over the previous GitHub/Vercel project
 
-Push this folder to GitHub/GitLab/Bitbucket and import the repository into Vercel. Add the environment variable in Project Settings -> Environment Variables and deploy.
+Copy the contents of this folder over the previous `aicoachdir-fitness-vercel` project contents, commit the changes to the same GitHub repository, and push to `main`. Vercel should automatically create a new deployment from the updated commit.
 
-## Brand notes
+If your GitHub repository still uses `aicoachdir-fitness-vercel` as its Vercel Root Directory, keep that root-directory setting unchanged.
 
-The starter uses the existing public AI Coach Directory image assets from `aicoachdir.com` and a dark navy/black palette with blue, violet, and cyan accents to match the current site. It uses the system/Inter-style sans-serif stack; replace it with the exact current brand font if desired.
+## Terms source
+
+The full legal text used by the site is stored at `content/terms-and-conditions.md` and rendered in both `/terms` and `/fitness/signup`.
+
+Section 19 is preserved verbatim from the supplied Terms. Outside the legal Terms, the site avoids marketing language that promises or implies true confidentiality. Have counsel review the final legal text before launch.
+
+## Acceptance record note
+
+The starter stores the acceptance timestamp, Terms version, acknowledgement text, plan, price, and usage allowance in browser `sessionStorage` before redirecting to Pickaxe. This is not a durable server-side legal audit record. If you need durable consent records, add a server-side datastore before launch.
