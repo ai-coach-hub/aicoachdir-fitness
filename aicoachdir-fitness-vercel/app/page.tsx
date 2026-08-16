@@ -24,9 +24,9 @@ export default function HomePage() {
           className="brand-showcase-logo"
         />
         <div>
-          <p className="eyebrow">AI COACH DIRECTORY</p>
+          <p className="eyebrow">AI COACH DIRECTORY<span className="tm-mark">™</span></p>
           <h2>Coaching support powered by AI, built around your goals.</h2>
-          <p>AI Fitness Coach 2.0 is part of the AI Coach Directory from KCB Integrative LLC.</p>
+          <p>AI Fitness Coach 2.0 is part of AI Coach Directory™ from KCB Integrative LLC.</p>
         </div>
       </section>
 
@@ -107,12 +107,16 @@ export default function HomePage() {
       <footer className="site-footer">
         <div className="footer-brand">
           <Image src="/images/ai-coach-directory-logo.jpg" alt="AI Coach Directory" width={58} height={58} className="footer-logo" />
-          <span>KCB Integrative LLC · AI Coach Directory</span>
+          <span>KCB Integrative LLC · AI Coach Directory<span className="tm-mark">™</span></span>
         </div>
         <div className="footer-links">
           <Link href="/terms">Terms & Conditions</Link>
           <Link href="/fitness/signup">Subscription Signup</Link>
         </div>
+
+        <p className="trademark-notice">
+          © 2026 KCB Integrative LLC. AI Coach Directory<span className="tm-mark">™</span> and the AI Coach Directory logo are trademarks/service marks claimed by KCB Integrative LLC. All rights reserved. Third-party marks belong to their respective owners.
+        </p>
       </footer>
     </main>
   );

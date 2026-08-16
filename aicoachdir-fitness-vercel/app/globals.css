@@ -282,3 +282,23 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   .legal-brand-logo { width: 78px; height: 78px; }
   .site-footer { align-items: flex-start; }
 }
+
+
+/* Trademark treatment */
+.tm-mark {
+  display: inline-block;
+  margin-left: 0.12em;
+  font-size: 0.5em;
+  line-height: 1;
+  vertical-align: super;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.trademark-notice {
+  flex: 1 1 100%;
+  margin: 10px 0 0;
+  color: #6f7d91;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.site-footer { flex-wrap: wrap; }

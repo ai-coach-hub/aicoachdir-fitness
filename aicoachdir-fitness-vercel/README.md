@@ -1,4 +1,4 @@
-# AI Coach Directory - AI Fitness Coach 2.0 Vercel Starter
+# AI Coach Directory™ - AI Fitness Coach 2.0 Vercel Starter
 
 Updated Vercel-ready Next.js starter for the AI Fitness Coach 2.0 subscription flow.
 
@@ -15,6 +15,14 @@ Updated Vercel-ready Next.js starter for the AI Fitness Coach 2.0 subscription f
 
 - Removes the previous confidentiality-style marketing claim.
 - Adds a standalone `/terms` route in addition to the gated `/fitness/signup` flow.
+
+## Trademark treatment
+
+- Displays **AI Coach Directory™** as the claimed brand mark in the site header, branded sections, and legal/footer areas.
+- Adds a footer notice stating that the AI Coach Directory™ name and logo are trademarks/service marks claimed by KCB Integrative LLC.
+- Adds a corresponding trademark notice to Section 12 of the Terms & Conditions.
+- Does **not** use the federal registered-trademark symbol ® because federal registration status was not provided.
+- The Terms version is bumped to `fitness-2026-08-16-v3-trademark` because the legal text changed.
 
 ## Customer flow
 

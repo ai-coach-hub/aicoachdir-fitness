@@ -14,7 +14,7 @@ export default function SiteHeader({ compact = false }: { compact?: boolean }) {
           className="brand-logo"
         />
         <span className="brand-text-wrap">
-          <span className="brand-title">AI Coach Directory</span>
+          <span className="brand-title">AI Coach Directory<span className="tm-mark">™</span></span>
           <span className="brand-company">KCB Integrative LLC</span>
         </span>
       </Link>
