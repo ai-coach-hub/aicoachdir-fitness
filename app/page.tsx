@@ -147,8 +147,10 @@ export default function HomePage() {
         <div className="coming-soon-grid">
           {upcomingCoaches.map((coach) => (
             <article key={coach.name} className="coming-soon-card">
-              <div className="coming-soon-image-wrap">
+              <div className="coming-soon-status-row">
                 <span className="coming-soon-badge">Coming Soon</span>
+              </div>
+              <div className="coming-soon-image-wrap">
                 <Image
                   src={coach.image}
                   alt={coach.alt}
