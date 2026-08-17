@@ -15,6 +15,9 @@ Updated Vercel-ready Next.js starter for the AI Fitness Coach 2.0 subscription a
 
 - Removes the previous confidentiality-style marketing claim.
 - Adds a standalone `/terms` route in addition to the gated `/fitness/signup` flow.
+- Adds a new **Coming Soon** preview section featuring **AI Coaching SpendSmart**, **AI Coaching for Life**, and **AI Coaching for Career**.
+- Uses the supplied preview images with visible **Coming Soon** banners.
+- Keeps **AI Fitness Coach 2.0** as the live primary offer while showing the upcoming coaches lower on the page.
 
 ## Trademark treatment
 

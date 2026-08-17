@@ -355,3 +355,106 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   .returning-member-callout { grid-template-columns: 1fr; }
   .returning-login-button { width: 100%; }
 }
+
+/* Coming soon coach previews */
+.coming-soon-section {
+  margin: 0 0 84px;
+}
+.coming-soon-header {
+  margin-bottom: 24px;
+  padding: 28px 30px;
+  border-radius: 24px;
+  border: 1px solid rgba(116, 182, 215, 0.18);
+  background: linear-gradient(145deg, rgba(7, 18, 31, 0.92), rgba(7, 14, 24, 0.96));
+}
+.coming-soon-header h2 {
+  margin: 10px 0 12px;
+  font-size: clamp(28px, 4vw, 44px);
+  letter-spacing: -0.04em;
+}
+.coming-soon-header p:last-child {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+  max-width: 900px;
+}
+.coming-soon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.coming-soon-card {
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(116, 182, 215, 0.22);
+  background: linear-gradient(145deg, rgba(12,25,42,.96), rgba(5,10,19,.98));
+  box-shadow: inset 0 1px rgba(255,255,255,.03);
+}
+.coming-soon-image-wrap {
+  position: relative;
+  padding: 12px;
+}
+.coming-soon-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.coming-soon-badge {
+  position: absolute;
+  z-index: 2;
+  top: 24px;
+  left: 24px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #041008;
+  background: linear-gradient(105deg, var(--green-2), var(--green));
+  box-shadow: 0 10px 30px rgba(69, 174, 63, 0.22);
+}
+.coming-soon-copy {
+  padding: 4px 24px 24px;
+}
+.coming-soon-copy h3 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  letter-spacing: -0.03em;
+}
+.coming-soon-tagline {
+  margin: 0 0 10px;
+  color: #dfe8f5;
+  font-weight: 700;
+}
+.coming-soon-copy p:last-child {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+@media (max-width: 1100px) {
+  .coming-soon-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .coming-soon-header {
+    padding: 22px;
+  }
+  .coming-soon-copy {
+    padding: 2px 20px 22px;
+  }
+  .coming-soon-copy h3 {
+    font-size: 22px;
+  }
+  .coming-soon-badge {
+    top: 20px;
+    left: 20px;
+    font-size: 11px;
+    padding: 9px 12px;
+  }
+}

@@ -9,6 +9,33 @@ const plan = {
   uses: "400",
 };
 
+const upcomingCoaches = [
+  {
+    name: "AI Coaching SpendSmart",
+    tagline: "Save More. Spend Wisely. Plan Better.",
+    description:
+      "A future money-coaching experience focused on budgeting habits, smarter spending, and practical financial decision support.",
+    image: "/images/ai-coaching-spendsmart.jpg",
+    alt: "AI Coaching SpendSmart preview artwork",
+  },
+  {
+    name: "AI Coaching for Life",
+    tagline: "Find Balance, Purpose, and Happiness.",
+    description:
+      "A future life-coaching experience centered on mindset, personal growth, reflection, and day-to-day balance.",
+    image: "/images/ai-coaching-for-life.jpg",
+    alt: "AI Coaching for Life preview artwork",
+  },
+  {
+    name: "AI Coaching for Career",
+    tagline: "Achieve Your Professional Goals.",
+    description:
+      "A future career-coaching experience built to support professional growth, job readiness, and long-term advancement.",
+    image: "/images/ai-coaching-for-career.jpg",
+    alt: "AI Coaching for Career preview artwork",
+  },
+];
+
 export default function HomePage() {
   return (
     <main className="site-shell">
@@ -103,6 +130,40 @@ export default function HomePage() {
           <Link href="/fitness/signup" className="primary-button">New Member — Review Terms & Subscribe</Link>
           <Link href="/fitness/login" className="secondary-button">Returning Member Login</Link>
           <Link href="/terms" className="secondary-button">Read Full Terms</Link>
+        </div>
+      </section>
+
+      <section className="coming-soon-section" aria-labelledby="coming-soon-title">
+        <div className="coming-soon-header">
+          <div>
+            <p className="eyebrow">COMING SOON</p>
+            <h2 id="coming-soon-title">More AI coaching experiences are on the way.</h2>
+            <p>
+              AI Fitness Coach 2.0 remains the live featured offer. These upcoming coaching experiences are shown as previews so visitors can see what’s coming next from AI Coach Directory™.
+            </p>
+          </div>
+        </div>
+
+        <div className="coming-soon-grid">
+          {upcomingCoaches.map((coach) => (
+            <article key={coach.name} className="coming-soon-card">
+              <div className="coming-soon-image-wrap">
+                <span className="coming-soon-badge">Coming Soon</span>
+                <Image
+                  src={coach.image}
+                  alt={coach.alt}
+                  width={1536}
+                  height={1024}
+                  className="coming-soon-image"
+                />
+              </div>
+              <div className="coming-soon-copy">
+                <h3>{coach.name}</h3>
+                <p className="coming-soon-tagline">{coach.tagline}</p>
+                <p>{coach.description}</p>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
