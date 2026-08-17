@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 import { TERMS_VERSION } from "@/lib/termsMeta";
 
@@ -8,7 +8,7 @@ const ACCEPTANCE_TEXT =
   "I have read and agree to the Terms & Conditions and acknowledge the Privacy Policy, including the arbitration agreement, class-action waiver, AI limitations, fitness assumption-of-risk provisions, and automatic-renewal terms. I confirm that I am at least 18 years old.";
 
 export default function TermsGate({ children }: { children: ReactNode }) {
-  const scroller = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement | null>(null);
   const [reachedBottom, setReachedBottom] = useState(false);
   const [agreed, setAgreed] = useState(false);
 
@@ -79,7 +79,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
             type="checkbox"
             checked={agreed}
             disabled={!reachedBottom}
-            onChange={(e) => setAgreed(e.target.checked)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setAgreed(e.target.checked)}
           />
           <span>{ACCEPTANCE_TEXT}</span>
         </label>

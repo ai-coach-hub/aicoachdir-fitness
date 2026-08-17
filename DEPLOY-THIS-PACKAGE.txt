@@ -1,0 +1,24 @@
+AI COACH DIRECTORY(TM) - AI FITNESS COACH 2.0
+COMPLETE CURRENT VERCEL PACKAGE
+
+This package includes the complete current site:
+- AI Coach Directory logo and branding
+- AI Coach Directory(TM) trademark treatment
+- Copyright footer notice
+- AI Coaching for Fitness hero image
+- AI Fitness Coach 2.0 offer: $15/month, 400 uses/month
+- Full Terms & Conditions
+- Section 19 preserved, including the phrase "private attorney general"
+- Required scroll-to-end Terms acceptance for new subscribers
+- Exact long-form acknowledgement and 18+ confirmation
+- Returning Member Login that bypasses the new-subscription Terms gate
+- Pickaxe/Stripe handoff through NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL
+
+DIRECT VERCEL ZIP UPLOAD
+This ZIP is structured with package.json at the ZIP root so it can be uploaded as a single project archive where Vercel accepts ZIP project uploads.
+
+IMPORTANT ENVIRONMENT VARIABLE
+NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL must be set in the Vercel project to the customer-facing Pickaxe AI Fitness Coach 2.0 portal URL.
+
+If you deploy this as a brand-new Vercel project, add that environment variable before testing signup or member login.
+If you replace files in your existing GitHub-connected Vercel project, the existing Vercel environment variable should remain in that project.
