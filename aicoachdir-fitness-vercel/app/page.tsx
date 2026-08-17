@@ -66,7 +66,6 @@ export default function HomePage() {
         <div className="offer-stat">
           <strong>{plan.uses}</strong>
           <span> uses / month</span>
-          <small>Monthly coaching allowance</small>
         </div>
         <div className="offer-action">
           <Link href="/fitness/signup" className="primary-button">Review Terms & Get Started</Link>
