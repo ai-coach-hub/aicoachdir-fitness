@@ -83,3 +83,8 @@ Section 19 is preserved verbatim from the supplied Terms. Outside the legal Term
 ## Acceptance record note
 
 The starter stores the acceptance timestamp, Terms version, acknowledgement text, plan, price, and usage allowance in browser `sessionStorage` before redirecting to Pickaxe. This is not a durable server-side legal audit record. If you need durable consent records, add a server-side datastore before launch.
+
+
+## Coaching value update
+
+This version removes the small explanatory sentence below the Returning Member Login button on the homepage and adds a purpose-built AI coaching value section explaining Specialized Knowledge, Built to Coach, Purpose-Built Expertise, and Less Prompting / More Coaching.

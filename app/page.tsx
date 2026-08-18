@@ -98,7 +98,51 @@ export default function HomePage() {
         <div className="offer-action">
           <Link href="/fitness/signup" className="primary-button">New Member — Review Terms</Link>
           <Link href="/fitness/login" className="secondary-button member-login-offer">Returning Member Login</Link>
-          <small>Existing members can sign in directly without repeating the subscription Terms flow.</small>
+        </div>
+      </section>
+
+      <section className="coach-difference-section" aria-labelledby="coach-difference-title">
+        <div className="coach-difference-heading">
+          <p className="eyebrow">WHY AI COACH DIRECTORY<span className="tm-mark">™</span></p>
+          <h2 id="coach-difference-title">
+            General AI Can Answer Your Questions. <span>Our AI Is Built to Coach You.</span>
+          </h2>
+          <p>
+            Our AI Coaches are purpose-built to provide a more personalized, focused, and useful experience than a general AI assistant.
+          </p>
+        </div>
+
+        <div className="coach-difference-grid">
+          <article>
+            <div className="value-icon">01</div>
+            <h3>Specialized Knowledge</h3>
+            <p>
+              Each coach can be equipped with a curated library of <strong>specialized resources, documents, and expert material</strong> that general AI tools may not have access to.
+            </p>
+          </article>
+          <article>
+            <div className="value-icon">02</div>
+            <h3>Built to Coach</h3>
+            <p>
+              Instead of simply answering questions, our AI Coaches are designed to <strong>guide, encourage, challenge, and personalize the experience</strong> around your goals and needs.
+            </p>
+          </article>
+          <article>
+            <div className="value-icon">03</div>
+            <h3>Purpose-Built Expertise</h3>
+            <p>
+              Each AI Coach is designed around a specific area of expertise, giving you more relevant guidance without having to explain the context or create complicated prompts every time.
+            </p>
+          </article>
+          <article>
+            <div className="value-icon">04</div>
+            <h3>Less Prompting. More Coaching.</h3>
+            <p>The knowledge, approach, and coaching framework are already built in.</p>
+          </article>
+        </div>
+
+        <div className="coach-difference-callout">
+          <strong>Just tell your coach what you need and get started.</strong>
         </div>
       </section>
 
