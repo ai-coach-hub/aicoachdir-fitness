@@ -88,3 +88,9 @@ The starter stores the acceptance timestamp, Terms version, acknowledgement text
 ## Coaching value update
 
 This version removes the small explanatory sentence below the Returning Member Login button on the homepage and adds a purpose-built AI coaching value section explaining Specialized Knowledge, Built to Coach, Purpose-Built Expertise, and Less Prompting / More Coaching.
+
+
+## Verification email reminder
+
+The first-time subscription flow includes a visible reminder to check the Spam or Junk folder if the verification email does not appear in the inbox within a few minutes.
+

@@ -91,6 +91,11 @@ export default function TermsGate({ children }: { children: ReactNode }) {
           <p className="status-note success">You reached the end. Check the agreement box to continue.</p>
         )}
 
+        <div className="verification-reminder" role="note" aria-label="Verification email reminder">
+          <strong>First-time signup reminder</strong>
+          <span>After you enter your email in the next step, look for the verification email. If you do not see it within a few minutes, please check your Spam or Junk folder.</span>
+        </div>
+
         <button
           className="primary-button full-button"
           disabled={!reachedBottom || !agreed || !signupUrl}
