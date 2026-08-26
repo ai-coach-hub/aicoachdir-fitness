@@ -1,11 +1,24 @@
-AI COACH DIRECTORY - CURRENT VERCEL PACKAGE
+AI Coach Directory - Durable Terms Acceptance Update
 
-This full package keeps the existing live AI Fitness Coach 2.0 site and adds the three upcoming coaches:
-- AI Coaching SpendSmart - Coming Soon
-- AI Coaching for Life - Coming Soon
-- AI Coaching for Career - Coming Soon
+This package keeps the existing site and signup flow, but requires a successful server-side Neon Postgres write BEFORE redirecting a new subscriber to Pickaxe.
 
-The Coming Soon labels are positioned above each preview image so they do not cover any artwork or title text.
+Required Vercel resources/settings:
+1. Existing NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL remains configured.
+2. Neon Postgres resource "aicoachdir-terms-db" is connected to aicoachdir-fitness.
+3. Production and Preview environments are connected.
+4. Preview database branching is enabled; Production branching is disabled.
+5. The Neon connection variable is server-only. With the current Vercel custom prefix, the app expects STORAGE_URL. It also supports DATABASE_URL or POSTGRES_URL.
 
-Existing Pickaxe/Stripe connection:
-Keep NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL set to the current AI Fitness Coach 2.0 Pickaxe portal URL in Vercel.
+No manual table creation is required. On the first acceptance request the server creates the terms_acceptances table and required indexes with CREATE TABLE/INDEX IF NOT EXISTS.
+
+To verify after deployment:
+- Open /fitness/signup.
+- Scroll to the end of the Terms.
+- Enter a valid email and check the agreement box.
+- Continue. The redirect to Pickaxe occurs only after Neon confirms the durable record.
+- In Vercel Storage > aicoachdir-terms-db > Data Editor or Query, inspect:
+  SELECT id, email, accepted_at, terms_version, plan, price, included_uses, ip_address, user_agent, vercel_git_commit_sha, vercel_deployment_id
+  FROM terms_acceptances
+  ORDER BY accepted_at DESC;
+
+The authoritative evidence is the Neon database row. sessionStorage is only a secondary browser convenience copy.

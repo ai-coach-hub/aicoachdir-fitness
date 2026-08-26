@@ -94,3 +94,9 @@ This version removes the small explanatory sentence below the Returning Member L
 
 The first-time subscription flow includes a visible reminder to check the Spam or Junk folder if the verification email does not appear in the inbox within a few minutes.
 
+
+## Durable Terms acceptance evidence
+
+New-subscriber consent is now written to the connected Neon Postgres database before the browser is allowed to continue to Pickaxe. The authoritative table is `terms_acceptances`; it is created automatically on first use along with indexes on email, acceptance time, and Terms version.
+
+The API route is `POST /api/terms-acceptance`. It accepts only the customer's email and browser acceptance timestamp. Legal/transaction values (Terms version, acceptance wording, plan, price, and included uses), the server timestamp, IP/user-agent, and Vercel deployment/Git identifiers are derived or supplied server-side rather than trusted from the browser.
