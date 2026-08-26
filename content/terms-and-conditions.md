@@ -1,6 +1,6 @@
 These Terms and Conditions (“Terms”) govern your access to and use of aicoachdir.com and any associated websites, applications, subscriptions, AI-powered coaching tools, AI-generated informational content, directories, communications, and related services offered by KCB Integrative LLC (“Company,” “we,” “us,” or “our”) (collectively, the “Services”).
 
-These Terms should be read together with our Privacy Policy and any pricing, subscription, checkout, or other terms presented to you when you purchase or use a particular Service.
+These Terms should be read together with any pricing, subscription, checkout, purchase, or other terms presented to you when you purchase or use a particular Service.
 
 ## 1. Acceptance of Terms and Electronic Assent
 
@@ -193,13 +193,13 @@ You retain ownership of original content that you lawfully submit to the Service
 
 You represent and warrant that you have the rights, permissions, authorizations, releases, and consents necessary to submit and process your User Content through the Services.
 
-You grant the Company a worldwide, royalty-free, sublicensable license to host, store, transmit, process, reproduce, display, reformat, and create technical modifications of User Content to the extent reasonably necessary to operate, secure, maintain, troubleshoot, support, and provide the Services, to comply with law, and as otherwise described in the Privacy Policy.
+You grant the Company a worldwide, royalty-free, sublicensable license to host, store, transmit, process, reproduce, display, reformat, and create technical modifications of User Content to the extent reasonably necessary to operate, secure, maintain, troubleshoot, support, and provide the Services, to comply with law, and as otherwise described in these Terms.
 
 Because the Services depend on third-party AI, hosting, platform, infrastructure, and other service providers, User Content may be transmitted to, processed by, retained by, or otherwise handled through those providers.
 
 Depending on the provider, model, platform tier, configuration, and applicable terms, interaction data—including prompts and AI-generated responses—may be retained or used for service improvement, evaluation, or model-training purposes.
 
-Uploaded documents and other categories of information may be treated differently by particular providers. You should not submit material unless you are comfortable with its processing under the Privacy Policy and applicable third-party terms.
+Uploaded documents and other categories of information may be treated differently by particular providers. You should not submit material unless you are comfortable with its processing as described in these Terms and under applicable third-party terms and policies.
 
 The Company may have access to certain user interactions through administrative or monitoring functionality made available by its technology providers. The Company may use such access as reasonably necessary for legitimate operational purposes, including support, troubleshooting, security, quality assurance, legal compliance, and abuse prevention.
 
@@ -398,7 +398,7 @@ If any provision of these Terms is held invalid, illegal, or unenforceable, the 
 
 Except where the relevant provision specifies another treatment, an invalid or unenforceable provision will be enforced to the maximum lawful extent or replaced by an enforceable provision that most closely reflects its intended purpose.
 
-These Terms, together with the Privacy Policy, applicable checkout disclosures, purchase terms, subscription terms, and any policies expressly incorporated by reference, constitute the entire agreement between you and the Company regarding the Services and supersede prior or contemporaneous representations or agreements on the same subject, except for a separate written agreement expressly stating that it supersedes these Terms.
+These Terms, together with applicable checkout disclosures, purchase terms, subscription terms, and any other terms or policies expressly incorporated by reference, constitute the entire agreement between you and the Company regarding the Services and supersede prior or contemporaneous representations or agreements on the same subject, except for a separate written agreement expressly stating that it supersedes these Terms.
 
 ## 26. Contact
 

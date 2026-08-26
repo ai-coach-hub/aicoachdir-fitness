@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import { TERMS_VERSION } from "@/lib/termsMeta";
 
 const ACCEPTANCE_TEXT =
-  "I have read and agree to the Terms & Conditions and acknowledge the Privacy Policy, including the arbitration agreement, class-action waiver, AI limitations, fitness assumption-of-risk provisions, and automatic-renewal terms. I confirm that I am at least 18 years old.";
+  "I have read and agree to the Terms & Conditions, including the arbitration agreement, class-action waiver, AI limitations, fitness assumption-of-risk provisions, and automatic-renewal terms. I confirm that I am at least 18 years old.";
 
 export default function TermsGate({ children }: { children: ReactNode }) {
   const scroller = useRef<HTMLDivElement | null>(null);

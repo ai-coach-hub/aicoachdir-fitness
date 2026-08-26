@@ -11,7 +11,7 @@ Updated Vercel-ready Next.js starter for the AI Fitness Coach 2.0 subscription a
 - Keeps the scroll-to-end requirement before the user can check the agreement box.
 - Uses the requested acknowledgement text:
 
-  > I have read and agree to the Terms & Conditions and acknowledge the Privacy Policy, including the arbitration agreement, class-action waiver, AI limitations, fitness assumption-of-risk provisions, and automatic-renewal terms. I confirm that I am at least 18 years old.
+  > I have read and agree to the Terms & Conditions, including the arbitration agreement, class-action waiver, AI limitations, fitness assumption-of-risk provisions, and automatic-renewal terms. I confirm that I am at least 18 years old.
 
 - Removes the previous confidentiality-style marketing claim.
 - Adds a standalone `/terms` route in addition to the gated `/fitness/signup` flow.
@@ -25,7 +25,7 @@ Updated Vercel-ready Next.js starter for the AI Fitness Coach 2.0 subscription a
 - Adds a footer notice stating that the AI Coach Directory™ name and logo are trademarks/service marks claimed by KCB Integrative LLC.
 - Adds a corresponding trademark notice to Section 12 of the Terms & Conditions.
 - Does **not** use the federal registered-trademark symbol ® because federal registration status was not provided.
-- The Terms version is bumped to `fitness-2026-08-16-v3-trademark` because the legal text changed.
+- The current Terms version is `fitness-2026-08-25-v5-terms-only`.
 
 
 ## Returning member login update
