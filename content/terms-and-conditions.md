@@ -54,21 +54,135 @@ The Company is not a healthcare provider, therapist, law firm, accounting firm, 
 
 Nothing contained in the Services should be interpreted as a substitute for professional judgment.
 
-## 5. Data Collection, AI Conversations, Analytics, and Third-Party Processing
+## 5. Privacy and Data Notice; AI Conversations, Analytics, and Third-Party Processing
+
+This Section 5 describes the Company's data collection, use, processing, storage, sharing, analytics, and related practices for the Services. These disclosures are part of these Terms and are not a separate policy.
+
+**Categories of Information**
+
+Depending on how you use the Services, information processed through or in connection with the Services may include:
+
+- account and contact information, such as name, email address, login or account identifiers, and subscription status;
+- information voluntarily submitted in AI coaching conversations, including prompts, messages, text, uploaded materials, questions, goals, preferences, and other User Content;
+- AI-generated responses, conversation histories, and interaction histories;
+- technical and usage information, such as IP address, device and browser information, operating system, pages viewed, approximate location derived from technical information, clicks, scrolling, session information, usage patterns, cookies, and similar identifiers;
+- transaction and subscription information, such as purchase status, subscription level, billing status, transaction identifiers, and related payment metadata; and
+- communications sent to or received from the Company, including support requests, feedback, cancellation requests, and other correspondence.
+
+**Purposes for Processing Information**
+
+The Company and its service providers may process information as reasonably necessary to:
+
+- provide, operate, maintain, personalize, secure, troubleshoot, and improve the Services;
+- generate and deliver AI coaching responses and related functionality;
+- create and maintain accounts and subscription access;
+- process payments and administer subscriptions;
+- provide customer support and respond to requests;
+- maintain conversation or interaction history where supported by the applicable platform;
+- detect, investigate, and prevent fraud, abuse, unauthorized access, security incidents, or violations of these Terms;
+- understand website and Service usage and improve functionality, performance, usability, and customer experience;
+- maintain business, transaction, support, security, and compliance records; and
+- comply with applicable law, legal process, regulatory requirements, and enforceable contractual obligations.
+
+**AI Conversations and Third-Party Platforms**
 
 The Services rely on third-party technology and infrastructure providers, which may include AI-platform providers, large-language-model providers, hosting providers, payment processors, analytics providers, email or communications providers, and other service providers.
 
-Information you submit through an AI coaching tool—including prompts, messages, text, uploaded materials, account information, and other content—may be transmitted to, processed by, stored by, retained by, or otherwise made available through third-party systems used to provide the Services. Conversation history, AI-generated responses, usage information, and certain account or interaction data may be retained by those providers subject to their applicable terms, configurations, and policies.
+Information submitted through an AI coaching tool—including prompts, messages, text, uploaded materials, account information, and other content—may be transmitted to, processed by, stored by, retained by, or otherwise made available through third-party systems used to provide the Services.
+
+Conversation history, AI-generated responses, usage information, and certain account or interaction data may be retained by those providers subject to their applicable terms, configurations, retention practices, and policies.
 
 The Company or authorized persons acting on its behalf may have access to certain user interactions, conversation histories, response histories, account activity, or other information made available through the platforms used to operate the Services. Such access may be used as reasonably necessary for customer support, security, troubleshooting, abuse prevention, legal compliance, maintenance, quality assurance, and operation or improvement of the Services.
 
 **DO NOT ASSUME THAT A CONVERSATION WITH AN AI COACH IS CONFIDENTIAL, PRIVILEGED, OR PROTECTED IN THE SAME WAY AS A COMMUNICATION WITH A PHYSICIAN, THERAPIST, ATTORNEY, FINANCIAL PROFESSIONAL, OR OTHER LICENSED PROFESSIONAL.**
 
-The Services may also use analytics and website-performance technologies, including Google Analytics and Microsoft Clarity. These technologies may collect information regarding visits to and interactions with the Services, such as device and browser information, pages viewed, approximate location derived from technical information, usage patterns, clicks, scrolling, and similar interaction data. Microsoft Clarity may provide session-replay, heatmap, and related website-usage analytics. Such information may be processed by the applicable analytics providers in accordance with their terms and policies.
+**Analytics, Cookies, and Website Interaction Data**
 
-Payment information may be processed by third-party payment processors. The Company does not necessarily receive or store complete payment-card information submitted directly to those processors.
+The Services may use analytics, cookies, and website-performance technologies, including Google Analytics and Microsoft Clarity.
 
-The Company does not promise that information submitted through the Services will never be retained, reviewed, processed, accessed, or used by an underlying technology provider unless the Company expressly makes that promise in a separate written agreement applicable to the specific Service. No website, AI platform, transmission system, cloud service, or electronic-storage system can guarantee absolute security.
+These technologies may collect or process information concerning visits to and interactions with the Services, including device and browser information, technical identifiers, pages viewed, approximate location derived from technical information, usage patterns, clicks, scrolling, navigation, and similar interaction data.
+
+Microsoft Clarity may provide behavioral metrics, heatmaps, session replay, and related website-usage analytics. Google Analytics may collect and process website and usage information for measurement and analytics purposes.
+
+These technologies may use first-party or third-party cookies and similar technologies. Information collected through these services may be processed by the applicable analytics provider under its own terms, policies, and data-handling practices.
+
+Users may use available browser or device controls to restrict or delete cookies, although doing so may affect certain website functionality or analytics capabilities.
+
+**Payment Information**
+
+Payments may be processed through third-party payment processors or platforms.
+
+The Company does not necessarily receive or store complete payment-card information submitted directly to those processors. Payment processors may separately collect and process information necessary to authorize, complete, document, refund, or otherwise administer transactions according to their applicable terms and policies.
+
+**Sharing and Categories of Recipients**
+
+Information may be disclosed or made available as reasonably necessary to categories of service providers that support the Services, including:
+
+- AI-platform and large-language-model providers;
+- website, application, cloud, infrastructure, and hosting providers;
+- payment and subscription processors;
+- analytics and website-performance providers;
+- email, communications, and customer-support providers;
+- security, fraud-prevention, troubleshooting, and technical-service providers; and
+- legal, regulatory, governmental, professional, or other recipients when disclosure is reasonably necessary to comply with applicable law, respond to valid legal process, protect rights or safety, investigate misuse, or enforce these Terms.
+
+The Company does not authorize third-party service providers to use information beyond the purposes permitted by the Company's arrangements with those providers, subject to the providers' applicable terms, independent legal obligations, and policies.
+
+Do not add any statement claiming that the Company sells or does not sell personal data unless that operational fact has been separately confirmed by KCB Integrative LLC.
+
+**Retention**
+
+Information may be retained for as long as reasonably necessary for the purposes for which it was collected or processed, including providing the Services, maintaining account and subscription records, supporting users, maintaining security, preventing fraud or abuse, resolving disputes, enforcing agreements, satisfying legal or regulatory obligations, and maintaining appropriate business records.
+
+Retention periods may vary depending on the type of information, the purpose for which it is processed, legal requirements, and the retention practices of applicable third-party technology providers.
+
+Because some information is processed or stored through third-party platforms, the Company may not independently control every applicable retention period.
+
+**Sensitive Information**
+
+Users should exercise caution before submitting sensitive or highly confidential information through an AI coaching tool.
+
+Depending on the nature of a coaching conversation, a user may voluntarily provide information concerning health, fitness, wellness, finances, employment, relationships, or other personal matters.
+
+Users should not submit Social Security numbers, government-identification numbers, complete payment-card information, financial-account passwords, account passwords, authentication credentials, precise location information, privileged communications, information concerning children, or other highly sensitive information unless the Company expressly requests or authorizes that information for a particular feature and the user understands how it will be processed.
+
+The Services are intended only for persons eighteen (18) years of age or older as provided in Section 1.
+
+Unless the Company expressly states otherwise in a separate written agreement applicable to a specific Service, the Services are not intended to create a HIPAA-covered healthcare relationship, and the Company does not represent that information submitted through an AI coaching tool receives HIPAA protection.
+
+**Consumer Data Requests and Applicable Rights**
+
+Depending on where a user resides and the law applicable to the Company and the particular processing activity, a user may have rights concerning personal information, which may include rights to:
+
+- confirm whether personal information is being processed and obtain access to applicable information;
+- request correction of inaccurate personal information;
+- request deletion of applicable personal information;
+- obtain a copy of applicable personal information in a portable format; and
+- exercise any applicable right to opt out of processing defined by applicable law, including, where legally applicable, certain sales of personal data, targeted advertising, or profiling in furtherance of decisions producing legal or similarly significant effects.
+
+Nothing in this Section creates a right that applicable law does not provide.
+
+Requests concerning applicable data rights may be submitted to:
+
+[**Ai.coach.hub.domain@gmail.com**](mailto\:Ai.coach.hub.domain@gmail.com)
+
+The requester should provide sufficient information to identify the applicable account or information and describe the request.
+
+The Company may take reasonable steps to verify the identity and authority of the person making a request before acting on it and may request additional information when reasonably necessary for verification.
+
+The Company will respond to applicable verified requests within the period required by applicable law.
+
+If the Company denies a request and applicable law provides a right to appeal that decision, the user may appeal by replying to the Company's decision or emailing the address above with the subject line **“Privacy Request Appeal.”** The Company will review and respond to an applicable appeal as required by law.
+
+The Company will not unlawfully discriminate against a user for exercising an applicable privacy or data right.
+
+**Security**
+
+The Company will use commercially reasonable administrative, technical, and organizational safeguards appropriate to the nature of the Services and information processed.
+
+However, no website, AI platform, transmission system, cloud service, third-party platform, or electronic-storage system can guarantee absolute security.
+
+The Company does not promise that information submitted through the Services will never be retained, reviewed, processed, accessed, disclosed, or used by an underlying technology provider unless the Company expressly makes that promise in a separate written agreement applicable to the specific Service.
 
 ## 6. Fitness and Wellness Assumption of Risk; Texas Fair-Notice Release
 
