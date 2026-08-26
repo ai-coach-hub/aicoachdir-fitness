@@ -54,31 +54,21 @@ The Company is not a healthcare provider, therapist, law firm, accounting firm, 
 
 Nothing contained in the Services should be interpreted as a substitute for professional judgment.
 
-## 5. Sensitive Information, Privacy, Security, and AI Inputs
+## 5. Data Collection, AI Conversations, Analytics, and Third-Party Processing
 
-Do not submit sensitive personal information unless the Company expressly requests or authorizes that information for a particular feature and you understand how it will be handled.
+The Services rely on third-party technology and infrastructure providers, which may include AI-platform providers, large-language-model providers, hosting providers, payment processors, analytics providers, email or communications providers, and other service providers.
 
-Sensitive information may include health or medical information, biometric information, Social Security numbers or other government-identification numbers, financial-account credentials, full payment-card information, precise location information, passwords, information concerning children, highly confidential business information, privileged communications, regulated legal or financial information, or other information you would not want disclosed.
+Information you submit through an AI coaching tool—including prompts, messages, text, uploaded materials, account information, and other content—may be transmitted to, processed by, stored by, retained by, or otherwise made available through third-party systems used to provide the Services. Conversation history, AI-generated responses, usage information, and certain account or interaction data may be retained by those providers subject to their applicable terms, configurations, and policies.
 
-Your use of the Services is also governed by the Company's Privacy Policy, which is incorporated into these Terms by reference. The Privacy Policy describes the categories of information collected through the Services, purposes for which information may be used, circumstances in which information may be disclosed to service providers or other parties, retention practices, available privacy choices, and other applicable privacy information.
-
-The Services currently rely on third-party technology and infrastructure providers, which may include AI-platform providers, large-language-model providers, hosting providers, payment processors, analytics providers, email or communications providers, and other service providers.
-
-Information you submit through an AI coaching tool—including prompts, messages, text, uploaded material, and other content—may be transmitted to, processed by, stored by, or otherwise made available through those third-party systems.
-
-The Company or authorized persons acting on its behalf may also be technically able to access interactions or response histories made available through the platform used to operate the Services. Such access may be used as reasonably necessary for customer support, security, troubleshooting, abuse prevention, legal compliance, maintenance, quality assurance, or operation and improvement of the Services.
+The Company or authorized persons acting on its behalf may have access to certain user interactions, conversation histories, response histories, account activity, or other information made available through the platforms used to operate the Services. Such access may be used as reasonably necessary for customer support, security, troubleshooting, abuse prevention, legal compliance, maintenance, quality assurance, and operation or improvement of the Services.
 
 **DO NOT ASSUME THAT A CONVERSATION WITH AN AI COACH IS CONFIDENTIAL, PRIVILEGED, OR PROTECTED IN THE SAME WAY AS A COMMUNICATION WITH A PHYSICIAN, THERAPIST, ATTORNEY, FINANCIAL PROFESSIONAL, OR OTHER LICENSED PROFESSIONAL.**
 
-Depending on the third-party platform, AI model, account tier, configuration, and policies applicable at the time of use, user inputs, outputs, or interaction data may be retained or may be used by a service provider for service improvement, system evaluation, or model-training purposes. The Company's Privacy Policy and applicable third-party policies provide additional information concerning these practices.
+The Services may also use analytics and website-performance technologies, including Google Analytics and Microsoft Clarity. These technologies may collect information regarding visits to and interactions with the Services, such as device and browser information, pages viewed, approximate location derived from technical information, usage patterns, clicks, scrolling, and similar interaction data. Microsoft Clarity may provide session-replay, heatmap, and related website-usage analytics. Such information may be processed by the applicable analytics providers in accordance with their terms and policies.
 
-The Company does not itself promise that information submitted to the Services will never be retained, reviewed, processed, or used by an underlying technology provider unless the Company expressly makes that promise in a separate written agreement applicable to the specific Service.
+Payment information may be processed by third-party payment processors. The Company does not necessarily receive or store complete payment-card information submitted directly to those processors.
 
-Unless the Company expressly states otherwise in a separate written agreement, the Services are not intended to create a HIPAA-covered healthcare relationship, and the Company does not represent that user-submitted information receives HIPAA protection.
-
-The Company will use commercially reasonable administrative, technical, and organizational safeguards appropriate to the Services. No website, transmission system, cloud service, AI platform, or electronic-storage system can guarantee absolute security.
-
-If you submit suggestions, ideas, comments, recommendations, corrections, feature requests, ratings, reviews, or other feedback regarding the Services (“Feedback”), you grant the Company a perpetual, irrevocable, worldwide, royalty-free, fully paid, transferable and sublicensable right to use, reproduce, modify, distribute, display, perform, commercialize, and otherwise exploit that Feedback for any lawful purpose without compensation, attribution, approval, or further obligation to you.
+The Company does not promise that information submitted through the Services will never be retained, reviewed, processed, accessed, or used by an underlying technology provider unless the Company expressly makes that promise in a separate written agreement applicable to the specific Service. No website, AI platform, transmission system, cloud service, or electronic-storage system can guarantee absolute security.
 
 ## 6. Fitness and Wellness Assumption of Risk; Texas Fair-Notice Release
 
