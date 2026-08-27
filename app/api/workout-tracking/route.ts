@@ -82,12 +82,35 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const workoutId = cleanString(requestUrl.searchParams.get("workoutId"));
 
-  if (!workoutId) {
-    return jsonError("Workout ID is required.", 400);
-  }
-
   try {
     const sql = await ensureWorkoutTrackingSchema();
+
+    // No workoutId = find this user's most recently active workout.
+    if (!workoutId) {
+      const activeSessions = await sql`
+        SELECT
+          id::text AS id,
+          workout_id,
+          workout_title,
+          schedule_label,
+          status,
+          started_at,
+          completed_at
+        FROM workout_sessions
+        WHERE clerk_user_id = ${identity.userId}
+          AND status = 'in_progress'
+        ORDER BY started_at DESC
+        LIMIT 1
+      `;
+
+      return NextResponse.json(
+        {
+          ok: true,
+          activeSession: activeSessions[0] ?? null,
+        },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
 
     const sessions = await sql`
       SELECT
@@ -150,13 +173,6 @@ export async function GET(request: Request) {
     return jsonError("Unable to load workout progress.", 500);
   }
 }
-
-/*
-  POST starts a workout session.
-
-  If this user already has an unfinished session for this
-  workout, that same session is returned instead.
-*/
 export async function POST(request: Request) {
   const identity = await getIdentity();
 
