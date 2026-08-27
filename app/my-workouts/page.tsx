@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import styles from "./my-workouts.module.css";
 
 type Exercise = {
   id: string;
@@ -20,21 +21,38 @@ type Workout = {
   exercises: Exercise[];
 };
 
-type ScheduleDay = {
+type ScheduleItem = {
   day: string;
   isRestDay: boolean;
   workoutId: string | null;
 };
 
 type WorkoutPlan = {
-  schemaVersion?: number;
-  weekSchedule: ScheduleDay[];
+  weekSchedule: ScheduleItem[];
   workouts: Record<string, Workout>;
+};
+
+type SavedSet = {
+  exercise_id: string;
+  set_number: number;
+  actual_reps: number | null;
+  weight: number | null;
+  completed: boolean;
+};
+
+type LocalSet = {
+  weight: string;
+  reps: string;
+  completed: boolean;
 };
 
 export default function MyWorkoutsPage() {
   const [plan, setPlan] = useState<WorkoutPlan | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [setValues, setSetValues] = useState<Record<string, LocalSet>>({});
   const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -44,27 +62,25 @@ export default function MyWorkoutsPage() {
           cache: "no-store",
         });
 
-        if (response.status === 401) {
-          setError("Please sign in to view your workouts.");
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error("Unable to load workout plan.");
-        }
+        if (!response.ok) throw new Error("Unable to load workout plan.");
 
         const data = await response.json();
 
-        if (!data?.plan) {
-          throw new Error("No workout plan is currently saved.");
-        }
+        if (!data?.plan) throw new Error("No workout plan is saved.");
 
         setPlan(data.plan);
+
+        const firstWorkout = data.plan.weekSchedule.findIndex(
+          (item: ScheduleItem) =>
+            !item.isRestDay &&
+            item.workoutId &&
+            data.plan.workouts[item.workoutId]
+        );
+
+        setSelectedIndex(firstWorkout >= 0 ? firstWorkout : 0);
       } catch (err) {
         setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load workout plan."
+          err instanceof Error ? err.message : "Unable to load workout plan."
         );
       } finally {
         setLoading(false);
@@ -74,303 +90,421 @@ export default function MyWorkoutsPage() {
     loadPlan();
   }, []);
 
-  if (loading) {
-    return (
-      <main className="page">
-        <h1>My Workouts</h1>
-        <p>Loading your plan...</p>
+  const scheduleItem = plan?.weekSchedule[selectedIndex] ?? null;
+  const workout =
+    scheduleItem?.workoutId && plan
+      ? plan.workouts[scheduleItem.workoutId]
+      : null;
 
-        <Styles />
-      </main>
-    );
+  useEffect(() => {
+    if (!workout) {
+      setSessionId(null);
+      setSetValues({});
+      return;
+    }
+
+    async function loadProgress() {
+      const empty: Record<string, LocalSet> = {};
+
+      workout!.exercises.forEach((exercise) => {
+        for (let n = 1; n <= exercise.sets; n++) {
+          empty[`${exercise.id}:${n}`] = {
+            weight: "",
+            reps: "",
+            completed: false,
+          };
+        }
+      });
+
+      try {
+        const response = await fetch(
+          `/api/workout-tracking?workoutId=${encodeURIComponent(workout!.id)}`,
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) throw new Error();
+
+        const data = await response.json();
+
+        if (data.session?.status === "in_progress") {
+          setSessionId(data.session.id);
+
+          for (const saved of data.sets as SavedSet[]) {
+            empty[`${saved.exercise_id}:${saved.set_number}`] = {
+              weight:
+                saved.weight === null || saved.weight === undefined
+                  ? ""
+                  : String(saved.weight),
+              reps:
+                saved.actual_reps === null ||
+                saved.actual_reps === undefined
+                  ? ""
+                  : String(saved.actual_reps),
+              completed: saved.completed === true,
+            };
+          }
+
+          setStatus("Workout in progress");
+        } else {
+          setSessionId(null);
+          setStatus(
+            data.session?.status === "completed"
+              ? "Previous workout completed"
+              : ""
+          );
+        }
+
+        setSetValues(empty);
+      } catch {
+        setError("Unable to load workout progress.");
+      }
+    }
+
+    loadProgress();
+  }, [workout?.id]);
+
+  async function startWorkout() {
+    if (!workout || !scheduleItem) return;
+
+    setError("");
+
+    const response = await fetch("/api/workout-tracking", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workoutId: workout.id,
+        workoutTitle: workout.title,
+        scheduleLabel: scheduleItem.day,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || "Unable to start workout.");
+      return;
+    }
+
+    setSessionId(data.sessionId);
+    setStatus(data.resumed ? "Workout resumed" : "Workout started");
+
+    if (!data.resumed) {
+      const blank: Record<string, LocalSet> = {};
+
+      workout.exercises.forEach((exercise) => {
+        for (let n = 1; n <= exercise.sets; n++) {
+          blank[`${exercise.id}:${n}`] = {
+            weight: "",
+            reps: "",
+            completed: false,
+          };
+        }
+      });
+
+      setSetValues(blank);
+    }
   }
 
-  if (error) {
-    return (
-      <main className="page">
-        <h1>My Workouts</h1>
-        <div className="message">
-          <p>{error}</p>
-          <a href="/sign-in">Sign in</a>
-        </div>
+  async function saveSet(
+    exercise: Exercise,
+    setNumber: number,
+    next: LocalSet
+  ) {
+    if (!sessionId) return;
 
-        <Styles />
-      </main>
-    );
+    const response = await fetch("/api/workout-tracking", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "save-set",
+        sessionId,
+        exerciseId: exercise.id,
+        exerciseName: exercise.name,
+        setNumber,
+        targetReps: exercise.repsLabel || exercise.reps,
+        actualReps: next.reps === "" ? null : Number(next.reps),
+        weight: next.weight === "" ? null : Number(next.weight),
+        weightUnit: "lb",
+        completed: next.completed,
+      }),
+    });
+
+    if (!response.ok) {
+      setError("Unable to save that set.");
+    }
+  }
+
+  function updateSet(
+    exercise: Exercise,
+    setNumber: number,
+    changes: Partial<LocalSet>,
+    save = false
+  ) {
+    const key = `${exercise.id}:${setNumber}`;
+    const current = setValues[key] ?? {
+      weight: "",
+      reps: "",
+      completed: false,
+    };
+
+    const next = { ...current, ...changes };
+
+    setSetValues((previous) => ({
+      ...previous,
+      [key]: next,
+    }));
+
+    if (save) void saveSet(exercise, setNumber, next);
+  }
+
+  async function completeWorkout() {
+    if (!sessionId) return;
+
+    const response = await fetch("/api/workout-tracking", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "complete-workout",
+        sessionId,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || "Unable to complete workout.");
+      return;
+    }
+
+    setSessionId(null);
+    setStatus("Workout completed ✓");
+  }
+
+  if (loading) {
+    return <main className={styles.page}>Loading your workouts...</main>;
+  }
+
+  if (error && !plan) {
+    return <main className={styles.page}>{error}</main>;
   }
 
   if (!plan) return null;
 
+  const totalSets =
+    workout?.exercises.reduce((total, exercise) => total + exercise.sets, 0) ??
+    0;
+
+  const completedSets = Object.values(setValues).filter(
+    (set) => set.completed
+  ).length;
+
   return (
-    <main className="page">
-      <header className="header">
-        <p className="eyebrow">AI Coach Directory™</p>
-        <h1>My Workouts</h1>
-        <p className="subtitle">
+    <main className={styles.page}>
+      <div className={styles.shell}>
+        <div className={styles.eyebrow}>AI Coach Directory™</div>
+        <h1 className={styles.title}>My Workouts</h1>
+        <p className={styles.subtitle}>
           Your current coach-built training plan.
         </p>
-      </header>
 
-      <section className="schedule">
-        {plan.weekSchedule.map((scheduleItem, index) => {
-          if (scheduleItem.isRestDay || !scheduleItem.workoutId) {
-            return (
-              <article
-                className="workoutCard restCard"
-                key={`${scheduleItem.day}-${index}`}
-              >
-                <div className="day">{scheduleItem.day}</div>
-                <h2>Recovery Day</h2>
-                <p>Follow your coach&apos;s recovery guidance.</p>
-              </article>
-            );
-          }
-
-          const workout = plan.workouts[scheduleItem.workoutId];
-
-          if (!workout) return null;
-
-          return (
-            <article
-              className="workoutCard"
-              key={`${scheduleItem.day}-${workout.id}`}
+        <div className={styles.tabs}>
+          {plan.weekSchedule.map((item, index) => (
+            <button
+              key={`${item.day}-${index}`}
+              className={`${styles.tab} ${
+                selectedIndex === index ? styles.activeTab : ""
+              }`}
+              onClick={() => {
+                setSelectedIndex(index);
+                setError("");
+              }}
             >
-              <div className="workoutHeading">
-                <div>
-                  <div className="day">{scheduleItem.day}</div>
-                  <h2>{workout.title}</h2>
-                </div>
+              {item.day}
+              {item.isRestDay ? " · Rest" : ""}
+            </button>
+          ))}
+        </div>
+
+        {scheduleItem?.isRestDay || !workout ? (
+          <section className={styles.rest}>
+            <div className={styles.eyebrow}>{scheduleItem?.day}</div>
+            <h2>Recovery Day</h2>
+            <p>Follow your coach&apos;s recovery guidance.</p>
+          </section>
+        ) : (
+          <section className={styles.workout}>
+            <div className={styles.workoutHeader}>
+              <div>
+                <div className={styles.eyebrow}>{scheduleItem.day}</div>
+                <h2 className={styles.workoutTitle}>{workout.title}</h2>
 
                 {workout.durationMinutes && (
-                  <div className="duration">
-                    ~{workout.durationMinutes} min
+                  <div className={styles.meta}>
+                    About {workout.durationMinutes} minutes
                   </div>
                 )}
+
+                {status && <p className={styles.status}>{status}</p>}
               </div>
 
-              <div className="exerciseList">
-                {workout.exercises.map((exercise, exerciseIndex) => (
-                  <div className="exercise" key={exercise.id}>
-                    <div className="exerciseNumber">
-                      {exerciseIndex + 1}
-                    </div>
+              {!sessionId && (
+                <button
+                  className={styles.startButton}
+                  onClick={startWorkout}
+                >
+                  Start Workout
+                </button>
+              )}
+            </div>
 
-                    <div className="exerciseBody">
-                      <div className="exerciseTop">
-                        <h3>{exercise.name}</h3>
+            {sessionId && (
+              <div className={styles.progress}>
+                {completedSets} of {totalSets} sets completed
+              </div>
+            )}
 
-                        {exercise.videoUrl && (
-                          <a
-                            className="videoButton"
-                            href={exercise.videoUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Watch demo
-                          </a>
-                        )}
-                      </div>
+            {error && <p className={styles.error}>{error}</p>}
 
-                      <div className="prescription">
-                        <strong>{exercise.sets} sets</strong>
-                        <span>×</span>
-                        <strong>
-                          {exercise.repsLabel || exercise.reps}
-                        </strong>
+            {workout.exercises.map((exercise) => (
+              <div className={styles.exercise} key={exercise.id}>
+                <div className={styles.exerciseTop}>
+                  <div>
+                    <h3 className={styles.exerciseName}>
+                      {exercise.name}
+                    </h3>
 
-                        {exercise.restSeconds && (
-                          <>
-                            <span>•</span>
-                            <span>
-                              {exercise.restSeconds}s rest
-                            </span>
-                          </>
-                        )}
-                      </div>
-
-                      {exercise.cue && (
-                        <p className="cue">{exercise.cue}</p>
-                      )}
+                    <div className={styles.prescription}>
+                      {exercise.sets} sets ×{" "}
+                      {exercise.repsLabel || exercise.reps}
+                      {exercise.restSeconds
+                        ? ` · ${exercise.restSeconds}s rest`
+                        : ""}
                     </div>
                   </div>
-                ))}
+
+                  {exercise.videoUrl && (
+                    <a
+                      className={styles.video}
+                      href={exercise.videoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      ▶ Demo
+                    </a>
+                  )}
+                </div>
+
+                {exercise.cue && (
+                  <p className={styles.cue}>{exercise.cue}</p>
+                )}
+
+                <div
+                  className={!sessionId ? styles.disabled : undefined}
+                >
+                  <div className={styles.setHeader}>
+                    <span>Set</span>
+                    <span>Weight</span>
+                    <span>Reps</span>
+                    <span>Done</span>
+                  </div>
+
+                  {Array.from({ length: exercise.sets }).map(
+                    (_, index) => {
+                      const setNumber = index + 1;
+                      const key = `${exercise.id}:${setNumber}`;
+                      const value = setValues[key] ?? {
+                        weight: "",
+                        reps: "",
+                        completed: false,
+                      };
+
+                      return (
+                        <div className={styles.setRow} key={key}>
+                          <strong>{setNumber}</strong>
+
+                          <input
+                            className={styles.input}
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            placeholder="lb"
+                            disabled={!sessionId}
+                            value={value.weight}
+                            onChange={(event) =>
+                              updateSet(exercise, setNumber, {
+                                weight: event.target.value,
+                              })
+                            }
+                            onBlur={() =>
+                              sessionId &&
+                              void saveSet(
+                                exercise,
+                                setNumber,
+                                value
+                              )
+                            }
+                          />
+
+                          <input
+                            className={styles.input}
+                            type="number"
+                            min="0"
+                            step="1"
+                            placeholder={
+                              exercise.repsLabel || exercise.reps
+                            }
+                            disabled={!sessionId}
+                            value={value.reps}
+                            onChange={(event) =>
+                              updateSet(exercise, setNumber, {
+                                reps: event.target.value,
+                              })
+                            }
+                            onBlur={() =>
+                              sessionId &&
+                              void saveSet(
+                                exercise,
+                                setNumber,
+                                value
+                              )
+                            }
+                          />
+
+                          <input
+                            className={styles.check}
+                            type="checkbox"
+                            disabled={!sessionId}
+                            checked={value.completed}
+                            onChange={(event) =>
+                              updateSet(
+                                exercise,
+                                setNumber,
+                                {
+                                  completed: event.target.checked,
+                                },
+                                true
+                              )
+                            }
+                          />
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
               </div>
-            </article>
-          );
-        })}
-      </section>
+            ))}
 
-      <Styles />
+            {sessionId && (
+              <button
+                className={styles.completeButton}
+                onClick={completeWorkout}
+              >
+                Complete Workout ✓
+              </button>
+            )}
+          </section>
+        )}
+      </div>
     </main>
-  );
-}
-
-function Styles() {
-  return (
-    <style jsx>{`
-      .page {
-        max-width: 900px;
-        margin: 0 auto;
-        padding: 40px 20px 80px;
-        font-family: Arial, sans-serif;
-      }
-
-      .header {
-        margin-bottom: 32px;
-      }
-
-      .eyebrow {
-        margin: 0 0 8px;
-        font-size: 13px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        opacity: 0.65;
-      }
-
-      h1 {
-        margin: 0;
-        font-size: 38px;
-      }
-
-      .subtitle {
-        margin-top: 8px;
-        font-size: 17px;
-        opacity: 0.7;
-      }
-
-      .schedule {
-        display: grid;
-        gap: 24px;
-      }
-
-      .workoutCard {
-        border: 1px solid #ddd;
-        border-radius: 18px;
-        padding: 24px;
-        background: white;
-      }
-
-      .restCard {
-        background: #f7f7f7;
-      }
-
-      .workoutHeading {
-        display: flex;
-        justify-content: space-between;
-        gap: 20px;
-        align-items: flex-start;
-        margin-bottom: 20px;
-      }
-
-      .day {
-        font-size: 14px;
-        font-weight: 700;
-        text-transform: uppercase;
-        opacity: 0.55;
-        margin-bottom: 4px;
-      }
-
-      h2 {
-        margin: 0;
-        font-size: 23px;
-      }
-
-      .duration {
-        white-space: nowrap;
-        font-size: 14px;
-        font-weight: 600;
-        opacity: 0.65;
-      }
-
-      .exerciseList {
-        display: grid;
-        gap: 14px;
-      }
-
-      .exercise {
-        display: flex;
-        gap: 14px;
-        padding: 16px 0;
-        border-top: 1px solid #eee;
-      }
-
-      .exerciseNumber {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        background: #111;
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        font-weight: 700;
-        font-size: 13px;
-      }
-
-      .exerciseBody {
-        width: 100%;
-      }
-
-      .exerciseTop {
-        display: flex;
-        justify-content: space-between;
-        gap: 15px;
-        align-items: center;
-      }
-
-      h3 {
-        margin: 0;
-        font-size: 18px;
-      }
-
-      .prescription {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 7px;
-        font-size: 15px;
-      }
-
-      .cue {
-        margin: 9px 0 0;
-        line-height: 1.5;
-        opacity: 0.72;
-      }
-
-      .videoButton {
-        padding: 7px 10px;
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        text-decoration: none;
-        color: inherit;
-        font-size: 13px;
-        white-space: nowrap;
-      }
-
-      .message {
-        margin-top: 25px;
-      }
-
-      @media (max-width: 600px) {
-        .page {
-          padding: 28px 14px 60px;
-        }
-
-        h1 {
-          font-size: 32px;
-        }
-
-        .workoutCard {
-          padding: 18px;
-        }
-
-        .workoutHeading,
-        .exerciseTop {
-          align-items: flex-start;
-        }
-      }
-    `}</style>
   );
 }
