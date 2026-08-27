@@ -335,7 +335,7 @@ export default function MyWorkoutsPage() {
           <section className={styles.workout}>
             <div className={styles.workoutHeader}>
               <div>
-                <div className={styles.eyebrow}>{scheduleItem.day}</div>
+                <div className={styles.eyebrow}>{scheduleItem?.day ?? "Workout"}</div>
                 <h2 className={styles.workoutTitle}>{workout.title}</h2>
 
                 {workout.durationMinutes && (
