@@ -57,7 +57,27 @@ export async function GET() {
     );
   }
 
-  const data = await response.json();
+  const result = await response.json();
+  const memory = result?.data?.[0];
 
-  return NextResponse.json(data);
+  if (!memory?.value) {
+    return NextResponse.json({
+      success: true,
+      plan: null,
+    });
+  }
+
+  try {
+    const plan = JSON.parse(memory.value);
+
+    return NextResponse.json({
+      success: true,
+      plan,
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Workout plan could not be parsed" },
+      { status: 500 }
+    );
+  }
 }
