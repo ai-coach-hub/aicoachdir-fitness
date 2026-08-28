@@ -58,6 +58,13 @@ NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL=https://studio.pickaxe.co/...
 
 Use the customer-facing Pickaxe portal URL for the AI Fitness Coach 2.0 membership.
 
+Keep the existing Clerk authentication variables configured in Vercel:
+
+```text
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...
+CLERK_SECRET_KEY=...
+```
+
 ## Local development
 
 ```bash

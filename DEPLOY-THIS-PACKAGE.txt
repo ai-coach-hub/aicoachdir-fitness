@@ -4,10 +4,13 @@ This package keeps the existing site and signup flow, but requires a successful 
 
 Required Vercel resources/settings:
 1. Existing NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL remains configured.
-2. Neon Postgres resource "aicoachdir-terms-db" is connected to aicoachdir-fitness.
-3. Production and Preview environments are connected.
-4. Preview database branching is enabled; Production branching is disabled.
-5. The Neon connection variable is server-only. With the current Vercel custom prefix, the app expects STORAGE_URL. It also supports DATABASE_URL or POSTGRES_URL.
+2. Existing Clerk variables NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY remain configured.
+3. Neon Postgres resource "aicoachdir-terms-db" is connected to aicoachdir-fitness.
+4. Production and Preview environments are connected.
+5. Preview database branching is enabled; Production branching is disabled.
+6. The Neon connection variable is server-only. With the current Vercel custom prefix, the app expects STORAGE_URL. It also supports DATABASE_URL or POSTGRES_URL.
+
+This is a full repository replacement. Upload the CONTENTS of this folder to the repository root. Do not upload the ZIP itself or place the contents inside an additional outer folder.
 
 No manual table creation is required. On the first acceptance request the server creates the terms_acceptances table and required indexes with CREATE TABLE/INDEX IF NOT EXISTS.
 
