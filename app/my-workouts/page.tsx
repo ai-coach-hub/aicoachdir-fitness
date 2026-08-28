@@ -71,13 +71,38 @@ export default function MyWorkoutsPage() {
         setPlan(data.plan);
 
         const firstWorkout = data.plan.weekSchedule.findIndex(
-          (item: ScheduleItem) =>
-            !item.isRestDay &&
-            item.workoutId &&
-            data.plan.workouts[item.workoutId]
-        );
+  (item: ScheduleItem) =>
+    !item.isRestDay &&
+    item.workoutId &&
+    data.plan.workouts[item.workoutId]
+);
 
-        setSelectedIndex(firstWorkout >= 0 ? firstWorkout : 0);
+let nextIndex = firstWorkout >= 0 ? firstWorkout : 0;
+
+try {
+  const trackingResponse = await fetch("/api/workout-tracking", {
+    cache: "no-store",
+  });
+
+  if (trackingResponse.ok) {
+    const trackingData = await trackingResponse.json();
+    const activeWorkoutId = trackingData?.activeSession?.workout_id;
+
+    if (activeWorkoutId) {
+      const activeIndex = data.plan.weekSchedule.findIndex(
+        (item: ScheduleItem) => item.workoutId === activeWorkoutId
+      );
+
+      if (activeIndex >= 0) {
+        nextIndex = activeIndex;
+      }
+    }
+  }
+} catch {
+  // If active workout lookup fails, show the first planned workout.
+}
+
+setSelectedIndex(nextIndex);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Unable to load workout plan."
