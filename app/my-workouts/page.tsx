@@ -40,6 +40,14 @@ type SavedSet = {
   completed: boolean;
 };
 
+type PreviousSet = {
+  exercise_id: string;
+  set_number: number;
+  actual_reps: number | null;
+  weight: number | null;
+  weight_unit?: string;
+};
+
 type LocalSet = {
   weight: string;
   reps: string;
@@ -51,6 +59,9 @@ export default function MyWorkoutsPage() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [setValues, setSetValues] = useState<Record<string, LocalSet>>({});
+  const [previousSetValues, setPreviousSetValues] = useState<
+    Record<string, PreviousSet>
+  >({});
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -62,50 +73,58 @@ export default function MyWorkoutsPage() {
           cache: "no-store",
         });
 
-        if (!response.ok) throw new Error("Unable to load workout plan.");
+        if (!response.ok) {
+          throw new Error("Unable to load workout plan.");
+        }
 
         const data = await response.json();
 
-        if (!data?.plan) throw new Error("No workout plan is saved.");
+        if (!data?.plan) {
+          throw new Error("No workout plan is saved.");
+        }
 
         setPlan(data.plan);
 
         const firstWorkout = data.plan.weekSchedule.findIndex(
-  (item: ScheduleItem) =>
-    !item.isRestDay &&
-    item.workoutId &&
-    data.plan.workouts[item.workoutId]
-);
+          (item: ScheduleItem) =>
+            !item.isRestDay &&
+            item.workoutId &&
+            data.plan.workouts[item.workoutId]
+        );
 
-let nextIndex = firstWorkout >= 0 ? firstWorkout : 0;
+        let nextIndex = firstWorkout >= 0 ? firstWorkout : 0;
 
-try {
-  const trackingResponse = await fetch("/api/workout-tracking", {
-    cache: "no-store",
-  });
+        try {
+          const trackingResponse = await fetch("/api/workout-tracking", {
+            cache: "no-store",
+          });
 
-  if (trackingResponse.ok) {
-    const trackingData = await trackingResponse.json();
-    const activeWorkoutId = trackingData?.activeSession?.workout_id;
+          if (trackingResponse.ok) {
+            const trackingData = await trackingResponse.json();
+            const activeWorkoutId =
+              trackingData?.activeSession?.workout_id;
 
-    if (activeWorkoutId) {
-      const activeIndex = data.plan.weekSchedule.findIndex(
-        (item: ScheduleItem) => item.workoutId === activeWorkoutId
-      );
+            if (activeWorkoutId) {
+              const activeIndex = data.plan.weekSchedule.findIndex(
+                (item: ScheduleItem) =>
+                  item.workoutId === activeWorkoutId
+              );
 
-      if (activeIndex >= 0) {
-        nextIndex = activeIndex;
-      }
-    }
-  }
-} catch {
-  // If active workout lookup fails, show the first planned workout.
-}
+              if (activeIndex >= 0) {
+                nextIndex = activeIndex;
+              }
+            }
+          }
+        } catch {
+          // If active workout lookup fails, show the first planned workout.
+        }
 
-setSelectedIndex(nextIndex);
+        setSelectedIndex(nextIndex);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Unable to load workout plan."
+          err instanceof Error
+            ? err.message
+            : "Unable to load workout plan."
         );
       } finally {
         setLoading(false);
@@ -115,7 +134,9 @@ setSelectedIndex(nextIndex);
     loadPlan();
   }, []);
 
-  const scheduleItem = plan?.weekSchedule[selectedIndex] ?? null;
+  const scheduleItem =
+    plan?.weekSchedule[selectedIndex] ?? null;
+
   const workout =
     scheduleItem?.workoutId && plan
       ? plan.workouts[scheduleItem.workoutId]
@@ -125,6 +146,7 @@ setSelectedIndex(nextIndex);
     if (!workout) {
       setSessionId(null);
       setSetValues({});
+      setPreviousSetValues({});
       return;
     }
 
@@ -141,23 +163,44 @@ setSelectedIndex(nextIndex);
         }
       });
 
+      setPreviousSetValues({});
+
       try {
         const response = await fetch(
-          `/api/workout-tracking?workoutId=${encodeURIComponent(workout!.id)}`,
-          { cache: "no-store" }
+          `/api/workout-tracking?workoutId=${encodeURIComponent(
+            workout!.id
+          )}`,
+          {
+            cache: "no-store",
+          }
         );
 
-        if (!response.ok) throw new Error();
+        if (!response.ok) {
+          throw new Error();
+        }
 
         const data = await response.json();
+
+        const previous: Record<string, PreviousSet> = {};
+
+        for (const saved of data.previousSets ?? []) {
+          previous[
+            `${saved.exercise_id}:${saved.set_number}`
+          ] = saved;
+        }
+
+        setPreviousSetValues(previous);
 
         if (data.session?.status === "in_progress") {
           setSessionId(data.session.id);
 
           for (const saved of data.sets as SavedSet[]) {
-            empty[`${saved.exercise_id}:${saved.set_number}`] = {
+            empty[
+              `${saved.exercise_id}:${saved.set_number}`
+            ] = {
               weight:
-                saved.weight === null || saved.weight === undefined
+                saved.weight === null ||
+                saved.weight === undefined
                   ? ""
                   : String(saved.weight),
               reps:
@@ -172,6 +215,7 @@ setSelectedIndex(nextIndex);
           setStatus("Workout in progress");
         } else {
           setSessionId(null);
+
           setStatus(
             data.session?.status === "completed"
               ? "Previous workout completed"
@@ -195,7 +239,9 @@ setSelectedIndex(nextIndex);
 
     const response = await fetch("/api/workout-tracking", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         workoutId: workout.id,
         workoutTitle: workout.title,
@@ -206,12 +252,18 @@ setSelectedIndex(nextIndex);
     const data = await response.json();
 
     if (!response.ok) {
-      setError(data.message || "Unable to start workout.");
+      setError(
+        data.message || "Unable to start workout."
+      );
       return;
     }
 
     setSessionId(data.sessionId);
-    setStatus(data.resumed ? "Workout resumed" : "Workout started");
+    setStatus(
+      data.resumed
+        ? "Workout resumed"
+        : "Workout started"
+    );
 
     if (!data.resumed) {
       const blank: Record<string, LocalSet> = {};
@@ -237,22 +289,34 @@ setSelectedIndex(nextIndex);
   ) {
     if (!sessionId) return;
 
-    const response = await fetch("/api/workout-tracking", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "save-set",
-        sessionId,
-        exerciseId: exercise.id,
-        exerciseName: exercise.name,
-        setNumber,
-        targetReps: exercise.repsLabel || exercise.reps,
-        actualReps: next.reps === "" ? null : Number(next.reps),
-        weight: next.weight === "" ? null : Number(next.weight),
-        weightUnit: "lb",
-        completed: next.completed,
-      }),
-    });
+    const response = await fetch(
+      "/api/workout-tracking",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "save-set",
+          sessionId,
+          exerciseId: exercise.id,
+          exerciseName: exercise.name,
+          setNumber,
+          targetReps:
+            exercise.repsLabel || exercise.reps,
+          actualReps:
+            next.reps === ""
+              ? null
+              : Number(next.reps),
+          weight:
+            next.weight === ""
+              ? null
+              : Number(next.weight),
+          weightUnit: "lb",
+          completed: next.completed,
+        }),
+      }
+    );
 
     if (!response.ok) {
       setError("Unable to save that set.");
@@ -266,38 +330,51 @@ setSelectedIndex(nextIndex);
     save = false
   ) {
     const key = `${exercise.id}:${setNumber}`;
+
     const current = setValues[key] ?? {
       weight: "",
       reps: "",
       completed: false,
     };
 
-    const next = { ...current, ...changes };
+    const next = {
+      ...current,
+      ...changes,
+    };
 
     setSetValues((previous) => ({
       ...previous,
       [key]: next,
     }));
 
-    if (save) void saveSet(exercise, setNumber, next);
+    if (save) {
+      void saveSet(exercise, setNumber, next);
+    }
   }
 
   async function completeWorkout() {
     if (!sessionId) return;
 
-    const response = await fetch("/api/workout-tracking", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "complete-workout",
-        sessionId,
-      }),
-    });
+    const response = await fetch(
+      "/api/workout-tracking",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "complete-workout",
+          sessionId,
+        }),
+      }
+    );
 
     const data = await response.json();
 
     if (!response.ok) {
-      setError(data.message || "Unable to complete workout.");
+      setError(
+        data.message || "Unable to complete workout."
+      );
       return;
     }
 
@@ -306,75 +383,132 @@ setSelectedIndex(nextIndex);
   }
 
   if (loading) {
-    return <main className={styles.page}>Loading your workouts...</main>;
+    return (
+      <main className={styles.page}>
+        Loading your workouts...
+      </main>
+    );
   }
 
   if (error && !plan) {
-    return <main className={styles.page}>{error}</main>;
+    return (
+      <main className={styles.page}>
+        {error}
+      </main>
+    );
   }
 
   if (!plan) return null;
 
   const totalSets =
-    workout?.exercises.reduce((total, exercise) => total + exercise.sets, 0) ??
-    0;
+    workout?.exercises.reduce(
+      (total, exercise) =>
+        total + exercise.sets,
+      0
+    ) ?? 0;
 
-  const completedSets = Object.values(setValues).filter(
-    (set) => set.completed
-  ).length;
+  const completedSets = Object.values(
+    setValues
+  ).filter((set) => set.completed).length;
 
   return (
     <main className={styles.page}>
       <div className={styles.shell}>
-        <div className={styles.eyebrow}>AI Coach Directory™</div>
-        <h1 className={styles.title}>My Workouts</h1>
+        <div className={styles.eyebrow}>
+          AI Coach Directory™
+        </div>
+
+        <h1 className={styles.title}>
+          My Workouts
+        </h1>
+
         <p className={styles.subtitle}>
           Your current coach-built training plan.
         </p>
 
         <div className={styles.tabs}>
-          {plan.weekSchedule.map((item, index) => (
-            <button
-              key={`${item.day}-${index}`}
-              className={`${styles.tab} ${
-                selectedIndex === index ? styles.activeTab : ""
-              }`}
-              onClick={() => {
-                setSelectedIndex(index);
-                setError("");
-              }}
-            >
-              {item.day}
-              {item.isRestDay ? " · Rest" : ""}
-            </button>
-          ))}
+          {plan.weekSchedule.map(
+            (item, index) => (
+              <button
+                key={`${item.day}-${index}`}
+                className={`${styles.tab} ${
+                  selectedIndex === index
+                    ? styles.activeTab
+                    : ""
+                }`}
+                onClick={() => {
+                  setSelectedIndex(index);
+                  setError("");
+                }}
+              >
+                {item.day}
+                {item.isRestDay
+                  ? " · Rest"
+                  : ""}
+              </button>
+            )
+          )}
         </div>
 
-        {scheduleItem?.isRestDay || !workout ? (
+        {scheduleItem?.isRestDay ||
+        !workout ? (
           <section className={styles.rest}>
-            <div className={styles.eyebrow}>{scheduleItem?.day}</div>
+            <div className={styles.eyebrow}>
+              {scheduleItem?.day}
+            </div>
+
             <h2>Recovery Day</h2>
-            <p>Follow your coach&apos;s recovery guidance.</p>
+
+            <p>
+              Follow your coach&apos;s recovery
+              guidance.
+            </p>
           </section>
         ) : (
           <section className={styles.workout}>
-            <div className={styles.workoutHeader}>
+            <div
+              className={styles.workoutHeader}
+            >
               <div>
-                <div className={styles.eyebrow}>{scheduleItem?.day ?? "Workout"}</div>
-                <h2 className={styles.workoutTitle}>{workout.title}</h2>
+                <div
+                  className={styles.eyebrow}
+                >
+                  {scheduleItem?.day ??
+                    "Workout"}
+                </div>
+
+                <h2
+                  className={
+                    styles.workoutTitle
+                  }
+                >
+                  {workout.title}
+                </h2>
 
                 {workout.durationMinutes && (
-                  <div className={styles.meta}>
-                    About {workout.durationMinutes} minutes
+                  <div
+                    className={styles.meta}
+                  >
+                    About{" "}
+                    {workout.durationMinutes}{" "}
+                    minutes
                   </div>
                 )}
 
-                {status && <p className={styles.status}>{status}</p>}
+                {status && (
+                  <p
+                    className={styles.status}
+                  >
+                    {status}
+                  </p>
+                )}
               </div>
 
               {!sessionId && (
                 <button
-                  className={styles.startButton}
+                  className={
+                    styles.startButton
+                  }
                   onClick={startWorkout}
                 >
                   Start Workout
@@ -383,145 +517,280 @@ setSelectedIndex(nextIndex);
             </div>
 
             {sessionId && (
-              <div className={styles.progress}>
-                {completedSets} of {totalSets} sets completed
+              <div
+                className={styles.progress}
+              >
+                {completedSets} of{" "}
+                {totalSets} sets completed
               </div>
             )}
 
-            {error && <p className={styles.error}>{error}</p>}
+            {error && (
+              <p className={styles.error}>
+                {error}
+              </p>
+            )}
 
-            {workout.exercises.map((exercise) => (
-              <div className={styles.exercise} key={exercise.id}>
-                <div className={styles.exerciseTop}>
-                  <div>
-                    <h3 className={styles.exerciseName}>
-                      {exercise.name}
-                    </h3>
-
-                    <div className={styles.prescription}>
-                      {exercise.sets} sets ×{" "}
-                      {exercise.repsLabel || exercise.reps}
-                      {exercise.restSeconds
-                        ? ` · ${exercise.restSeconds}s rest`
-                        : ""}
-                    </div>
-                  </div>
-
-                  {exercise.videoUrl && (
-                    <a
-                      className={styles.video}
-                      href={exercise.videoUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      ▶ Demo
-                    </a>
-                  )}
-                </div>
-
-                {exercise.cue && (
-                  <p className={styles.cue}>{exercise.cue}</p>
-                )}
-
+            {workout.exercises.map(
+              (exercise) => (
                 <div
-                  className={!sessionId ? styles.disabled : undefined}
+                  className={styles.exercise}
+                  key={exercise.id}
                 >
-                  <div className={styles.setHeader}>
-                    <span>Set</span>
-                    <span>Weight</span>
-                    <span>Reps</span>
-                    <span>Done</span>
+                  <div
+                    className={
+                      styles.exerciseTop
+                    }
+                  >
+                    <div>
+                      <h3
+                        className={
+                          styles.exerciseName
+                        }
+                      >
+                        {exercise.name}
+                      </h3>
+
+                      <div
+                        className={
+                          styles.prescription
+                        }
+                      >
+                        {exercise.sets} sets ×{" "}
+                        {exercise.repsLabel ||
+                          exercise.reps}
+
+                        {exercise.restSeconds
+                          ? ` · ${exercise.restSeconds}s rest`
+                          : ""}
+                      </div>
+                    </div>
+
+                    {exercise.videoUrl && (
+                      <a
+                        className={
+                          styles.video
+                        }
+                        href={
+                          exercise.videoUrl
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        ▶ Demo
+                      </a>
+                    )}
                   </div>
 
-                  {Array.from({ length: exercise.sets }).map(
-                    (_, index) => {
-                      const setNumber = index + 1;
+                  {exercise.cue && (
+                    <p
+                      className={styles.cue}
+                    >
+                      {exercise.cue}
+                    </p>
+                  )}
+
+                  <div
+                    className={
+                      !sessionId
+                        ? styles.disabled
+                        : undefined
+                    }
+                  >
+                    <div
+                      className={
+                        styles.setHeader
+                      }
+                    >
+                      <span>Set</span>
+                      <span>Weight</span>
+                      <span>Reps</span>
+                      <span>Done</span>
+                    </div>
+
+                    {Array.from({
+                      length: exercise.sets,
+                    }).map((_, index) => {
+                      const setNumber =
+                        index + 1;
+
                       const key = `${exercise.id}:${setNumber}`;
-                      const value = setValues[key] ?? {
-                        weight: "",
-                        reps: "",
-                        completed: false,
-                      };
+
+                      const value =
+                        setValues[key] ?? {
+                          weight: "",
+                          reps: "",
+                          completed: false,
+                        };
+
+                      const previous =
+                        previousSetValues[
+                          key
+                        ];
 
                       return (
-                        <div className={styles.setRow} key={key}>
-                          <strong>{setNumber}</strong>
+                        <div
+                          className={
+                            styles.setRow
+                          }
+                          key={key}
+                        >
+                          <strong>
+                            {setNumber}
+                          </strong>
 
                           <input
-                            className={styles.input}
+                            className={
+                              styles.input
+                            }
                             type="number"
                             min="0"
                             step="0.5"
                             placeholder="lb"
-                            disabled={!sessionId}
-                            value={value.weight}
-                            onChange={(event) =>
-                              updateSet(exercise, setNumber, {
-                                weight: event.target.value,
-                              })
+                            disabled={
+                              !sessionId
                             }
-                            onBlur={() =>
-                              sessionId &&
-                              void saveSet(
-                                exercise,
-                                setNumber,
-                                value
-                              )
+                            value={
+                              value.weight
                             }
-                          />
-
-                          <input
-                            className={styles.input}
-                            type="number"
-                            min="0"
-                            step="1"
-                            placeholder={
-                              exercise.repsLabel || exercise.reps
-                            }
-                            disabled={!sessionId}
-                            value={value.reps}
-                            onChange={(event) =>
-                              updateSet(exercise, setNumber, {
-                                reps: event.target.value,
-                              })
-                            }
-                            onBlur={() =>
-                              sessionId &&
-                              void saveSet(
-                                exercise,
-                                setNumber,
-                                value
-                              )
-                            }
-                          />
-
-                          <input
-                            className={styles.check}
-                            type="checkbox"
-                            disabled={!sessionId}
-                            checked={value.completed}
-                            onChange={(event) =>
+                            onChange={(
+                              event
+                            ) =>
                               updateSet(
                                 exercise,
                                 setNumber,
                                 {
-                                  completed: event.target.checked,
+                                  weight:
+                                    event
+                                      .target
+                                      .value,
+                                }
+                              )
+                            }
+                            onBlur={() =>
+                              sessionId &&
+                              void saveSet(
+                                exercise,
+                                setNumber,
+                                value
+                              )
+                            }
+                          />
+
+                          <input
+                            className={
+                              styles.input
+                            }
+                            type="number"
+                            min="0"
+                            step="1"
+                            placeholder={
+                              exercise.repsLabel ||
+                              exercise.reps
+                            }
+                            disabled={
+                              !sessionId
+                            }
+                            value={
+                              value.reps
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              updateSet(
+                                exercise,
+                                setNumber,
+                                {
+                                  reps:
+                                    event
+                                      .target
+                                      .value,
+                                }
+                              )
+                            }
+                            onBlur={() =>
+                              sessionId &&
+                              void saveSet(
+                                exercise,
+                                setNumber,
+                                value
+                              )
+                            }
+                          />
+
+                          <input
+                            className={
+                              styles.check
+                            }
+                            type="checkbox"
+                            disabled={
+                              !sessionId
+                            }
+                            checked={
+                              value.completed
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              updateSet(
+                                exercise,
+                                setNumber,
+                                {
+                                  completed:
+                                    event
+                                      .target
+                                      .checked,
                                 },
                                 true
                               )
                             }
                           />
+
+                          {previous &&
+                            (previous.weight !==
+                              null ||
+                              previous.actual_reps !==
+                                null) && (
+                              <div
+                                style={{
+                                  gridColumn:
+                                    "2 / 5",
+                                  fontSize:
+                                    "12px",
+                                  opacity: 0.7,
+                                  marginTop:
+                                    "-4px",
+                                  marginBottom:
+                                    "4px",
+                                }}
+                              >
+                                Last time:{" "}
+                                {previous.weight !==
+                                null
+                                  ? `${previous.weight} ${
+                                      previous.weight_unit ??
+                                      "lb"
+                                    }`
+                                  : "—"}{" "}
+                                ×{" "}
+                                {previous.actual_reps ??
+                                  "—"}{" "}
+                                reps
+                              </div>
+                            )}
                         </div>
                       );
-                    }
-                  )}
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
 
             {sessionId && (
               <button
-                className={styles.completeButton}
+                className={
+                  styles.completeButton
+                }
                 onClick={completeWorkout}
               >
                 Complete Workout ✓
