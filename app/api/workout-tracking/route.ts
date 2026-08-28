@@ -159,13 +159,38 @@ export async function GET(request: Request) {
       WHERE session_id = ${session.id}::uuid
       ORDER BY exercise_id, set_number
     `;
+    const previousSessions = await sql`
+      SELECT id::text AS id
+      FROM workout_sessions
+      WHERE clerk_user_id = ${identity.userId}
+        AND workout_id = ${workoutId}
+        AND status = 'completed'
+      ORDER BY completed_at DESC
+      LIMIT 1
+    `;
 
+    const previousSessionId = previousSessions[0]?.id;
+
+    const previousSets = previousSessionId
+      ? await sql`
+          SELECT
+            exercise_id,
+            set_number,
+            actual_reps,
+            weight::float8 AS weight,
+            weight_unit
+          FROM workout_set_entries
+          WHERE session_id = ${previousSessionId}::uuid
+          ORDER BY exercise_id, set_number
+        `
+      : [];
     return NextResponse.json(
-      {
-        ok: true,
-        session,
-        sets,
-      },
+  {
+    ok: true,
+    session,
+    sets,
+    previousSets,
+  },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch {
