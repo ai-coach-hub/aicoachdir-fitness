@@ -24,10 +24,20 @@ function normalizeEmail(value: unknown) {
   return email;
 }
 
+// The browser's clock is not evidence. `client_accepted_at` is stored alongside the server's
+// own `accepted_at`, and only the server column should ever be cited as the time of agreement.
+// Bounding the client value keeps an obviously impossible timestamp (1970, 2999, a skewed
+// machine) out of the record entirely rather than filing it next to a real one.
+const CLIENT_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000;
+
 function parseClientAcceptedAt(value: unknown) {
   if (typeof value !== "string") return null;
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
+
+  const drift = Math.abs(Date.now() - parsed.getTime());
+  if (drift > CLIENT_CLOCK_SKEW_MS) return null;
+
   return parsed.toISOString();
 }
 
@@ -55,16 +65,68 @@ function jsonError(message: string, status: number) {
   );
 }
 
+const MAX_BODY_BYTES = 4096;
+
+/**
+ * Read the body with a hard byte cap, enforced while reading.
+ *
+ * The previous guard trusted the `content-length` header. That header is supplied by the
+ * caller and is absent entirely on a chunked request, where `Number(null || 0)` evaluates
+ * to 0 and sails past the check — so an arbitrarily large body reached `request.json()`.
+ * Measured: an 8 KB chunked request returned 400 (field validation) rather than 413,
+ * proving the whole body had already been read and parsed.
+ *
+ * A limit can only be enforced against bytes actually received, never against a number the
+ * sender chose. The header check survives below as a cheap early reject for honest clients.
+ *
+ * Returns null when the cap is exceeded.
+ */
+async function readBodyCapped(request: Request): Promise<string | null> {
+  const reader = request.body?.getReader();
+  if (!reader) return "";
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+
+    total += value.byteLength;
+    if (total > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return new TextDecoder().decode(merged);
+}
+
 export async function POST(request: Request) {
-  const contentLength = Number(request.headers.get("content-length") || 0);
-  if (contentLength > 4096) {
+  // Cheap early reject for clients that declare an oversized body honestly.
+  const declaredLength = Number(request.headers.get("content-length") || 0);
+  if (declaredLength > MAX_BODY_BYTES) {
+    return jsonError("Please check your information and try again.", 413);
+  }
+
+  const raw = await readBodyCapped(request);
+  if (raw === null) {
     return jsonError("Please check your information and try again.", 413);
   }
 
   let body: unknown;
 
   try {
-    body = await request.json();
+    body = JSON.parse(raw);
   } catch {
     return jsonError("Please check your information and try again.", 400);
   }
