@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
 import { ensureWorkoutTrackingSchema } from "@/lib/workoutTrackingDb";
+import { getCurrentFitnessMember } from "@/lib/currentFitnessMember";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,25 +13,34 @@ function jsonError(message: string, status: number) {
 }
 
 async function getIdentity() {
-  const { userId } = await auth();
+  const member = await getCurrentFitnessMember();
 
-  if (!userId) return null;
+  if (!member.authenticated) {
+    return { error: jsonError("Unauthorized", 401) } as const;
+  }
 
-  const user = await currentUser();
+  if (!member.membershipCheckOk) {
+    return {
+      error: jsonError("Unable to verify Fitness Coach membership.", 503),
+    } as const;
+  }
 
-  const email =
-    user?.emailAddresses.find(
-      (address) => address.id === user.primaryEmailAddressId
-    )?.emailAddress ??
-    user?.emailAddresses[0]?.emailAddress ??
-    null;
+  if (!member.hasFitnessAccess) {
+    return {
+      error: jsonError("Fitness Coach membership required.", 403),
+    } as const;
+  }
 
-  if (!email) return null;
+  if (!member.userId || !member.email) {
+    return { error: jsonError("Unauthorized", 401) } as const;
+  }
 
   return {
-    userId,
-    email: email.toLowerCase(),
-  };
+    identity: {
+      userId: member.userId,
+      email: member.email,
+    },
+  } as const;
 }
 
 function cleanString(value: unknown, max = 250) {
@@ -70,22 +79,22 @@ function optionalInteger(value: unknown) {
   GET /api/workout-tracking?workoutId=upper-a
 
   Returns the latest session and its saved sets for the
-  currently authenticated user.
+  currently authenticated Fitness Coach member.
 */
 export async function GET(request: Request) {
-  const identity = await getIdentity();
+  const identityResult = await getIdentity();
 
-  if (!identity) {
-    return jsonError("Unauthorized", 401);
+  if ("error" in identityResult) {
+    return identityResult.error;
   }
 
+  const identity = identityResult.identity;
   const requestUrl = new URL(request.url);
   const workoutId = cleanString(requestUrl.searchParams.get("workoutId"));
 
   try {
     const sql = await ensureWorkoutTrackingSchema();
 
-    // No workoutId = find this user's most recently active workout.
     if (!workoutId) {
       const activeSessions = await sql`
         SELECT
@@ -138,6 +147,7 @@ export async function GET(request: Request) {
           ok: true,
           session: null,
           sets: [],
+          previousSets: [],
         },
         { headers: { "Cache-Control": "no-store" } }
       );
@@ -159,6 +169,7 @@ export async function GET(request: Request) {
       WHERE session_id = ${session.id}::uuid
       ORDER BY exercise_id, set_number
     `;
+
     const previousSessions = await sql`
       SELECT id::text AS id
       FROM workout_sessions
@@ -184,13 +195,14 @@ export async function GET(request: Request) {
           ORDER BY exercise_id, set_number
         `
       : [];
+
     return NextResponse.json(
-  {
-    ok: true,
-    session,
-    sets,
-    previousSets,
-  },
+      {
+        ok: true,
+        session,
+        sets,
+        previousSets,
+      },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch {
@@ -198,13 +210,15 @@ export async function GET(request: Request) {
     return jsonError("Unable to load workout progress.", 500);
   }
 }
-export async function POST(request: Request) {
-  const identity = await getIdentity();
 
-  if (!identity) {
-    return jsonError("Unauthorized", 401);
+export async function POST(request: Request) {
+  const identityResult = await getIdentity();
+
+  if ("error" in identityResult) {
+    return identityResult.error;
   }
 
+  const identity = identityResult.identity;
   let body: Record<string, unknown>;
 
   try {
@@ -285,12 +299,13 @@ export async function POST(request: Request) {
   action: "complete-workout"
 */
 export async function PATCH(request: Request) {
-  const identity = await getIdentity();
+  const identityResult = await getIdentity();
 
-  if (!identity) {
-    return jsonError("Unauthorized", 401);
+  if ("error" in identityResult) {
+    return identityResult.error;
   }
 
+  const identity = identityResult.identity;
   let body: Record<string, unknown>;
 
   try {
@@ -341,8 +356,7 @@ export async function PATCH(request: Request) {
       const actualReps = optionalInteger(body.actualReps);
       const weight = optionalNumber(body.weight);
       const completed = body.completed === true;
-      const weightUnit =
-        body.weightUnit === "kg" ? "kg" : "lb";
+      const weightUnit = body.weightUnit === "kg" ? "kg" : "lb";
 
       if (!exerciseId || !exerciseName || !setNumber || setNumber < 1) {
         return jsonError("Set information is incomplete.", 400);
