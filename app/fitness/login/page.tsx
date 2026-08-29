@@ -1,27 +1,45 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
+import { getCurrentFitnessMember } from "@/lib/currentFitnessMember";
 
-export default function FitnessMemberLoginPage() {
-  const portalUrl = process.env.NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL || "";
+export const dynamic = "force-dynamic";
 
-  if (portalUrl) {
-    redirect(portalUrl);
+export default async function FitnessMemberLoginPage() {
+  const member = await getCurrentFitnessMember();
+
+  if (!member.authenticated) {
+    redirect("/sign-in");
   }
+
+  if (member.hasFitnessAccess) {
+    redirect("/member");
+  }
+
+  const verificationUnavailable = !member.membershipCheckOk;
 
   return (
     <main className="signup-shell">
       <SiteHeader compact />
       <section className="login-config-card">
-        <p className="eyebrow">MEMBER LOGIN</p>
-        <h1>Fitness Coach member access</h1>
+        <p className="eyebrow">MEMBER ACCESS</p>
+        <h1>
+          {verificationUnavailable
+            ? "We could not verify your membership"
+            : "No active Fitness Coach access found"}
+        </h1>
         <p>
-          The Pickaxe member portal URL has not been configured for this deployment yet.
-          Add the environment variable below in Vercel and redeploy.
+          {verificationUnavailable
+            ? "Your sign-in worked, but the membership check is temporarily unavailable. Please try again shortly."
+            : "You are signed in successfully, but this email is not currently linked to the AI Fitness Coach membership in Pickaxe."}
         </p>
-        <code>NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL</code>
         <div className="cta-row">
-          <Link href="/" className="secondary-button">Back to Fitness Coach</Link>
+          <Link href="/fitness/signup" className="primary-button">
+            Review Terms & Subscribe
+          </Link>
+          <Link href="/" className="secondary-button">
+            Back to Fitness Coach
+          </Link>
         </div>
       </section>
     </main>
