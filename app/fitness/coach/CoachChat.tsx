@@ -11,14 +11,43 @@ type ChatMessage = {
 };
 
 const THREAD_STORAGE_KEY = "fitness-coach-thread-v2";
+const MESSAGE_STORAGE_PREFIX = "fitness-coach-messages-v1:";
 
 function createThreadId() {
   return crypto.randomUUID().replaceAll("-", "");
 }
 
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (!value || typeof value !== "object") return false;
+
+  const record = value as Record<string, unknown>;
+
+  return (
+    typeof record.id === "string" &&
+    (record.role === "user" || record.role === "assistant") &&
+    typeof record.text === "string"
+  );
+}
+
+function readSavedMessages(threadId: string): ChatMessage[] {
+  try {
+    const saved = window.sessionStorage.getItem(
+      `${MESSAGE_STORAGE_PREFIX}${threadId}`
+    );
+
+    if (!saved) return [];
+
+    const parsed: unknown = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed.filter(isChatMessage) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function CoachChat() {
   const [threadId, setThreadId] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [historyReady, setHistoryReady] = useState(false);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -33,7 +62,22 @@ export default function CoachChat() {
     }
 
     setThreadId(next);
+    setMessages(readSavedMessages(next));
+    setHistoryReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!historyReady || !threadId) return;
+
+    try {
+      window.sessionStorage.setItem(
+        `${MESSAGE_STORAGE_PREFIX}${threadId}`,
+        JSON.stringify(messages)
+      );
+    } catch {
+      // The conversation can still continue if browser session storage is unavailable.
+    }
+  }, [historyReady, messages, threadId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -89,10 +133,23 @@ export default function CoachChat() {
   }
 
   function newConversation() {
+    const previousThreadId = threadId;
     const next = createThreadId();
+
+    if (previousThreadId) {
+      try {
+        window.sessionStorage.removeItem(
+          `${MESSAGE_STORAGE_PREFIX}${previousThreadId}`
+        );
+      } catch {
+        // Ignore storage cleanup errors.
+      }
+    }
+
     window.localStorage.setItem(THREAD_STORAGE_KEY, next);
     setThreadId(next);
     setMessages([]);
+    setInput("");
     setError("");
   }
 
