@@ -1,28 +1,33 @@
 import { NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { getCurrentFitnessMember } from "@/lib/currentFitnessMember";
 
 const WORKOUT_MEMORY_ID = "MEMORYRBBQW7QSNBR1ITQ6QCD6";
 
-export async function GET() {
-  const { isAuthenticated } = await auth();
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-  if (!isAuthenticated) {
+export async function GET() {
+  const member = await getCurrentFitnessMember();
+
+  if (!member.authenticated) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!member.membershipCheckOk) {
     return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
+      { error: "Unable to verify membership" },
+      { status: 503 }
     );
   }
 
-  const user = await currentUser();
+  if (!member.hasFitnessAccess) {
+    return NextResponse.json(
+      { error: "Fitness Coach membership required" },
+      { status: 403 }
+    );
+  }
 
-  const email =
-    user?.emailAddresses.find(
-      (address) => address.id === user.primaryEmailAddressId
-    )?.emailAddress ??
-    user?.emailAddresses[0]?.emailAddress ??
-    null;
-
-  if (!email) {
+  if (!member.email) {
     return NextResponse.json(
       { error: "No verified email found" },
       { status: 400 }
@@ -39,7 +44,7 @@ export async function GET() {
   }
 
   const url =
-    `https://api.pickaxe.co/v1/studio/memory/user/${encodeURIComponent(email)}` +
+    `https://api.pickaxe.co/v1/studio/memory/user/${encodeURIComponent(member.email)}` +
     `?memoryId=${encodeURIComponent(WORKOUT_MEMORY_ID)}&skip=0&take=10`;
 
   const response = await fetch(url, {
