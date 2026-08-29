@@ -4,6 +4,9 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://aicoachdir.com"),
+  // No canonical was emitted. The site is reachable on both the apex and the www host,
+  // so search engines were free to treat them as two sites and split the ranking signal.
+  alternates: { canonical: "/" },
   title: "AI Coach Directory",
   description: "Personalized AI coaching designed around you.",
   openGraph: {

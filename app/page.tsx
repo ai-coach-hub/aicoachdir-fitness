@@ -52,7 +52,7 @@ export default function HomePage() {
         />
         <div>
           <p className="eyebrow">AI COACH DIRECTORY<span className="tm-mark">™</span></p>
-          <h2>Coaching support powered by AI, built around your goals.</h2>
+          <p className="hero-tagline">Coaching support powered by AI, built around your goals.</p>
           <p>AI Fitness Coach 2.0 is part of AI Coach Directory™ from KCB Integrative LLC.</p>
         </div>
       </section>

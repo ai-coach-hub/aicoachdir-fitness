@@ -245,6 +245,10 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   box-shadow: 0 14px 42px rgba(35, 205, 194, .16);
 }
 .brand-showcase h2 { margin: 8px 0 10px; font-size: clamp(26px, 4vw, 42px); letter-spacing: -.035em; }
+/* Same treatment, no longer a heading. It sat above the page's <h1> purely for its size,
+   which put a subheading before the page title in the document outline. Demoted to a
+   paragraph; the styling is unchanged so nothing moves. */
+.brand-showcase .hero-tagline { margin: 8px 0 10px; font-size: clamp(26px, 4vw, 42px); letter-spacing: -.035em; }
 .brand-showcase p:last-child { margin: 0; color: var(--muted); line-height: 1.65; }
 .fitness-hero-image { width: 100%; height: auto; }
 
@@ -626,4 +630,21 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   color: #ffd0d0;
   font-size: 13px;
   line-height: 1.5;
+}
+
+/* Keyboard focus.
+   Only one :focus rule existed (the email field), so every other control fell back to the
+   browser default — frequently invisible against this dark palette. :focus-visible keeps
+   mouse users from seeing a ring they did not ask for while restoring it for keyboard use. */
+:focus-visible {
+  outline: 3px solid var(--green-2, #9ef27a);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--green-2, #9ef27a);
+  outline-offset: 3px;
 }

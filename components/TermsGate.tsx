@@ -172,12 +172,21 @@ export default function TermsGate({ children }: { children: ReactNode }) {
           <span>{TERMS_ACCEPTANCE_TEXT}</span>
         </label>
 
-        {!reachedBottom && (
-          <p className="status-note">Scroll through the complete Terms & Conditions to unlock agreement.</p>
-        )}
-        {reachedBottom && !agreed && (
-          <p className="status-note success">You reached the end. Check the agreement box to continue.</p>
-        )}
+        {/*
+          The live region is the wrapper, not the messages. Both messages are conditionally
+          rendered, and a screen reader announces a region whose CONTENT changes far more
+          reliably than one that is inserted and removed. Keeping an always-present container
+          means the moment the checkbox unlocks is spoken, not just shown — that state change
+          is the whole gate, and a sighted user gets it for free.
+        */}
+        <div role="status" aria-live="polite">
+          {!reachedBottom && (
+            <p className="status-note">Scroll through the complete Terms &amp; Conditions to unlock agreement.</p>
+          )}
+          {reachedBottom && !agreed && (
+            <p className="status-note success">You reached the end. Check the agreement box to continue.</p>
+          )}
+        </div>
 
         <div className="verification-reminder" role="note" aria-label="Verification email reminder">
           <strong>First-time signup reminder</strong>
