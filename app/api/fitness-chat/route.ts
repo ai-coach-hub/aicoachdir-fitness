@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getCurrentFitnessMember } from "@/lib/currentFitnessMember";
 
@@ -26,6 +27,12 @@ function cleanThreadId(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const threadId = value.trim();
   return THREAD_ID_PATTERN.test(threadId) ? threadId : null;
+}
+
+function pickaxeConversationId(userId: string, threadId: string) {
+  return createHash("sha256")
+    .update(`${userId}:${threadId}`)
+    .digest("hex");
 }
 
 function extractReply(payload: unknown): string | null {
@@ -107,10 +114,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // The browser controls only the random thread suffix. The authenticated Clerk
-  // user ID is always added server-side so one user cannot select another user's
-  // conversation ID.
-  const conversationId = `fitness-${member.userId}-${threadId}`;
+  // Keep Pickaxe's conversation key compact and format-safe while still
+  // scoping the browser's random thread to the authenticated Clerk user.
+  const conversationId = pickaxeConversationId(member.userId, threadId);
 
   try {
     const response = await fetch(PICKAXE_COMPLETIONS_URL, {
