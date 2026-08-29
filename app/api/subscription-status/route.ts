@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { verifyFitnessAccess } from "@/lib/pickaxeMembership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,6 @@ export async function GET() {
   }
 
   const user = await currentUser();
-
   const email =
     user?.emailAddresses.find(
       (address) => address.id === user.primaryEmailAddressId
@@ -42,90 +42,43 @@ export async function GET() {
     );
   }
 
-  const apiKey = process.env.PICKAXE_WORKSPACE_API_KEY;
+  const membership = await verifyFitnessAccess(email);
 
-  if (!apiKey) {
+  if (!membership.ok && membership.reason === "server_configuration") {
     return noStoreJson(
       {
         ok: false,
         authenticated: true,
+        email: membership.email,
         hasPaidAccess: false,
+        reason: membership.reason,
         error: "Server configuration error",
       },
       500
     );
   }
 
-  const normalizedEmail = email.trim().toLowerCase();
-  const url = `https://api.pickaxe.co/v1/studio/user/${encodeURIComponent(
-    normalizedEmail
-  )}`;
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
-    });
-
-    if (response.status === 404) {
-      return noStoreJson({
-        ok: true,
-        authenticated: true,
-        email: normalizedEmail,
-        hasPaidAccess: false,
-        reason: "pickaxe_user_not_found",
-      });
-    }
-
-    if (!response.ok) {
-      console.error("Pickaxe subscription lookup failed.", response.status);
-      return noStoreJson(
-        {
-          ok: false,
-          authenticated: true,
-          hasPaidAccess: false,
-          error: "Unable to verify membership",
-        },
-        502
-      );
-    }
-
-    const result = await response.json();
-    const pickaxeUser = result?.data ?? result?.user ?? result;
-
-    const boughtProducts = Array.isArray(pickaxeUser?.boughtProducts)
-      ? pickaxeUser.boughtProducts
-      : [];
-    const giftedProducts = Array.isArray(pickaxeUser?.giftedProducts)
-      ? pickaxeUser.giftedProducts
-      : [];
-
-    const hasPaidAccess =
-      boughtProducts.length > 0 || giftedProducts.length > 0;
-
-    return noStoreJson({
-      ok: true,
-      authenticated: true,
-      email: normalizedEmail,
-      hasPaidAccess,
-      accessSummary: {
-        boughtProducts: boughtProducts.length,
-        giftedProducts: giftedProducts.length,
-      },
-    });
-  } catch {
-    console.error("Pickaxe subscription verification failed.");
+  if (!membership.ok) {
     return noStoreJson(
       {
         ok: false,
         authenticated: true,
+        email: membership.email,
         hasPaidAccess: false,
+        reason: membership.reason,
         error: "Unable to verify membership",
       },
       502
     );
   }
+
+  return noStoreJson({
+    ok: true,
+    authenticated: true,
+    email: membership.email,
+    hasPaidAccess: membership.hasFitnessAccess,
+    reason: membership.reason,
+    verificationMethod: membership.verificationMethod,
+    accessSummary: membership.accessSummary,
+  });
 }
