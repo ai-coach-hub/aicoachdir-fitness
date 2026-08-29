@@ -10,7 +10,7 @@ type ChatMessage = {
   text: string;
 };
 
-const THREAD_STORAGE_KEY = "fitness-coach-thread-v1";
+const THREAD_STORAGE_KEY = "fitness-coach-thread-v2";
 
 function createThreadId() {
   return crypto.randomUUID().replaceAll("-", "");
