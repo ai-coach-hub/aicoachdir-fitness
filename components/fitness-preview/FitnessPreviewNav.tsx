@@ -1,0 +1,1 @@
+import Link from 'next/link';import s from './FitnessPreview.module.css';export default function FitnessPreviewNav(){return <nav className={s.nav}><Link href="/">Home</Link><Link href="/fitness/my-workouts">My Workouts</Link><Link href="/fitness/workout-builder">Workout Builder</Link><Link href="/fitness/exercise-library">Exercise Library</Link></nav>}
