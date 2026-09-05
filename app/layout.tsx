@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { SITE_ORIGIN } from "@/lib/siteUrl";
 import "./globals.css";
 
@@ -66,7 +65,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
           }}
         />
-        <ClerkProvider>{children}</ClerkProvider>
+        {children}
       </body>
     </html>
   );
