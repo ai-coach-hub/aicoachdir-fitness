@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import TermsDocument from "@/components/TermsDocument";
 import TermsGate from "@/components/TermsGate";
 import SiteHeader from "@/components/SiteHeader";
+
+// Canonical resolves against metadataBase in app/layout.tsx.
+export const metadata: Metadata = {
+  alternates: { canonical: "/fitness/signup" },
+};
 
 export default function FitnessSignupPage() {
   return (

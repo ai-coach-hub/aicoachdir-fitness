@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { SITE_ORIGIN } from "@/lib/siteUrl";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://aicoachdir.com"),
+  // The WWW host, not the apex: the apex answers 308 -> www, so a metadataBase
+  // on the apex makes every canonical and social URL resolve to a redirect.
+  metadataBase: new URL(SITE_ORIGIN),
   title: "AI Coach Directory",
   description: "Personalized AI coaching designed around you.",
   openGraph: {
     type: "website",
-    url: "https://aicoachdir.com",
+    url: SITE_ORIGIN,
     siteName: "AI Coach Directory",
     title: "AI Coach Directory",
     description: "Personalized AI coaching designed around you.",
