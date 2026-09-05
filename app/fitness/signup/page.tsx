@@ -5,9 +5,12 @@ import TermsDocument from "@/components/TermsDocument";
 import TermsGate from "@/components/TermsGate";
 import SiteHeader from "@/components/SiteHeader";
 
-// Canonical resolves against metadataBase in app/layout.tsx.
 export const metadata: Metadata = {
   alternates: { canonical: "/fitness/signup" },
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function FitnessSignupPage() {

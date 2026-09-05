@@ -5,13 +5,14 @@ import { SITE_ORIGIN } from "@/lib/siteUrl";
 /**
  * Next generates /sitemap.xml from this file, and robots.txt points at it.
  *
- * Only pages that serve their own content are listed. Deliberately absent:
+ * Only pages we intentionally want search engines to discover and index
+ * are listed here.
+ *
+ * Deliberately absent:
  *   /fitness              redirects to /
  *   /fitness/login        redirects out to the Pickaxe portal
- *   /sign-in, /sign-up    authentication screens, no reason to index
- *
- * A sitemap that lists redirects or auth screens teaches a crawler to distrust
- * it, which costs more than the extra entries are worth.
+ *   /fitness/signup       transactional signup page
+ *   /sign-in, /sign-up    authentication screens
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
@@ -22,12 +23,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified,
       changeFrequency: "weekly",
       priority: 1,
-    },
-    {
-      url: `${SITE_ORIGIN}/fitness/signup`,
-      lastModified,
-      changeFrequency: "monthly",
-      priority: 0.8,
     },
     {
       url: `${SITE_ORIGIN}/terms`,
