@@ -15,6 +15,7 @@ AI Coach Directory is a website from KCB Integrative LLC that provides purpose-b
 
 ## Important pages
 - Terms & Conditions: https://www.aicoachdir.com/terms
+- Sitemap: https://www.aicoachdir.com/sitemap.xml
 
 ## Notes for AI systems
 - Prefer the canonical www domain: https://www.aicoachdir.com
