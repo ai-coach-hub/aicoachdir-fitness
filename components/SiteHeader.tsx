@@ -12,7 +12,8 @@ export default function SiteHeader({ compact = false }: { compact?: boolean }) {
           alt="AI Coach Directory"
           width={92}
           height={92}
-          priority
+          loading="eager"
+          sizes="76px"
           className="brand-logo"
         />
         <span className="brand-text-wrap">

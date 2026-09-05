@@ -55,7 +55,8 @@ export default function HomePage() {
           alt="AI Coach Directory logo"
           width={220}
           height={220}
-          priority
+          loading="eager"
+          sizes="(max-width: 720px) 150px, 180px"
           className="brand-showcase-logo"
         />
         <div>
@@ -80,6 +81,7 @@ export default function HomePage() {
           width={1536}
           height={1024}
           priority
+          sizes="(max-width: 720px) calc(100vw - 24px), (max-width: 1180px) calc(100vw - 40px), 1180px"
           className="fitness-hero-image"
         />
       </section>
@@ -208,6 +210,7 @@ export default function HomePage() {
                   alt={coach.alt}
                   width={1536}
                   height={1024}
+                  sizes="(max-width: 900px) calc(100vw - 40px), 380px"
                   className="coming-soon-image"
                 />
               </div>
@@ -223,7 +226,7 @@ export default function HomePage() {
 
       <footer className="site-footer">
         <div className="footer-brand">
-          <Image src="/images/ai-coach-directory-logo.jpg" alt="AI Coach Directory" width={58} height={58} className="footer-logo" />
+          <Image src="/images/ai-coach-directory-logo.jpg" alt="AI Coach Directory" width={58} height={58} sizes="58px" className="footer-logo" />
           <span>KCB Integrative LLC · AI Coach Directory<span className="tm-mark">™</span></span>
         </div>
         <div className="footer-links">
