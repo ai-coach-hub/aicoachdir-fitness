@@ -32,10 +32,40 @@ export const metadata: Metadata = {
   },
 };
 
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE_ORIGIN}/#organization`,
+      name: "KCB Integrative LLC",
+      alternateName: "AI Coach Directory",
+      url: SITE_ORIGIN,
+      logo: `${SITE_ORIGIN}/images/ai-coach-directory-logo.jpg`,
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_ORIGIN}/#website`,
+      url: SITE_ORIGIN,
+      name: "AI Coach Directory",
+      description: "Personalized AI coaching designed around you.",
+      publisher: {
+        "@id": `${SITE_ORIGIN}/#organization`,
+      },
+    },
+  ],
+};
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+          }}
+        />
         <ClerkProvider>{children}</ClerkProvider>
       </body>
     </html>
