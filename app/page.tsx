@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
+
+// Canonical resolves against metadataBase in app/layout.tsx.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 const plan = {
   name: "AI Fitness Coach 2.0",
