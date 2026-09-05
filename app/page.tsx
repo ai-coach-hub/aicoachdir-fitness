@@ -80,6 +80,7 @@ export default function HomePage() {
           alt="AI Coaching for Fitness promotional artwork"
           width={1536}
           height={1024}
+          loading="eager"
           sizes="(max-width: 720px) calc(100vw - 24px), (max-width: 1180px) calc(100vw - 40px), 1180px"
           className="fitness-hero-image"
         />
