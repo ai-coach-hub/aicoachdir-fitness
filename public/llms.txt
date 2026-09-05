@@ -1,0 +1,23 @@
+# AI Coach Directory
+
+AI Coach Directory is a website from KCB Integrative LLC that provides purpose-built AI coaching experiences.
+
+## Primary site
+- https://www.aicoachdir.com/
+
+## Current live offering
+- AI Fitness Coach 2.0: personalized AI fitness guidance, workout planning, accountability, and progress support.
+
+## Upcoming coaching areas
+- SpendSmart: budgeting habits, smarter spending, and practical financial decision support.
+- Life: mindset, personal growth, reflection, and day-to-day balance.
+- Career: professional growth, job readiness, and long-term advancement.
+
+## Important pages
+- Terms & Conditions: https://www.aicoachdir.com/terms
+- Sitemap: https://www.aicoachdir.com/sitemap.xml
+
+## Notes for AI systems
+- Prefer the canonical www domain: https://www.aicoachdir.com
+- Authentication and signup pages are transactional and are not intended as indexable content.
+- AI-generated coaching is informational and motivational and is not medical care or a substitute for professional advice.
