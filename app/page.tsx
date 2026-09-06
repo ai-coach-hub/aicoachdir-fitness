@@ -43,7 +43,7 @@ const upcomingCoaches = [
 ];
 
 export default function HomePage() {
-  const memberLoginUrl = process.env.NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL || "/fitness/login";
+  const memberLoginUrl = "/fitness/login";
 
   return (
     <main className="site-shell">
@@ -108,7 +108,7 @@ export default function HomePage() {
         </div>
         <div className="offer-action">
           <Link href="/fitness/signup" className="primary-button">New Member — Review Terms</Link>
-          <a href={memberLoginUrl} className="secondary-button member-login-offer">Returning Member Login</a>
+          <Link href={memberLoginUrl} className="secondary-button member-login-offer">Returning Member Login</Link>
         </div>
       </section>
 
@@ -183,7 +183,7 @@ export default function HomePage() {
         </p>
         <div className="cta-row">
           <Link href="/fitness/signup" className="primary-button">New Member — Review Terms & Subscribe</Link>
-          <a href={memberLoginUrl} className="secondary-button">Returning Member Login</a>
+          <Link href={memberLoginUrl} className="secondary-button">Returning Member Login</Link>
           <Link href="/terms" className="secondary-button">Read Full Terms</Link>
         </div>
       </section>
@@ -231,7 +231,7 @@ export default function HomePage() {
           <span>KCB Integrative LLC · AI Coach Directory<span className="tm-mark">™</span></span>
         </div>
         <div className="footer-links">
-          <a href={memberLoginUrl}>Member Login</a>
+          <Link href={memberLoginUrl}>Member Login</Link>
           <Link href="/terms">Terms & Conditions</Link>
           <Link href="/fitness/signup">New Subscription</Link>
         </div>
