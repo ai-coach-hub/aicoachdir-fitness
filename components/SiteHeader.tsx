@@ -2,7 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 
 export default function SiteHeader({ compact = false }: { compact?: boolean }) {
-  const memberLoginUrl = "/fitness/login";
+  const memberLoginUrl =
+    process.env.NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL || "/fitness/login";
 
   return (
     <header className={compact ? "nav compact" : "nav"}>
@@ -17,15 +18,25 @@ export default function SiteHeader({ compact = false }: { compact?: boolean }) {
           className="brand-logo"
         />
         <span className="brand-text-wrap">
-          <span className="brand-title">AI Coach Directory<span className="tm-mark">™</span></span>
+          <span className="brand-title">
+            AI Coach Directory<span className="tm-mark">™</span>
+          </span>
           <span className="brand-company">KCB Integrative LLC</span>
         </span>
       </Link>
       <nav className="nav-links" aria-label="Primary navigation">
-        <a href="/#how-it-works" className="nav-link-text">How it works</a>
-        <Link href="/terms" className="nav-link-text">Terms</Link>
-        <Link href={memberLoginUrl} className="nav-member-login">Member Login</Link>
-        <Link href="/fitness/signup" className="nav-cta">Start Fitness Coach</Link>
+        <a href="/#how-it-works" className="nav-link-text">
+          How it works
+        </a>
+        <Link href="/terms" className="nav-link-text">
+          Terms
+        </Link>
+        <Link href={memberLoginUrl} className="nav-member-login">
+          Member Login
+        </Link>
+        <Link href="/fitness/signup" className="nav-cta">
+          Start Fitness Coach
+        </Link>
       </nav>
     </header>
   );
