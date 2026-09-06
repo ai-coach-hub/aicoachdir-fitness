@@ -21,37 +21,27 @@ export default function FitnessMemberLoginPage() {
 
       <section className="login-config-card" aria-labelledby="fitness-member-login-heading">
         <p className="eyebrow">MEMBER LOGIN</p>
-        <h1 id="fitness-member-login-heading">AI Fitness Coach 2.0 Member Access</h1>
+        <h1 id="fitness-member-login-heading">AI Fitness Coach 2.0 Member Login</h1>
         <p>
-          Sign in below to continue to your AI Fitness Coach, workout planning, and saved
-          member experience.
+          Returning members can continue to the secure AI Fitness Coach portal to access
+          coaching, workout planning, saved workouts, and account features.
         </p>
 
         {portalUrl ? (
-          <div
-            style={{
-              marginTop: "28px",
-              overflow: "hidden",
-              borderRadius: "18px",
-              border: "1px solid rgba(116, 182, 215, 0.22)",
-              background: "#ffffff",
-              boxShadow: "0 22px 70px rgba(0, 0, 0, 0.28)",
-            }}
-          >
-            <iframe
-              src={portalUrl}
-              title="AI Fitness Coach 2.0 member portal"
-              loading="eager"
-              referrerPolicy="strict-origin-when-cross-origin"
-              style={{
-                display: "block",
-                width: "100%",
-                minHeight: "820px",
-                border: 0,
-                background: "#ffffff",
-              }}
-            />
-          </div>
+          <>
+            <div className="cta-row">
+              <a href={portalUrl} className="primary-button">
+                Continue to Member Login
+              </a>
+              <Link href="/" className="secondary-button">
+                Back to Fitness Coach
+              </Link>
+            </div>
+            <p className="microcopy">
+              You will continue to the existing secure member portal. Your subscription and
+              saved portal experience are unchanged.
+            </p>
+          </>
         ) : (
           <>
             <p className="config-warning">
