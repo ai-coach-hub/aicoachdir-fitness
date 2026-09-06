@@ -43,7 +43,7 @@ const upcomingCoaches = [
 ];
 
 export default function HomePage() {
-  const memberLoginUrl = "/fitness/login";
+  const memberLoginUrl = process.env.NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL || "/fitness/login";
 
   return (
     <main className="site-shell">

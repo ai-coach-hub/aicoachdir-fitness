@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 export default function SiteHeader({ compact = false }: { compact?: boolean }) {
-  const memberLoginUrl = "/fitness/login";
+  const memberLoginUrl = process.env.NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL || "/fitness/login";
 
   return (
     <header className={compact ? "nav compact" : "nav"}>
