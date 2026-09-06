@@ -10,7 +10,7 @@ import { SITE_ORIGIN } from "@/lib/siteUrl";
  *
  * Deliberately absent:
  *   /fitness              redirects to /
- *   /fitness/login        redirects out to the Pickaxe portal
+ *   /fitness/login        branded noindex fallback for member access
  *   /fitness/signup       transactional signup page
  *   /sign-in, /sign-up    authentication screens
  */
