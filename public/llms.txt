@@ -1,23 +1,22 @@
 # AI Coach Directory
 
-AI Coach Directory is a website from KCB Integrative LLC that provides purpose-built AI coaching experiences.
+> AI Coach Directory is operated by KCB Integrative LLC and provides purpose-built AI coaching experiences designed around specific user goals.
 
-## Primary site
-- https://www.aicoachdir.com/
+AI Fitness Coach 2.0 is the current live coaching experience. It provides personalized AI fitness guidance, workout planning, accountability, and progress support.
 
-## Current live offering
-- AI Fitness Coach 2.0: personalized AI fitness guidance, workout planning, accountability, and progress support.
+Planned coaching areas include SpendSmart for budgeting and smarter spending, Life for mindset and personal growth, and Career for professional development.
 
-## Upcoming coaching areas
-- SpendSmart: budgeting habits, smarter spending, and practical financial decision support.
-- Life: mindset, personal growth, reflection, and day-to-day balance.
-- Career: professional growth, job readiness, and long-term advancement.
+Use the canonical www domain for AI Coach Directory: https://www.aicoachdir.com
 
-## Important pages
-- Terms & Conditions: https://www.aicoachdir.com/terms
-- Sitemap: https://www.aicoachdir.com/sitemap.xml
+Authentication, subscription, and member-login pages are transactional pages and are not intended to be primary indexable content.
 
-## Notes for AI systems
-- Prefer the canonical www domain: https://www.aicoachdir.com
-- Authentication and signup pages are transactional and are not intended as indexable content.
-- AI-generated coaching is informational and motivational and is not medical care or a substitute for professional advice.
+AI-generated coaching is informational and motivational. It is not medical care or a substitute for qualified professional advice.
+
+## Key pages
+
+- [AI Coach Directory](https://www.aicoachdir.com/): Primary website and current AI Fitness Coach 2.0 offering.
+- [Terms & Conditions](https://www.aicoachdir.com/terms): Terms governing AI Coach Directory services, subscriptions, AI-generated content, data practices, and user responsibilities.
+
+## Optional
+
+- [Sitemap](https://www.aicoachdir.com/sitemap.xml): Search-engine sitemap for intentionally indexable pages.
