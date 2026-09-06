@@ -43,8 +43,7 @@ const upcomingCoaches = [
 ];
 
 export default function HomePage() {
-  const memberLoginUrl =
-    process.env.NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL || "/fitness/login";
+  const memberLoginUrl = process.env.NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL || "/fitness/login";
 
   return (
     <main className="site-shell">
@@ -61,9 +60,7 @@ export default function HomePage() {
           className="brand-showcase-logo"
         />
         <div>
-          <p className="eyebrow">
-            AI COACH DIRECTORY<span className="tm-mark">™</span>
-          </p>
+          <p className="eyebrow">AI COACH DIRECTORY<span className="tm-mark">™</span></p>
           <h2>Coaching support powered by AI, built around your goals.</h2>
           <p>AI Fitness Coach 2.0 is part of AI Coach Directory™ from KCB Integrative LLC.</p>
         </div>
@@ -71,12 +68,9 @@ export default function HomePage() {
 
       <section className="hero-copy-section">
         <p className="eyebrow">AI FITNESS COACH</p>
-        <h1>
-          Get fit. Get motivated. <span>Get results.</span>
-        </h1>
+        <h1>Get fit. Get motivated. <span>Get results.</span></h1>
         <p className="lede">
-          Personalized AI fitness guidance, workout planning, accountability, and progress
-          support designed to help you build momentum one step at a time.
+          Personalized AI fitness guidance, workout planning, accountability, and progress support designed to help you build momentum one step at a time.
         </p>
       </section>
 
@@ -99,10 +93,7 @@ export default function HomePage() {
           <div>
             <p className="eyebrow compact-eyebrow">YOUR FITNESS COACH</p>
             <h2 id="coach-offer-title">{plan.name}</h2>
-            <p>
-              Personalized AI fitness guidance, workout plans, accountability, and progress
-              support.
-            </p>
+            <p>Personalized AI fitness guidance, workout plans, accountability, and progress support.</p>
           </div>
         </div>
         <div className="offer-stat">
@@ -116,26 +107,19 @@ export default function HomePage() {
           <small>Monthly coaching allowance</small>
         </div>
         <div className="offer-action">
-          <Link href="/fitness/signup" className="primary-button">
-            New Member — Review Terms
-          </Link>
-          <Link href={memberLoginUrl} className="secondary-button member-login-offer">
-            Returning Member Login
-          </Link>
+          <Link href="/fitness/signup" className="primary-button">New Member — Review Terms</Link>
+          <Link href={memberLoginUrl} className="secondary-button member-login-offer">Returning Member Login</Link>
         </div>
       </section>
 
       <section className="coach-difference-section" aria-labelledby="coach-difference-title">
         <div className="coach-difference-heading">
-          <p className="eyebrow">
-            WHY AI COACH DIRECTORY<span className="tm-mark">™</span>
-          </p>
+          <p className="eyebrow">WHY AI COACH DIRECTORY<span className="tm-mark">™</span></p>
           <h2 id="coach-difference-title">
             General AI Can Answer Your Questions. <span>Our AI Is Built to Coach You.</span>
           </h2>
           <p>
-            Our AI Coaches are purpose-built to provide a more personalized, focused, and useful
-            experience than a general AI assistant.
+            Our AI Coaches are purpose-built to provide a more personalized, focused, and useful experience than a general AI assistant.
           </p>
         </div>
 
@@ -144,27 +128,21 @@ export default function HomePage() {
             <div className="value-icon">01</div>
             <h3>Specialized Knowledge</h3>
             <p>
-              Each coach can be equipped with a curated library of{" "}
-              <strong>specialized resources, documents, and expert material</strong> that general
-              AI tools may not have access to.
+              Each coach can be equipped with a curated library of <strong>specialized resources, documents, and expert material</strong> that general AI tools may not have access to.
             </p>
           </article>
           <article>
             <div className="value-icon">02</div>
             <h3>Built to Coach</h3>
             <p>
-              Instead of simply answering questions, our AI Coaches are designed to{" "}
-              <strong>guide, encourage, challenge, and personalize the experience</strong> around
-              your goals and needs.
+              Instead of simply answering questions, our AI Coaches are designed to <strong>guide, encourage, challenge, and personalize the experience</strong> around your goals and needs.
             </p>
           </article>
           <article>
             <div className="value-icon">03</div>
             <h3>Purpose-Built Expertise</h3>
             <p>
-              Each AI Coach is designed around a specific area of expertise, giving you more
-              relevant guidance without having to explain the context or create complicated prompts
-              every time.
+              Each AI Coach is designed around a specific area of expertise, giving you more relevant guidance without having to explain the context or create complicated prompts every time.
             </p>
           </article>
           <article>
@@ -183,26 +161,17 @@ export default function HomePage() {
         <article>
           <div className="icon">01</div>
           <h2>Start with your goals</h2>
-          <p>
-            Share your current fitness level, schedule, preferences, and what you want to
-            accomplish.
-          </p>
+          <p>Share your current fitness level, schedule, preferences, and what you want to accomplish.</p>
         </article>
         <article>
           <div className="icon">02</div>
           <h2>Build a practical plan</h2>
-          <p>
-            Use AI-generated coaching to organize workouts, habits, motivation, and progress
-            check-ins around your needs.
-          </p>
+          <p>Use AI-generated coaching to organize workouts, habits, motivation, and progress check-ins around your needs.</p>
         </article>
         <article>
           <div className="icon">03</div>
           <h2>Keep moving forward</h2>
-          <p>
-            Return for accountability, adjustments, encouragement, and ideas as your goals and
-            circumstances change.
-          </p>
+          <p>Return for accountability, adjustments, encouragement, and ideas as your goals and circumstances change.</p>
         </article>
       </section>
 
@@ -210,21 +179,12 @@ export default function HomePage() {
         <p className="eyebrow">IMPORTANT</p>
         <h2>AI guidance is informational and motivational.</h2>
         <p>
-          AI-generated responses may be incomplete, inaccurate, or unsuitable for your
-          circumstances. The service is not medical care or a substitute for professional medical,
-          nutritional, or fitness advice. Review the complete Terms & Conditions before
-          subscribing.
+          AI-generated responses may be incomplete, inaccurate, or unsuitable for your circumstances. The service is not medical care or a substitute for professional medical, nutritional, or fitness advice. Review the complete Terms & Conditions before subscribing.
         </p>
         <div className="cta-row">
-          <Link href="/fitness/signup" className="primary-button">
-            New Member — Review Terms & Subscribe
-          </Link>
-          <Link href={memberLoginUrl} className="secondary-button">
-            Returning Member Login
-          </Link>
-          <Link href="/terms" className="secondary-button">
-            Read Full Terms
-          </Link>
+          <Link href="/fitness/signup" className="primary-button">New Member — Review Terms & Subscribe</Link>
+          <Link href={memberLoginUrl} className="secondary-button">Returning Member Login</Link>
+          <Link href="/terms" className="secondary-button">Read Full Terms</Link>
         </div>
       </section>
 
@@ -234,9 +194,7 @@ export default function HomePage() {
             <p className="eyebrow">COMING SOON</p>
             <h2 id="coming-soon-title">More AI coaching experiences are on the way.</h2>
             <p>
-              AI Fitness Coach 2.0 remains the live featured offer. These upcoming coaching
-              experiences are shown as previews so visitors can see what’s coming next from AI
-              Coach Directory™.
+              AI Fitness Coach 2.0 remains the live featured offer. These upcoming coaching experiences are shown as previews so visitors can see what’s coming next from AI Coach Directory™.
             </p>
           </div>
         </div>
@@ -269,17 +227,8 @@ export default function HomePage() {
 
       <footer className="site-footer">
         <div className="footer-brand">
-          <Image
-            src="/images/ai-coach-directory-logo.jpg"
-            alt="AI Coach Directory"
-            width={58}
-            height={58}
-            sizes="58px"
-            className="footer-logo"
-          />
-          <span>
-            KCB Integrative LLC · AI Coach Directory<span className="tm-mark">™</span>
-          </span>
+          <Image src="/images/ai-coach-directory-logo.jpg" alt="AI Coach Directory" width={58} height={58} sizes="58px" className="footer-logo" />
+          <span>KCB Integrative LLC · AI Coach Directory<span className="tm-mark">™</span></span>
         </div>
         <div className="footer-links">
           <Link href={memberLoginUrl}>Member Login</Link>
@@ -288,9 +237,7 @@ export default function HomePage() {
         </div>
 
         <p className="trademark-notice">
-          © 2026 KCB Integrative LLC. AI Coach Directory<span className="tm-mark">™</span> and the AI
-          Coach Directory logo are trademarks/service marks claimed by KCB Integrative LLC. All
-          rights reserved. Third-party marks belong to their respective owners.
+          © 2026 KCB Integrative LLC. AI Coach Directory<span className="tm-mark">™</span> and the AI Coach Directory logo are trademarks/service marks claimed by KCB Integrative LLC. All rights reserved. Third-party marks belong to their respective owners.
         </p>
       </footer>
     </main>
