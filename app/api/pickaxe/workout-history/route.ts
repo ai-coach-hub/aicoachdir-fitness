@@ -48,6 +48,7 @@ function normalizeMemoryName(value: unknown) {
 function getWorkspaceToken() {
   return (
     process.env.PICKAXE_WORKSPACE_API_TOKEN ||
+    process.env.PICKAXE_WORKSPACE_API_KEY ||
     process.env.WORKSPACE_API_TOKEN ||
     process.env.PICKAXE_API_KEY ||
     ""
