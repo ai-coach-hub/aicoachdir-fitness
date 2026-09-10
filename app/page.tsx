@@ -3,9 +3,36 @@ import Image from "next/image";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 
-// Canonical resolves against metadataBase in app/layout.tsx.
+const homepageTitle = "AI Coach Directory™ | Personalized AI Fitness Coaching";
+const homepageDescription =
+  "Personalized AI fitness coaching with workout planning, accountability, and progress support tailored to your goals, schedule, and available equipment.";
+
+// Canonical and social URLs resolve against metadataBase in app/layout.tsx.
 export const metadata: Metadata = {
+  title: homepageTitle,
+  description: homepageDescription,
   alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: "AI Coach Directory",
+    title: homepageTitle,
+    description: homepageDescription,
+    images: [
+      {
+        url: "/images/ai-coach-directory-logo.jpg",
+        width: 1153,
+        height: 1152,
+        alt: "AI Coach Directory logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: homepageTitle,
+    description: homepageDescription,
+    images: ["/images/ai-coach-directory-logo.jpg"],
+  },
 };
 
 const plan = {
@@ -72,6 +99,10 @@ export default function HomePage() {
         <p className="lede">
           Personalized AI fitness guidance, workout planning, accountability, and progress support designed to help you build momentum one step at a time.
         </p>
+        <div className="cta-row">
+          <Link href="/fitness/signup" className="primary-button">Start AI Fitness Coach</Link>
+          <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
+        </div>
       </section>
 
       <section className="fitness-visual" aria-label="AI Coaching for Fitness">
