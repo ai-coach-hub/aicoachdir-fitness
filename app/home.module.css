@@ -1,0 +1,30 @@
+@media (max-width: 720px) {
+  .compactBrandShowcase {
+    margin: 18px 0 8px;
+    padding: 18px 20px;
+    gap: 14px;
+  }
+
+  .compactBrandLogo {
+    width: 108px !important;
+    height: 108px !important;
+    border-radius: 18px !important;
+  }
+
+  .compactBrandShowcase :global(.eyebrow) {
+    margin: 0;
+    font-size: 11px;
+    letter-spacing: .2em;
+  }
+
+  .compactBrandShowcase h2 {
+    margin: 4px 0 8px;
+    font-size: 30px;
+    line-height: 1.08;
+  }
+
+  .compactBrandShowcase p:last-child {
+    font-size: 16px;
+    line-height: 1.45;
+  }
+}
