@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
+import styles from "./home.module.css";
 
 const homepageTitle = "AI Coach Directory™ | Personalized AI Fitness Coaching";
 const homepageDescription =
@@ -76,15 +77,15 @@ export default function HomePage() {
     <main className="site-shell">
       <SiteHeader />
 
-      <section className="brand-showcase" aria-label="AI Coach Directory">
+      <section className={`brand-showcase ${styles.compactBrandShowcase}`} aria-label="AI Coach Directory">
         <Image
           src="/images/ai-coach-directory-logo.jpg"
           alt="AI Coach Directory logo"
           width={220}
           height={220}
           loading="eager"
-          sizes="(max-width: 720px) 150px, 180px"
-          className="brand-showcase-logo"
+          sizes="(max-width: 720px) 108px, 180px"
+          className={`brand-showcase-logo ${styles.compactBrandLogo}`}
         />
         <div>
           <p className="eyebrow">AI COACH DIRECTORY<span className="tm-mark">™</span></p>
