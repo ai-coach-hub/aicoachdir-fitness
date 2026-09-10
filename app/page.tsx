@@ -143,6 +143,37 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section aria-labelledby="connected-coaching-title">
+        <div className="coach-difference-heading">
+          <p className="eyebrow">MORE THAN A FITNESS CHAT</p>
+          <h2 id="connected-coaching-title">Coaching and workouts that work together.</h2>
+        </div>
+
+        <div className="feature-grid">
+          <article>
+            <div className="icon">01</div>
+            <h2>Chat with your coach</h2>
+            <p>
+              Talk through your goals, schedule, preferences, available equipment, nutrition habits, progress, and anything that needs to change along the way.
+            </p>
+          </article>
+          <article>
+            <div className="icon">02</div>
+            <h2>Use My Workouts</h2>
+            <p>
+              See the workouts your coach builds for you, organized into a clear weekly schedule. Plans can be tailored to your goals, schedule, environment, and available equipment—whether you’re training at home, in a gym, outdoors, or somewhere else.
+            </p>
+          </article>
+          <article>
+            <div className="icon">03</div>
+            <h2>Keep everything connected</h2>
+            <p>
+              Your conversations with your coach can help shape and adjust your workout plan as your goals, schedule, abilities, and circumstances change.
+            </p>
+          </article>
+        </div>
+      </section>
+
       <section className="coach-difference-section" aria-labelledby="coach-difference-title">
         <div className="coach-difference-heading">
           <p className="eyebrow">WHY AI COACH DIRECTORY<span className="tm-mark">™</span></p>
