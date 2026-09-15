@@ -504,10 +504,6 @@ export async function POST(request: Request) {
     return jsonResponse(origin, { ok: false, message: "Workout sync authorization failed." }, 401);
   }
 
-  if (history.entries.some((entry) => entry.planId && entry.planId !== auth.planId)) {
-    return jsonResponse(origin, { ok: false, message: "Workout history does not match this plan." }, 400);
-  }
-
   try {
     const memoryId = await historyMemoryId(token);
     await saveHistory(token, auth.email, memoryId, history, auth);
