@@ -8,6 +8,7 @@ const ORIGIN = 'https://studio.pickaxe.co';
 const WORKSPACE_TOKEN = 'workspace-test-token';
 const DEPLOYMENT_ID = 'deployment-test-token';
 const COACH_ID = 'W7S4B963AI9ELAW';
+const MEMBER_USER_ID = 'user-member-123';
 const PLAN = {
   schemaVersion: 2,
   planId: 'plan-1',
@@ -45,6 +46,10 @@ function body(overrides = {}) {
   };
 }
 
+function memberResponse() {
+  return Response.json({ data: { userId: MEMBER_USER_ID, email: 'member@example.com' } });
+}
+
 function adapters(overrides = {}) {
   return {
     workspaceToken: WORKSPACE_TOKEN,
@@ -52,8 +57,9 @@ function adapters(overrides = {}) {
     allowedOrigins: new Set([ORIGIN]),
     fetchImpl: async (url) => {
       const u = String(url);
+      if (u.includes('/studio/user/')) return memberResponse();
       if (u.endsWith('/studio/workspace/history')) {
-        return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: 'member@example.com' }] });
+        return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: MEMBER_USER_ID }] });
       }
       if (u.endsWith('/triggers')) return Response.json({ success: true, result: 'Ready' });
       throw new Error(`Unexpected fetch ${u}`);
@@ -66,19 +72,23 @@ function adapters(overrides = {}) {
   };
 }
 
-test('valid request triggers once and returns ok', async () => {
+test('valid request resolves portal member userId, triggers once, and returns ok', async () => {
   let triggerCalls = 0;
+  let historyUsers = null;
   const a = adapters({
     fetchImpl: async (url, init = {}) => {
       const u = String(url);
+      if (u.includes('/studio/user/')) return memberResponse();
       if (u.endsWith('/studio/workspace/history')) {
-        return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: 'member@example.com' }] });
+        const payload = JSON.parse(init.body);
+        historyUsers = payload.users;
+        return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: MEMBER_USER_ID }] });
       }
       if (u.endsWith('/triggers')) {
         triggerCalls += 1;
         const payload = JSON.parse(init.body);
         assert.equal(payload.conversationId, 'session-123');
-        assert.equal(payload.userId, 'member@example.com');
+        assert.equal(payload.userId, MEMBER_USER_ID);
         assert.match(payload.message, /Mobility & Recovery/);
         return Response.json({ success: true, result: 'Ready' });
       }
@@ -88,10 +98,11 @@ test('valid request triggers once and returns ok', async () => {
   const response = await handleModifyWorkoutHandoff({ request: requestFor(body()), ...a });
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true });
+  assert.deepEqual(historyUsers, [MEMBER_USER_ID]);
   assert.equal(triggerCalls, 1);
 });
 
-test('rejects bad bridge before session or trigger calls', async () => {
+test('rejects bad bridge before member, session, or trigger calls', async () => {
   let calls = 0;
   const a = adapters({ fetchImpl: async () => { calls += 1; return Response.json({}); } });
   const response = await handleModifyWorkoutHandoff({ request: requestFor(body({ historyBridge: { ...auth(), signature: '0'.repeat(64) } })), ...a });
@@ -102,14 +113,27 @@ test('rejects bad bridge before session or trigger calls', async () => {
 test('rejects wrong session/member', async () => {
   const a = adapters({
     fetchImpl: async (url) => {
-      if (String(url).endsWith('/studio/workspace/history')) {
-        return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: 'other@example.com' }] });
+      const u = String(url);
+      if (u.includes('/studio/user/')) return memberResponse();
+      if (u.endsWith('/studio/workspace/history')) {
+        return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: 'other-user-id' }] });
       }
       throw new Error('trigger must not run');
     },
   });
   const response = await handleModifyWorkoutHandoff({ request: requestFor(body()), ...a });
   assert.equal(response.status, 401);
+});
+
+test('returns 502 when portal member userId cannot be resolved', async () => {
+  const a = adapters({
+    fetchImpl: async (url) => {
+      if (String(url).includes('/studio/user/')) return Response.json({ data: {} });
+      throw new Error('history and trigger must not run');
+    },
+  });
+  const response = await handleModifyWorkoutHandoff({ request: requestFor(body()), ...a });
+  assert.equal(response.status, 502);
 });
 
 test('returns 404 for unknown workout', async () => {
@@ -130,8 +154,10 @@ test('reuses succeeded duplicate without second trigger', async () => {
       claimHandoff: async () => 'succeeded',
       fetchImpl: async (url) => {
         fetchCalls += 1;
-        if (String(url).endsWith('/studio/workspace/history')) {
-          return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: 'member@example.com' }] });
+        const u = String(url);
+        if (u.includes('/studio/user/')) return memberResponse();
+        if (u.endsWith('/studio/workspace/history')) {
+          return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: MEMBER_USER_ID }] });
         }
         throw new Error('trigger must not run for succeeded duplicate');
       },
@@ -139,7 +165,7 @@ test('reuses succeeded duplicate without second trigger', async () => {
   });
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true, reused: true });
-  assert.equal(fetchCalls, 1);
+  assert.equal(fetchCalls, 2);
 });
 
 test('returns 409 for processing duplicate', async () => {
@@ -151,10 +177,12 @@ test('trigger failure returns 502 and marks failed', async () => {
   let failed = 0;
   const a = adapters({
     fetchImpl: async (url) => {
-      if (String(url).endsWith('/studio/workspace/history')) {
-        return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: 'member@example.com' }] });
+      const u = String(url);
+      if (u.includes('/studio/user/')) return memberResponse();
+      if (u.endsWith('/studio/workspace/history')) {
+        return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: MEMBER_USER_ID }] });
       }
-      if (String(url).endsWith('/triggers')) return Response.json({ success: false }, { status: 502 });
+      if (u.endsWith('/triggers')) return Response.json({ success: false }, { status: 502 });
       throw new Error('unexpected');
     },
     markFailed: async () => { failed += 1; },
