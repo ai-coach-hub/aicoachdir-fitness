@@ -31,7 +31,27 @@ async function readJsonBody(request) {
   try { return JSON.parse(text); } catch { return null; }
 }
 
-async function workspaceHistory(fetchImpl, token, sessionId, email) {
+async function workspaceUserId(fetchImpl, token, email) {
+  const response = await fetchImpl(
+    `${PICKAXE_API_BASE}/studio/user/${encodeURIComponent(email)}`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      cache: 'no-store',
+      signal: typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(20_000) : undefined,
+    },
+  );
+  if (!response.ok) return '';
+  const payload = await response.json().catch(() => null);
+  const user = payload?.data && typeof payload.data === 'object' ? payload.data : payload;
+  return typeof user?.userId === 'string' ? user.userId.trim() : '';
+}
+
+async function workspaceHistory(fetchImpl, token, sessionId, memberUserId) {
   return fetchImpl(`${PICKAXE_API_BASE}/studio/workspace/history`, {
     method: 'POST',
     headers: {
@@ -41,7 +61,7 @@ async function workspaceHistory(fetchImpl, token, sessionId, email) {
     },
     body: JSON.stringify({
       pickaxeIds: ['W7S4B963AI9ELAW'],
-      users: [email],
+      users: [memberUserId],
       search: sessionId,
       limit: 10,
       lastDays: 7,
@@ -52,7 +72,7 @@ async function workspaceHistory(fetchImpl, token, sessionId, email) {
   });
 }
 
-async function triggerCoach(fetchImpl, deploymentId, message, email, sessionId) {
+async function triggerCoach(fetchImpl, deploymentId, message, memberUserId, sessionId) {
   return fetchImpl(`${PICKAXE_API_BASE}/triggers`, {
     method: 'POST',
     headers: {
@@ -60,7 +80,12 @@ async function triggerCoach(fetchImpl, deploymentId, message, email, sessionId) 
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
-    body: JSON.stringify({ message, userId: email, conversationId: sessionId, stream: false }),
+    body: JSON.stringify({
+      message,
+      userId: memberUserId,
+      conversationId: sessionId,
+      stream: false,
+    }),
     cache: 'no-store',
     signal: typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(30_000) : undefined,
   });
@@ -110,9 +135,19 @@ export async function handleModifyWorkoutHandoff({
     return jsonResponse(origin, allowedOrigins, { ok: false, message: 'That workout is no longer in the saved plan.' }, 404);
   }
 
+  let memberUserId;
+  try {
+    memberUserId = await workspaceUserId(fetchImpl, workspaceToken, auth.email);
+  } catch {
+    memberUserId = '';
+  }
+  if (!memberUserId) {
+    return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Coach session could not be verified.' }, 502);
+  }
+
   let historyResponse;
   try {
-    historyResponse = await workspaceHistory(fetchImpl, workspaceToken, input.sessionId, auth.email);
+    historyResponse = await workspaceHistory(fetchImpl, workspaceToken, input.sessionId, memberUserId);
   } catch {
     return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Coach session could not be verified.' }, 502);
   }
@@ -120,7 +155,7 @@ export async function handleModifyWorkoutHandoff({
     return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Coach session could not be verified.' }, 502);
   }
   const historyPayload = await historyResponse.json().catch(() => null);
-  if (!findVerifiedSession(historyPayload, input.sessionId, auth.email)) {
+  if (!findVerifiedSession(historyPayload, input.sessionId, memberUserId)) {
     return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Coach session could not be verified.' }, 401);
   }
 
@@ -137,7 +172,13 @@ export async function handleModifyWorkoutHandoff({
   }
 
   try {
-    const triggerResponse = await triggerCoach(fetchImpl, deploymentId, buildTriggerMessage(workout), auth.email, input.sessionId);
+    const triggerResponse = await triggerCoach(
+      fetchImpl,
+      deploymentId,
+      buildTriggerMessage(workout),
+      memberUserId,
+      input.sessionId,
+    );
     const triggerPayload = await triggerResponse.json().catch(() => null);
     if (!triggerResponse.ok || triggerPayload?.success !== true) {
       await markFailed(key);
