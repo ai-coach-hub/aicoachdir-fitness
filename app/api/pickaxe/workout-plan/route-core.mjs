@@ -160,6 +160,9 @@ export async function handleWorkoutPlanRead({
     ]);
 
     if (!userResponse.ok) {
+      console.info('[workout-plan-read] member-not-found', {
+        status: userResponse.status,
+      });
       return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Member could not be verified.' }, 404);
     }
     if (!definitionsResponse.ok) {
@@ -188,6 +191,12 @@ export async function handleWorkoutPlanRead({
       { allowLatestFallback: true },
     );
     if (!plan) {
+      console.info('[workout-plan-read] plan-not-found', {
+        planValueCount: planValues.length,
+        historyValueCount: historyValues.length,
+        hasPlanMemoryDefinition: !!planMemoryId,
+        hasHistoryMemoryDefinition: !!historyMemoryId,
+      });
       return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Authorized workout plan was not found.' }, 404);
     }
 
