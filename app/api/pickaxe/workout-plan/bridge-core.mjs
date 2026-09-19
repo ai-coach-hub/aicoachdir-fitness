@@ -210,14 +210,39 @@ function matchesAuthIdentity(value, auth) {
 }
 
 function candidatePlansFromDecoded(decoded) {
-  if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return [];
   const candidates = [];
-  for (const candidate of [decoded.plan, decoded.currentPlan, decoded.workoutPlan, decoded]) {
-    const unwrapped = unwrapStoredValue(candidate);
-    if (unwrapped && typeof unwrapped === 'object' && !Array.isArray(unwrapped)) {
-      candidates.push(unwrapped);
+  const seen = new WeakSet();
+
+  function visit(value, depth = 0) {
+    if (depth > 10) return;
+
+    const unwrapped = unwrapStoredValue(value);
+
+    if (Array.isArray(unwrapped)) {
+      for (const item of unwrapped) visit(item, depth + 1);
+      return;
+    }
+
+    if (!unwrapped || typeof unwrapped !== 'object') return;
+    if (seen.has(unwrapped)) return;
+    seen.add(unwrapped);
+
+    if (isUsablePlan(unwrapped)) candidates.push(unwrapped);
+
+    // Pickaxe memory responses have appeared behind several wrapper shapes over
+    // time. Traverse object children defensively instead of assuming the plan is
+    // only at plan/currentPlan/workoutPlan on the first decoded object.
+    for (const child of Object.values(unwrapped)) {
+      if (
+        child &&
+        (typeof child === 'object' || typeof child === 'string')
+      ) {
+        visit(child, depth + 1);
+      }
     }
   }
+
+  visit(decoded);
   return candidates;
 }
 
