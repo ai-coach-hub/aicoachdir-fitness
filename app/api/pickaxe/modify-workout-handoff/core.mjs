@@ -97,11 +97,11 @@ export function resolveWorkout(plan, workoutId) {
 
 export function buildTriggerMessage(workout) {
   return [
-    `The member clicked Modify This Workout for the saved workout "${workout.title}" (workout ID: ${workout.id}).`,
-    'Retrieve the newest saved My Workouts plan using Get Workout Plan before making any changes.',
+    `The member clicked Modify This Workout for the verified saved workout "${workout.title}" (workout ID: ${workout.id}).`,
     `Treat "${workout.title}" as the workout the member wants to modify.`,
-    'Ask the member one concise question about what they want to change.',
-    'Do not save or alter the plan until the member provides the requested change.',
+    'Do not call any tools and do not save or alter anything in this turn.',
+    `Your first response should simply tell the member they are modifying "${workout.title}" and ask one concise question about what they want to change.`,
+    'After the member answers, retrieve the newest saved My Workouts plan using Get Workout Plan before applying or saving any change.',
     'Preserve all unrelated workouts and plan details.',
   ].join(' ');
 }

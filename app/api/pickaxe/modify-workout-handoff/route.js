@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import { buildHandoffCorsHeaders, handleModifyWorkoutHandoff } from './route-core.mjs';
 import { readExactAuthorizedPlan } from './authoritative-plan.mjs';
 import {
@@ -59,5 +60,6 @@ export async function POST(request) {
     claimHandoff,
     markSucceeded: markHandoffSucceeded,
     markFailed: markHandoffFailed,
+    scheduleAfter: (task) => after(task),
   });
 }
