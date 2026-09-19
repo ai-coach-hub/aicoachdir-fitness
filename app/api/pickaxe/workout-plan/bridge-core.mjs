@@ -152,16 +152,276 @@ export function resolveWorkoutFromHandoffProof(proof, workoutId) {
   return match ? { id: match.id, title: match.title } : null;
 }
 
+
+function stripCodeFence(text) {
+  const trimmed = String(text || '').trim();
+  const fence = String.fromCharCode(96, 96, 96);
+  if (!trimmed.startsWith(fence)) return trimmed;
+  const lines = trimmed.split(/\r?\n/);
+  if (lines.length && lines[0].trim().startsWith(fence)) lines.shift();
+  if (lines.length && lines[lines.length - 1].trim() === fence) lines.pop();
+  return lines.join('\n').trim();
+}
+
+function extractStructuredSlice(text) {
+  const source = String(text || '');
+  const objectStart = source.indexOf('{');
+  const arrayStart = source.indexOf('[');
+  let start = -1;
+  let open = null;
+  let close = null;
+
+  if (objectStart >= 0 && (arrayStart < 0 || objectStart < arrayStart)) {
+    start = objectStart;
+    open = '{';
+    close = '}';
+  } else if (arrayStart >= 0) {
+    start = arrayStart;
+    open = '[';
+    close = ']';
+  }
+  if (start < 0) return source.trim();
+
+  let depth = 0;
+  let quote = null;
+  let escaped = false;
+  for (let index = start; index < source.length; index += 1) {
+    const char = source[index];
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === open) depth += 1;
+    else if (char === close) {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1).trim();
+    }
+  }
+  return source.slice(start).trim();
+}
+
+function pythonLiteralToJson(text) {
+  const source = String(text || '');
+  let result = '';
+  let index = 0;
+
+  while (index < source.length) {
+    const char = source[index];
+
+    if (char === "'") {
+      index += 1;
+      let value = '';
+      let closed = false;
+      while (index < source.length) {
+        const current = source[index];
+        if (current === '\\' && index + 1 < source.length) {
+          const next = source[index + 1];
+          const escapes = {
+            n: '\n',
+            r: '\r',
+            t: '\t',
+            b: '\b',
+            f: '\f',
+            "'": "'",
+            '"': '"',
+            '\\': '\\',
+          };
+          value += Object.prototype.hasOwnProperty.call(escapes, next)
+            ? escapes[next]
+            : next;
+          index += 2;
+          continue;
+        }
+        if (current === "'") {
+          closed = true;
+          index += 1;
+          break;
+        }
+        value += current;
+        index += 1;
+      }
+      if (!closed) return null;
+      result += JSON.stringify(value);
+      continue;
+    }
+
+    if (char === '"') {
+      const start = index;
+      index += 1;
+      let escaped = false;
+      while (index < source.length) {
+        const current = source[index];
+        if (escaped) {
+          escaped = false;
+          index += 1;
+          continue;
+        }
+        if (current === '\\') {
+          escaped = true;
+          index += 1;
+          continue;
+        }
+        index += 1;
+        if (current === '"') break;
+      }
+      result += source.slice(start, index);
+      continue;
+    }
+
+    const remainder = source.slice(index);
+    const token = remainder.match(/^(True|False|None)\b/);
+    if (token) {
+      result += token[1] === 'True' ? 'true' : token[1] === 'False' ? 'false' : 'null';
+      index += token[1].length;
+      continue;
+    }
+
+    result += char;
+    index += 1;
+  }
+
+  return result;
+}
+
+
+function removeTrailingCommas(text) {
+  const source = String(text || '');
+  let result = '';
+  let quote = null;
+  let escaped = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (quote) {
+      result += char;
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      result += char;
+      continue;
+    }
+    if (char === ',') {
+      let lookahead = index + 1;
+      while (lookahead < source.length && /\s/.test(source[lookahead])) lookahead += 1;
+      if (source[lookahead] === '}' || source[lookahead] === ']') continue;
+    }
+    result += char;
+  }
+  return result;
+}
+
+function decodeEscapedJsonLayer(text) {
+  const source = String(text || '').trim();
+  if (!(source.startsWith('{\\"') || source.startsWith('[\\"') || source.includes('\\"schemaVersion\\"'))) {
+    return null;
+  }
+  try {
+    const wrapped = '"' + source.replace(/\r/g, '\\r').replace(/\n/g, '\\n') + '"';
+    const decoded = JSON.parse(wrapped);
+    return typeof decoded === 'string' ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeUrlEncodedLayer(text) {
+  const source = String(text || '').trim();
+  if (!/%(?:7B|7D|5B|5D|22|27)/i.test(source)) return null;
+  try {
+    const decoded = decodeURIComponent(source);
+    return decoded !== source ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeStoredText(value) {
+  if (typeof value !== 'string') return value;
+
+  let current = value.replace(/^\uFEFF/, '').trim();
+  for (let depth = 0; depth < 8 && typeof current === 'string'; depth += 1) {
+    const normalized = stripCodeFence(current);
+    const htmlDecoded = normalized
+      .replace(/&quot;/g, '"')
+      .replace(/&#34;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&');
+
+    const escapedDecoded = decodeEscapedJsonLayer(htmlDecoded);
+    const urlDecoded = decodeUrlEncodedLayer(htmlDecoded);
+
+    const candidates = [];
+    for (const candidate of [
+      normalized,
+      htmlDecoded,
+      escapedDecoded,
+      urlDecoded,
+      extractStructuredSlice(normalized),
+      extractStructuredSlice(htmlDecoded),
+      escapedDecoded ? extractStructuredSlice(escapedDecoded) : null,
+      urlDecoded ? extractStructuredSlice(urlDecoded) : null,
+    ]) {
+      if (!candidate) continue;
+      for (const variant of [candidate, removeTrailingCommas(candidate)]) {
+        if (variant && !candidates.includes(variant)) candidates.push(variant);
+      }
+    }
+
+    let parsed = null;
+    let found = false;
+    for (const candidate of candidates) {
+      try {
+        parsed = JSON.parse(candidate);
+        found = true;
+        break;
+      } catch {
+        const pythonJson = pythonLiteralToJson(candidate);
+        if (!pythonJson) continue;
+        try {
+          parsed = JSON.parse(pythonJson);
+          found = true;
+          break;
+        } catch {
+          // Try the next safe representation.
+        }
+      }
+    }
+
+    if (!found) return current;
+    current = parsed;
+  }
+  return current;
+}
+
 export function unwrapStoredValue(value) {
   let current = value;
   for (let depth = 0; depth < 8; depth += 1) {
     if (typeof current === 'string') {
-      try {
-        current = JSON.parse(current);
-        continue;
-      } catch {
-        return current;
-      }
+      const decoded = decodeStoredText(current);
+      if (decoded === current) return current;
+      current = decoded;
+      continue;
     }
     if (!current || typeof current !== 'object' || Array.isArray(current)) return current;
     if (Object.prototype.hasOwnProperty.call(current, 'value')) {
@@ -220,14 +480,7 @@ function candidatePlansFromDecoded(decoded) {
     if (depth > 12 || value == null) return;
 
     if (typeof value === 'string') {
-      let parsed = value;
-      for (let index = 0; index < 8 && typeof parsed === 'string'; index += 1) {
-        try {
-          parsed = JSON.parse(parsed);
-        } catch {
-          return;
-        }
-      }
+      const parsed = decodeStoredText(value);
       if (parsed !== value) visit(parsed, depth + 1);
       return;
     }

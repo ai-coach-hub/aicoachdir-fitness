@@ -377,3 +377,76 @@ test('keeps an existing future nextPlan instead of replacing it', () => {
   assert.equal(combined?.nextPlan?.effectiveFrom, '2026-09-20');
   assert.equal(combined?.nextPlan?.plan?.planId, 'future');
 });
+
+
+test('recovers a plan from Pickaxe text with one escaped JSON layer and no outer quotes', () => {
+  const storedPlan = workoutPlan({
+    planId: 'escaped-plan',
+    updatedAt: '2026-09-19T12:00:00.000Z',
+    title: 'Escaped Plan',
+    weekStart: '2026-09-20',
+  });
+  const auth = authFor(storedPlan);
+  storedPlan._historyBridge = auth;
+
+  const escaped = JSON.stringify(storedPlan).replace(/"/g, '\\"');
+  const recovered = bridge.resolveAuthorizedPlanFromValues(
+    [escaped],
+    auth,
+    '2026-09-19',
+    { allowLatestFallback: true },
+  );
+
+  assert.equal(recovered?.planId, 'escaped-plan');
+  assert.equal(recovered?.workouts?.['workout-a']?.title, 'Escaped Plan');
+});
+
+test('recovers a plan from fenced or prefixed JSON text', () => {
+  const storedPlan = workoutPlan({
+    planId: 'fenced-plan',
+    updatedAt: '2026-09-19T12:00:00.000Z',
+    title: 'Fenced Plan',
+    weekStart: '2026-09-20',
+  });
+  const auth = authFor(storedPlan);
+  storedPlan._historyBridge = auth;
+
+  const fence = String.fromCharCode(96, 96, 96);
+  const stored = `Saved workout plan:\n${fence}json\n${JSON.stringify(storedPlan)}\n${fence}\n`;
+  const recovered = bridge.resolveAuthorizedPlanFromValues(
+    [stored],
+    auth,
+    '2026-09-19',
+    { allowLatestFallback: true },
+  );
+
+  assert.equal(recovered?.planId, 'fenced-plan');
+});
+
+test('recovers a plan from Python-style literal text with trailing commas', () => {
+  const storedPlan = workoutPlan({
+    planId: 'python-plan',
+    updatedAt: '2026-09-19T12:00:00.000Z',
+    title: 'Python Plan',
+    weekStart: '2026-09-20',
+  });
+  const auth = authFor(storedPlan);
+  storedPlan._historyBridge = auth;
+
+  const pythonStyle = JSON.stringify(storedPlan)
+    .replace(/true/g, 'True')
+    .replace(/false/g, 'False')
+    .replace(/null/g, 'None')
+    .replace(/"([^"\\]*(?:\\.[^"\\]*)*)":/g, "'$1':")
+    .replace(/: "([^"\\]*(?:\\.[^"\\]*)*)"/g, ": '$1'")
+    .replace(/([}\]])/g, ',$1');
+
+  const recovered = bridge.resolveAuthorizedPlanFromValues(
+    [pythonStyle],
+    auth,
+    '2026-09-19',
+    { allowLatestFallback: true },
+  );
+
+  assert.equal(recovered?.planId, 'python-plan');
+});
