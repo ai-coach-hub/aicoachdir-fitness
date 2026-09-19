@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildHandoffSessionId,
   buildTriggerMessage,
   findVerifiedSession,
   handoffKey,
@@ -21,7 +22,7 @@ function validRequest(overrides = {}) {
     workoutId: 'mobility-recovery',
     planId: bridge.planId,
     planUpdatedAt: bridge.planUpdatedAt,
-    sessionId: 'session-123',
+    requestId: '11111111-2222-4333-8444-555555555555',
     historyBridge: bridge,
     ...overrides,
   };
@@ -30,17 +31,25 @@ function validRequest(overrides = {}) {
 test('parses a valid modify handoff request', () => {
   const parsed = parseModifyHandoffRequest(validRequest());
   assert.equal(parsed?.workoutId, 'mobility-recovery');
-  assert.equal(parsed?.sessionId, 'session-123');
+  assert.equal(parsed?.requestId, '11111111-2222-4333-8444-555555555555');
   assert.deepEqual(parsed?.historyBridge, bridge);
 });
 
 test('rejects invalid or mismatched handoff request fields', () => {
   assert.equal(parseModifyHandoffRequest(validRequest({ workoutId: '' })), null);
   assert.equal(parseModifyHandoffRequest(validRequest({ workoutId: 'x'.repeat(201) })), null);
-  assert.equal(parseModifyHandoffRequest(validRequest({ sessionId: 'x'.repeat(301) })), null);
+  assert.equal(parseModifyHandoffRequest(validRequest({ requestId: 'not-a-uuid' })), null);
   assert.equal(parseModifyHandoffRequest(validRequest({ planId: 'other-plan' })), null);
   assert.equal(parseModifyHandoffRequest(validRequest({ planUpdatedAt: '2026-09-18T15:00:01.000Z' })), null);
   assert.equal(parseModifyHandoffRequest(validRequest({ historyBridge: null })), null);
+});
+
+test('builds a deterministic dedicated handoff session ID from requestId', () => {
+  assert.equal(
+    buildHandoffSessionId('11111111-2222-4333-8444-555555555555'),
+    'modify-workout-11111111-2222-4333-8444-555555555555',
+  );
+  assert.equal(buildHandoffSessionId('not-a-uuid'), '');
 });
 
 test('verifies session by responseId, formId, and normalized member identity', () => {
