@@ -115,3 +115,54 @@ test('still rejects invalid bridge signatures before any Pickaxe write', async (
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test('accepts a timed-out history write when read-back proves Pickaxe saved it', async () => {
+  const auth = signedAuth();
+  let writtenValue = null;
+  let patchCalls = 0;
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async (url, init = {}) => {
+    const path = String(url).replace('https://api.pickaxe.co/v1', '');
+    if (path.startsWith('/studio/memory/list')) {
+      return Response.json({ items: [{ id: 'history-memory', name: 'fitness workout history for ai coach' }] });
+    }
+    if (path.startsWith('/studio/memory/user/member%40example.com?')) {
+      const currentPlan = {
+        planId: auth.planId,
+        updatedAt: auth.planUpdatedAt,
+        weekSchedule: [],
+        workouts: {},
+      };
+      const value = writtenValue ?? JSON.stringify({
+        schemaVersion: 2,
+        updatedAt: '2026-09-15T17:00:00.000Z',
+        plan: currentPlan,
+        entries: [],
+      });
+      return Response.json({ items: [{ value }] });
+    }
+    if (path === '/studio/memory/user/member%40example.com/history-memory' && init.method === 'PATCH') {
+      patchCalls += 1;
+      writtenValue = JSON.parse(init.body).data.value;
+      const error = new Error('The operation was aborted due to timeout');
+      error.name = 'TimeoutError';
+      throw error;
+    }
+    throw new Error(`Unexpected fetch: ${init.method || 'GET'} ${path}`);
+  };
+
+  try {
+    const response = await POST(requestFor(auth, historyPayload('older-plan')));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      ok: true,
+      savedAt: '2026-09-15T18:30:00.000Z',
+    });
+    assert.equal(patchCalls, 1, 'timed-out write must not be replayed');
+    assert.ok(writtenValue, 'simulated Pickaxe write should have landed');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

@@ -219,16 +219,52 @@ function sanitizeHistory(value: unknown): HistoryPayload | null {
   return { schemaVersion: 1, updatedAt, entries: entries as JsonRecord[] };
 }
 
+const PICKAXE_GET_TIMEOUTS_MS = [9_000, 14_000];
+const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+function timeoutSignal(timeoutMs: number) {
+  return typeof AbortSignal?.timeout === "function"
+    ? AbortSignal.timeout(timeoutMs)
+    : undefined;
+}
+
 async function pickaxeRequest(token: string, path: string, init?: RequestInit) {
   const headers = new Headers(init?.headers);
   headers.set("Authorization", `Bearer ${token}`);
   headers.set("Content-Type", "application/json");
-  return fetch(`${PICKAXE_API_BASE}${path}`, {
-    ...init,
-    headers,
-    cache: "no-store",
-    signal: AbortSignal.timeout(20_000),
-  });
+
+  const method = String(init?.method || "GET").toUpperCase();
+  const attempts = method === "GET" ? PICKAXE_GET_TIMEOUTS_MS : [20_000];
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < attempts.length; attempt += 1) {
+    try {
+      const response = await fetch(`${PICKAXE_API_BASE}${path}`, {
+        ...init,
+        method,
+        headers,
+        cache: "no-store",
+        signal: timeoutSignal(attempts[attempt]),
+      });
+      if (
+        method === "GET" &&
+        attempt < attempts.length - 1 &&
+        RETRYABLE_STATUS_CODES.has(response.status)
+      ) {
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (method !== "GET" || attempt >= attempts.length - 1) throw error;
+    }
+  }
+
+  throw lastError || new Error("pickaxe-request-failed");
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function payloadItems(payload: unknown) {
@@ -433,6 +469,34 @@ function envelopeMatches(
   );
 }
 
+async function historyEnvelopeWasStored(
+  token: string,
+  email: string,
+  memoryId: string,
+  envelope: HistoryEnvelope,
+  auth: BridgeAuth,
+) {
+  const readBack = await readHistory(token, email, memoryId);
+  return readBack.some((value) => envelopeMatches(value, envelope, auth));
+}
+
+async function verifyStoredHistory(
+  token: string,
+  email: string,
+  memoryId: string,
+  envelope: HistoryEnvelope,
+  auth: BridgeAuth,
+) {
+  const delays = [0, 300, 900];
+  for (const delay of delays) {
+    if (delay) await sleep(delay);
+    if (await historyEnvelopeWasStored(token, email, memoryId, envelope, auth)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function saveHistory(
   token: string,
   email: string,
@@ -444,22 +508,30 @@ async function saveHistory(
   const envelope = buildStoredEnvelope(history, existing, auth);
   const storedValue = JSON.stringify(envelope);
 
-  const response = existing.length
-    ? await pickaxeRequest(
-        token,
-        `/studio/memory/user/${encodeURIComponent(email)}/${encodeURIComponent(memoryId)}`,
-        { method: "PATCH", body: JSON.stringify({ data: { value: storedValue } }) },
-      )
-    : await pickaxeRequest(token, "/studio/memory/user/create", {
-        method: "POST",
-        body: JSON.stringify({ userId: email, memoryId, value: storedValue }),
-      });
+  let response: Response;
+  try {
+    response = existing.length
+      ? await pickaxeRequest(
+          token,
+          `/studio/memory/user/${encodeURIComponent(email)}/${encodeURIComponent(memoryId)}`,
+          { method: "PATCH", body: JSON.stringify({ data: { value: storedValue } }) },
+        )
+      : await pickaxeRequest(token, "/studio/memory/user/create", {
+          method: "POST",
+          body: JSON.stringify({ userId: email, memoryId, value: storedValue }),
+        });
+  } catch (error) {
+    // A write can succeed upstream even when the client times out waiting for
+    // Pickaxe's response. Never replay the write blindly; verify by reading it.
+    if (await verifyStoredHistory(token, email, memoryId, envelope, auth)) return;
+    throw error;
+  }
 
-  if (!response.ok) throw new Error("history-memory-write");
+  if (!response.ok) throw new Error(`history-memory-write-${response.status}`);
 
-  const readBack = await readHistory(token, email, memoryId);
-  const verified = readBack.some((value) => envelopeMatches(value, envelope, auth));
-  if (!verified) throw new Error("history-memory-verification");
+  if (!(await verifyStoredHistory(token, email, memoryId, envelope, auth))) {
+    throw new Error("history-memory-verification");
+  }
 }
 
 export function OPTIONS(request: Request) {

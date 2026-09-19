@@ -142,3 +142,45 @@ test('does not allow an unapproved browser origin', async () => {
   assert.equal(response.status, 403);
   assert.equal(response.headers.get('Access-Control-Allow-Origin'), null);
 });
+
+
+test('retries a transient Pickaxe memory-definition failure and still loads the plan', async () => {
+  const { outer, auth } = plan();
+  let definitionCalls = 0;
+  const fetchImpl = async (url) => {
+    const value = String(url);
+    if (value.includes('/studio/user/member%40example.com')) {
+      return Response.json({ data: { email: 'member@example.com' } });
+    }
+    if (value.includes('/studio/memory/list')) {
+      definitionCalls += 1;
+      if (definitionCalls === 1) return new Response('temporary', { status: 503 });
+      return Response.json({ data: { items: [
+        { id: 'mem-plan', name: 'fitness-workout-plan-v1' },
+        { id: 'mem-history', name: 'fitness-workout-history-v1' },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-plan')) {
+      return Response.json({ data: { items: [
+        { memoryId: 'mem-plan', value: JSON.stringify(outer) },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-history')) {
+      return Response.json({ data: { items: [] } });
+    }
+    return new Response('not found', { status: 404 });
+  };
+
+  const response = await routeCore.handleWorkoutPlanRead({
+    request: requestFor({ auth, asOfDate: '2026-09-14' }),
+    token: TOKEN,
+    fetchImpl,
+    allowedOrigins: new Set([ORIGIN]),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.plan.planId, 'sep13');
+  assert.equal(definitionCalls, 2);
+});

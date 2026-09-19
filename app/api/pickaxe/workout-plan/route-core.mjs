@@ -16,6 +16,8 @@ const HISTORY_MEMORY_NAMES = new Set([
   'fitness workout history for ai coach',
 ]);
 const MAX_BODY_BYTES = 16 * 1024;
+const PICKAXE_REQUEST_TIMEOUTS_MS = [9_000, 14_000];
+const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 function corsHeaders(origin, allowedOrigins) {
   const headers = new Headers({
@@ -44,18 +46,42 @@ function validDateKey(value) {
   return Number.isNaN(date.getTime()) ? null : value;
 }
 
+function timeoutSignal(timeoutMs) {
+  return typeof AbortSignal?.timeout === 'function'
+    ? AbortSignal.timeout(timeoutMs)
+    : undefined;
+}
+
 async function pickaxeRequest(fetchImpl, token, path) {
   const headers = new Headers({
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
     Accept: 'application/json',
   });
-  return fetchImpl(`${PICKAXE_API_BASE}${path}`, {
-    method: 'GET',
-    headers,
-    cache: 'no-store',
-    signal: typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(20_000) : undefined,
-  });
+
+  let lastError = null;
+  for (let attempt = 0; attempt < PICKAXE_REQUEST_TIMEOUTS_MS.length; attempt += 1) {
+    try {
+      const response = await fetchImpl(`${PICKAXE_API_BASE}${path}`, {
+        method: 'GET',
+        headers,
+        cache: 'no-store',
+        signal: timeoutSignal(PICKAXE_REQUEST_TIMEOUTS_MS[attempt]),
+      });
+      if (
+        attempt < PICKAXE_REQUEST_TIMEOUTS_MS.length - 1 &&
+        RETRYABLE_STATUS_CODES.has(response.status)
+      ) {
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= PICKAXE_REQUEST_TIMEOUTS_MS.length - 1) throw error;
+    }
+  }
+
+  throw lastError || new Error('pickaxe-request-failed');
 }
 
 function findMemoryDefinition(items, acceptedNames) {
@@ -119,23 +145,26 @@ export async function handleWorkoutPlanRead({
   }
 
   try {
-    const userResponse = await pickaxeRequest(
-      fetchImpl,
-      token,
-      `/studio/user/${encodeURIComponent(auth.email)}`,
-    );
+    const [userResponse, definitionsResponse] = await Promise.all([
+      pickaxeRequest(
+        fetchImpl,
+        token,
+        `/studio/user/${encodeURIComponent(auth.email)}`,
+      ),
+      pickaxeRequest(
+        fetchImpl,
+        token,
+        '/studio/memory/list?skip=0&take=100',
+      ),
+    ]);
+
     if (!userResponse.ok) {
       return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Member could not be verified.' }, 404);
     }
-
-    const definitionsResponse = await pickaxeRequest(
-      fetchImpl,
-      token,
-      '/studio/memory/list?skip=0&take=100',
-    );
     if (!definitionsResponse.ok) {
       throw new Error(`memory-definition-list-${definitionsResponse.status}`);
     }
+
     const definitions = payloadItems(await definitionsResponse.json());
     const planDefinition = findMemoryDefinition(definitions, PLAN_MEMORY_NAMES);
     const historyDefinition = findMemoryDefinition(definitions, HISTORY_MEMORY_NAMES);
