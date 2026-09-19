@@ -47,17 +47,31 @@ async function triggerCoach(fetchImpl, deploymentId, message, memberIdentifier, 
     headers: {
       Authorization: `Bearer ${deploymentId}`,
       'Content-Type': 'application/json',
-      Accept: 'application/json',
+      Accept: '*/*',
     },
     body: JSON.stringify({
       message,
       userId: memberIdentifier,
       conversationId: sessionId,
-      stream: false,
+      stream: true,
     }),
     cache: 'no-store',
-    signal: typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(30_000) : undefined,
+    signal: typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(55_000) : undefined,
   });
+}
+
+async function drainResponse(response) {
+  try {
+    if (response.body && typeof response.body.getReader === 'function') {
+      const reader = response.body.getReader();
+      while (true) {
+        const { done } = await reader.read();
+        if (done) break;
+      }
+      return;
+    }
+    await response.text().catch(() => '');
+  } catch {}
 }
 
 export async function handleModifyWorkoutHandoff({
@@ -70,6 +84,7 @@ export async function handleModifyWorkoutHandoff({
   claimHandoff,
   markSucceeded,
   markFailed,
+  scheduleAfter = null,
 }) {
   const origin = request.headers.get('origin')?.trim() || '';
   if (!origin || !allowedOrigins.has(origin)) {
@@ -144,47 +159,66 @@ export async function handleModifyWorkoutHandoff({
     return jsonResponse(origin, allowedOrigins, { ok: false, message: 'This workout is already being opened with your coach.' }, 409);
   }
 
-  try {
-    const triggerResponse = await triggerCoach(
-      fetchImpl,
-      deploymentId,
-      buildTriggerMessage(workout),
-      auth.email,
-      sessionId,
-    );
-    const triggerPayload = await triggerResponse.json().catch(() => null);
+  const runTrigger = async () => {
+    try {
+      const triggerResponse = await triggerCoach(
+        fetchImpl,
+        deploymentId,
+        buildTriggerMessage(workout),
+        auth.email,
+        sessionId,
+      );
 
-    if (!triggerResponse.ok || triggerPayload?.success !== true) {
-      console.error('[modify-workout-handoff] trigger-rejected', {
-        status: triggerResponse.status,
-        success: triggerPayload?.success === true,
-        message: shortErrorMessage(triggerPayload),
+      if (!triggerResponse.ok) {
+        const triggerText = await triggerResponse.text().catch(() => '');
+        console.error('[modify-workout-handoff] trigger-rejected', {
+          status: triggerResponse.status,
+          message: triggerText.slice(0, 180),
+        });
+        if (idempotencyAvailable) {
+          try { await markFailed(key); } catch {}
+        }
+        return false;
+      }
+
+      if (idempotencyAvailable) {
+        try {
+          await markSucceeded(key);
+        } catch (error) {
+          console.warn('[modify-workout-handoff] idempotency-success-write-failed', { name: error?.name || 'Error' });
+        }
+      }
+
+      await drainResponse(triggerResponse);
+      return true;
+    } catch (error) {
+      console.error('[modify-workout-handoff] trigger-exception', {
+        name: error?.name || 'Error',
+        message: typeof error?.message === 'string' ? error.message.slice(0, 180) : '',
       });
       if (idempotencyAvailable) {
         try { await markFailed(key); } catch {}
       }
-      return jsonResponse(origin, allowedOrigins, { ok: false, message: 'We could not open this workout with your coach.' }, 502);
+      return false;
     }
+  };
 
-    if (idempotencyAvailable) {
-      try {
-        await markSucceeded(key);
-      } catch (error) {
-        console.warn('[modify-workout-handoff] idempotency-success-write-failed', { name: error?.name || 'Error' });
-      }
+  if (typeof scheduleAfter === 'function') {
+    try {
+      scheduleAfter(runTrigger);
+      return jsonResponse(origin, allowedOrigins, { ok: true, sessionId, pending: true }, 200);
+    } catch (error) {
+      console.error('[modify-workout-handoff] background-schedule-failed', {
+        name: error?.name || 'Error',
+      });
     }
+  }
 
-    return jsonResponse(origin, allowedOrigins, { ok: true, sessionId }, 200);
-  } catch (error) {
-    console.error('[modify-workout-handoff] trigger-exception', {
-      name: error?.name || 'Error',
-      message: typeof error?.message === 'string' ? error.message.slice(0, 180) : '',
-    });
-    if (idempotencyAvailable) {
-      try { await markFailed(key); } catch {}
-    }
+  const triggered = await runTrigger();
+  if (!triggered) {
     return jsonResponse(origin, allowedOrigins, { ok: false, message: 'We could not open this workout with your coach.' }, 502);
   }
+  return jsonResponse(origin, allowedOrigins, { ok: true, sessionId }, 200);
 }
 
 export function buildHandoffCorsHeaders(origin, allowedOrigins) {
