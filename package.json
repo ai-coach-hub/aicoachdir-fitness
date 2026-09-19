@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:handoff": "node --test tests/modify-workout-handoff-core.test.mjs tests/modify-workout-handoff-db.test.mjs tests/modify-workout-handoff-authoritative-plan.test.mjs tests/modify-workout-handoff-route-core.test.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.3",
