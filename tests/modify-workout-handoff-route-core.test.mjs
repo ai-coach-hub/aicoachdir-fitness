@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 
 import { handleModifyWorkoutHandoff } from '../app/api/pickaxe/modify-workout-handoff/route-core.mjs';
+import { createWorkoutHandoffProof } from '../app/api/pickaxe/workout-plan/bridge-core.mjs';
 
 const ORIGIN = 'https://studio.pickaxe.co';
 const WORKSPACE_TOKEN = 'workspace-test-token';
@@ -36,12 +37,19 @@ function requestFor(payload, origin = ORIGIN) {
 }
 
 function body(overrides = {}) {
+  const historyBridge = auth();
   return {
     workoutId: 'mobility-recovery',
     planId: PLAN.planId,
     planUpdatedAt: PLAN.updatedAt,
     requestId: REQUEST_ID,
-    historyBridge: auth(),
+    historyBridge,
+    handoffProof: createWorkoutHandoffProof(
+      PLAN,
+      historyBridge,
+      WORKSPACE_TOKEN,
+      new Date(),
+    ),
     ...overrides,
   };
 }
@@ -66,7 +74,12 @@ function adapters(overrides = {}) {
 
 test('valid request creates a dedicated session, triggers once, and returns that session', async () => {
   let triggerCalls = 0;
+  let readPlanCalls = 0;
   const a = adapters({
+    readPlan: async () => {
+      readPlanCalls += 1;
+      throw new Error('proof path must not reread Pickaxe plan');
+    },
     fetchImpl: async (url, init = {}) => {
       const u = String(url);
       if (u.endsWith('/triggers')) {
@@ -85,6 +98,7 @@ test('valid request creates a dedicated session, triggers once, and returns that
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true, sessionId: SESSION_ID });
   assert.equal(triggerCalls, 1);
+  assert.equal(readPlanCalls, 0);
 });
 
 test('rejects bad bridge before member lookup or trigger', async () => {
@@ -191,4 +205,21 @@ test('continues safely when idempotency storage is unavailable', async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true, sessionId: SESSION_ID });
   assert.equal(triggerCalls, 1);
+});
+
+
+test('falls back to authoritative plan read when handoff proof is absent', async () => {
+  let readPlanCalls = 0;
+  const response = await handleModifyWorkoutHandoff({
+    request: requestFor(body({ handoffProof: null })),
+    ...adapters({
+      readPlan: async () => {
+        readPlanCalls += 1;
+        return PLAN;
+      },
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(readPlanCalls, 1);
 });
