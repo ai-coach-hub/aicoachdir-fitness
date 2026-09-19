@@ -42,6 +42,116 @@ export function verifyBridgeAuth(auth, token) {
   return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }
 
+
+function handoffWorkoutsFromPlan(plan) {
+  const map = new Map();
+  const visit = (candidate) => {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return;
+    const workouts = candidate.workouts;
+    if (workouts && typeof workouts === 'object' && !Array.isArray(workouts)) {
+      for (const [key, workout] of Object.entries(workouts)) {
+        if (!workout || typeof workout !== 'object' || Array.isArray(workout)) continue;
+        const id = String(workout.id || key || '').trim().slice(0, 200);
+        const title = String(workout.title || workout.name || '').trim().slice(0, 200);
+        if (id && title) map.set(id, title);
+      }
+    }
+    visit(candidate.nextPlan?.plan);
+  };
+  visit(plan);
+  return [...map.entries()]
+    .map(([id, title]) => ({ id, title }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function handoffProofMessage(proof) {
+  return [
+    proof.email,
+    proof.planId,
+    proof.planUpdatedAt,
+    proof.issuedAt,
+    proof.expiresAt,
+    JSON.stringify(proof.workouts),
+  ].join('\n');
+}
+
+export function createWorkoutHandoffProof(plan, auth, token, now = new Date()) {
+  if (!plan || !auth || !token) return null;
+  const workouts = handoffWorkoutsFromPlan(plan);
+  if (!workouts.length) return null;
+  const issued = now instanceof Date ? now : new Date(now);
+  if (Number.isNaN(issued.getTime())) return null;
+  const proof = {
+    email: auth.email,
+    planId: auth.planId,
+    planUpdatedAt: auth.planUpdatedAt,
+    issuedAt: issued.toISOString(),
+    expiresAt: new Date(issued.getTime() + 30 * 60 * 1000).toISOString(),
+    workouts,
+  };
+  const signature = createHmac('sha256', token)
+    .update(handoffProofMessage(proof), 'utf8')
+    .digest('hex');
+  return { ...proof, signature };
+}
+
+export function verifyWorkoutHandoffProof(value, auth, token, now = new Date()) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || !auth || !token) return null;
+  const email = normalizeEmail(value.email);
+  const planId = typeof value.planId === 'string' ? value.planId.trim() : '';
+  const planUpdatedAt = typeof value.planUpdatedAt === 'string' ? value.planUpdatedAt.trim() : '';
+  const issuedAt = typeof value.issuedAt === 'string' ? value.issuedAt.trim() : '';
+  const expiresAt = typeof value.expiresAt === 'string' ? value.expiresAt.trim() : '';
+  const signature = typeof value.signature === 'string' ? value.signature.trim().toLowerCase() : '';
+  if (
+    !email ||
+    email !== auth.email ||
+    planId !== auth.planId ||
+    planUpdatedAt !== auth.planUpdatedAt ||
+    !issuedAt ||
+    !expiresAt ||
+    !/^[a-f0-9]{64}$/.test(signature)
+  ) return null;
+
+  const issuedMs = new Date(issuedAt).getTime();
+  const expiresMs = new Date(expiresAt).getTime();
+  const nowMs = (now instanceof Date ? now : new Date(now)).getTime();
+  if (
+    Number.isNaN(issuedMs) ||
+    Number.isNaN(expiresMs) ||
+    Number.isNaN(nowMs) ||
+    expiresMs <= issuedMs ||
+    nowMs > expiresMs ||
+    issuedMs > nowMs + 5 * 60 * 1000
+  ) return null;
+
+  const workouts = Array.isArray(value.workouts)
+    ? value.workouts
+        .map((item) => ({
+          id: typeof item?.id === 'string' ? item.id.trim().slice(0, 200) : '',
+          title: typeof item?.title === 'string' ? item.title.trim().slice(0, 200) : '',
+        }))
+        .filter((item) => item.id && item.title)
+        .sort((a, b) => a.id.localeCompare(b.id))
+    : [];
+  if (!workouts.length) return null;
+
+  const proof = { email, planId, planUpdatedAt, issuedAt, expiresAt, workouts };
+  const expected = createHmac('sha256', token)
+    .update(handoffProofMessage(proof), 'utf8')
+    .digest();
+  const supplied = Buffer.from(signature, 'hex');
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return null;
+  return { ...proof, signature };
+}
+
+export function resolveWorkoutFromHandoffProof(proof, workoutId) {
+  if (!proof || !Array.isArray(proof.workouts) || typeof workoutId !== 'string') return null;
+  const target = workoutId.trim();
+  const match = proof.workouts.find((item) => item.id === target);
+  return match ? { id: match.id, title: match.title } : null;
+}
+
 export function unwrapStoredValue(value) {
   let current = value;
   for (let depth = 0; depth < 8; depth += 1) {

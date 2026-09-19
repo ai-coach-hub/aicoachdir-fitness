@@ -1,5 +1,6 @@
 import {
   collectStoredValues,
+  createWorkoutHandoffProof,
   extractHistoryEntries,
   memoryDefinitionId,
   memoryDefinitionName,
@@ -189,12 +190,17 @@ export async function handleWorkoutPlanRead({
       return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Authorized workout plan was not found.' }, 404);
     }
 
+    const handoffProof = createWorkoutHandoffProof(plan, auth, token);
+    const planWithHandoffProof = handoffProof
+      ? { ...plan, _handoffProof: handoffProof }
+      : plan;
+
     return jsonResponse(
       origin,
       allowedOrigins,
       {
         ok: true,
-        plan,
+        plan: planWithHandoffProof,
         entries: extractHistoryEntries(historyValues),
       },
       200,

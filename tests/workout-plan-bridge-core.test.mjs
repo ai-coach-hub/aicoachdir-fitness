@@ -130,3 +130,67 @@ test('accepts a nested plan bridge only once that nested plan is effective', () 
   assert.equal(before, null);
   assert.equal(active?.planId, 'nested');
 });
+
+
+test('creates and verifies a short-lived handoff proof for current and staged workouts', () => {
+  const next = workoutPlan({
+    planId: 'next',
+    updatedAt: '2026-09-18T12:00:00.000Z',
+    title: 'Next Week',
+    weekStart: '2026-09-20',
+  });
+  next.workouts['next-b'] = {
+    id: 'next-b',
+    title: 'Next Week Mobility',
+    durationMinutes: 20,
+    exercises: [{ id: 'e2', name: 'Mobility', sets: 1, reps: '8' }],
+  };
+  next.weekSchedule.push({ id: 'wed', day: 'Wednesday', isRestDay: false, workoutId: 'next-b' });
+
+  const current = workoutPlan({
+    planId: 'current',
+    updatedAt: '2026-09-18T10:00:00.000Z',
+    title: 'Current Strength',
+    weekStart: '2026-09-13',
+    nextPlan: { effectiveFrom: '2026-09-20', plan: next },
+  });
+  const auth = authFor(current);
+  const now = new Date('2026-09-18T20:00:00.000Z');
+  const proof = bridge.createWorkoutHandoffProof(current, auth, TOKEN, now);
+
+  assert.ok(proof);
+  assert.equal(proof.email, 'member@example.com');
+  assert.ok(proof.workouts.some((item) => item.id === 'workout-a' && item.title === 'Current Strength'));
+  assert.ok(proof.workouts.some((item) => item.id === 'next-b' && item.title === 'Next Week Mobility'));
+
+  const verified = bridge.verifyWorkoutHandoffProof(
+    proof,
+    auth,
+    TOKEN,
+    new Date('2026-09-18T20:10:00.000Z'),
+  );
+  assert.ok(verified);
+  assert.deepEqual(
+    bridge.resolveWorkoutFromHandoffProof(verified, 'next-b'),
+    { id: 'next-b', title: 'Next Week Mobility' },
+  );
+
+  assert.equal(
+    bridge.verifyWorkoutHandoffProof(
+      { ...proof, signature: '0'.repeat(64) },
+      auth,
+      TOKEN,
+      new Date('2026-09-18T20:10:00.000Z'),
+    ),
+    null,
+  );
+  assert.equal(
+    bridge.verifyWorkoutHandoffProof(
+      proof,
+      auth,
+      TOKEN,
+      new Date('2026-09-18T20:31:00.000Z'),
+    ),
+    null,
+  );
+});
