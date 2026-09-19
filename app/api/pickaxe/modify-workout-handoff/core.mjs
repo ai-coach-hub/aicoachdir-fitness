@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 
 export const FITNESS_COACH_ID = 'W7S4B963AI9ELAW';
 
+const REQUEST_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function cleanString(value, max) {
   if (typeof value !== 'string') return '';
   const cleaned = value.trim();
@@ -19,24 +21,32 @@ export function parseModifyHandoffRequest(value) {
   const workoutId = cleanString(value.workoutId, 200);
   const planId = cleanString(value.planId, 200);
   const planUpdatedAt = cleanString(value.planUpdatedAt, 100);
-  const sessionId = cleanString(value.sessionId, 300);
+  const requestId = cleanString(value.requestId, 100);
   const historyBridge = value.historyBridge;
   if (!historyBridge || typeof historyBridge !== 'object' || Array.isArray(historyBridge)) return null;
   const email = normalizeEmail(historyBridge.email);
   const bridgePlanId = cleanString(historyBridge.planId, 200);
   const bridgeUpdatedAt = cleanString(historyBridge.planUpdatedAt, 100);
   const signature = cleanString(historyBridge.signature, 128).toLowerCase();
-  if (!workoutId || !planId || !sessionId || !email || !bridgePlanId || !bridgeUpdatedAt) return null;
+
+  if (!workoutId || !planId || !requestId || !email || !bridgePlanId || !bridgeUpdatedAt) return null;
+  if (!REQUEST_ID_RE.test(requestId)) return null;
   if (Number.isNaN(new Date(planUpdatedAt).getTime()) || Number.isNaN(new Date(bridgeUpdatedAt).getTime())) return null;
   if (!/^[a-f0-9]{64}$/.test(signature)) return null;
   if (planId !== bridgePlanId || planUpdatedAt !== bridgeUpdatedAt) return null;
+
   return {
     workoutId,
     planId,
     planUpdatedAt,
-    sessionId,
+    requestId: requestId.toLowerCase(),
     historyBridge: { email, planId: bridgePlanId, planUpdatedAt: bridgeUpdatedAt, signature },
   };
+}
+
+export function buildHandoffSessionId(requestId) {
+  if (typeof requestId !== 'string' || !REQUEST_ID_RE.test(requestId.trim())) return '';
+  return `modify-workout-${requestId.trim().toLowerCase()}`;
 }
 
 function historyRows(payload) {
