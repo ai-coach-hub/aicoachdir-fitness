@@ -1,4 +1,9 @@
-import { parseBridgeAuth, verifyBridgeAuth } from '../workout-plan/bridge-core.mjs';
+import {
+  parseBridgeAuth,
+  resolveWorkoutFromHandoffProof,
+  verifyBridgeAuth,
+  verifyWorkoutHandoffProof,
+} from '../workout-plan/bridge-core.mjs';
 import {
   buildHandoffSessionId,
   buildTriggerMessage,
@@ -85,20 +90,35 @@ export async function handleModifyWorkoutHandoff({
     return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Workout handoff authorization failed.' }, 401);
   }
 
-  let plan;
-  try {
-    plan = await readPlan(workspaceToken, auth);
-  } catch (error) {
-    console.error('[modify-workout-handoff] plan-read-failed', { name: error?.name || 'Error' });
-    return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Workout plan could not be verified.' }, 502);
-  }
-  if (!plan || plan.planId !== auth.planId || plan.updatedAt !== auth.planUpdatedAt) {
-    return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Your saved workout plan has changed. Refresh My Workouts and try again.' }, 409);
+  const verifiedProof = verifyWorkoutHandoffProof(
+    input.handoffProof,
+    auth,
+    workspaceToken,
+  );
+
+  let workout = verifiedProof
+    ? resolveWorkoutFromHandoffProof(verifiedProof, input.workoutId)
+    : null;
+
+  if (verifiedProof && !workout) {
+    return jsonResponse(origin, allowedOrigins, { ok: false, message: 'That workout is no longer in the verified plan.' }, 404);
   }
 
-  const workout = resolveWorkout(plan, input.workoutId);
   if (!workout) {
-    return jsonResponse(origin, allowedOrigins, { ok: false, message: 'That workout is no longer in the saved plan.' }, 404);
+    let plan;
+    try {
+      plan = await readPlan(workspaceToken, auth);
+    } catch (error) {
+      console.error('[modify-workout-handoff] plan-read-failed', { name: error?.name || 'Error' });
+      return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Workout plan could not be verified.' }, 502);
+    }
+    if (!plan || plan.planId !== auth.planId || plan.updatedAt !== auth.planUpdatedAt) {
+      return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Your saved workout plan has changed. Refresh My Workouts and try again.' }, 409);
+    }
+    workout = resolveWorkout(plan, input.workoutId);
+    if (!workout) {
+      return jsonResponse(origin, allowedOrigins, { ok: false, message: 'That workout is no longer in the saved plan.' }, 404);
+    }
   }
 
   const sessionId = buildHandoffSessionId(input.requestId);
