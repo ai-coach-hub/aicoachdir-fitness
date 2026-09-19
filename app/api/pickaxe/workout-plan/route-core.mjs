@@ -167,6 +167,92 @@ function resolvePlanWindowFromReads(reads, auth, asOfDate) {
   );
 }
 
+function summarizeStoredValueShape(value) {
+  const summary = {
+    rawType: Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value,
+    rawLength: typeof value === 'string' ? value.length : null,
+    decodeDepth: 0,
+    decodedType: null,
+    keys: [],
+    scheduleMode: null,
+    weekScheduleLength: null,
+    flexibleSequenceLength: null,
+    workoutsType: null,
+    workoutCount: null,
+    hasPlanKey: false,
+    nestedPlanType: null,
+    nestedPlanKeys: [],
+    nestedScheduleMode: null,
+    nestedWeekScheduleLength: null,
+    nestedFlexibleSequenceLength: null,
+    nestedWorkoutsType: null,
+    nestedWorkoutCount: null,
+    hasNextPlan: false,
+  };
+
+  let decoded = value;
+  for (let depth = 0; depth < 8 && typeof decoded === 'string'; depth += 1) {
+    try {
+      decoded = JSON.parse(decoded);
+      summary.decodeDepth = depth + 1;
+    } catch {
+      break;
+    }
+  }
+
+  summary.decodedType = Array.isArray(decoded)
+    ? 'array'
+    : decoded === null
+      ? 'null'
+      : typeof decoded;
+
+  if (decoded && typeof decoded === 'object' && !Array.isArray(decoded)) {
+    summary.keys = Object.keys(decoded).sort().slice(0, 50);
+    summary.scheduleMode = typeof decoded.scheduleMode === 'string' ? decoded.scheduleMode : null;
+    summary.weekScheduleLength = Array.isArray(decoded.weekSchedule) ? decoded.weekSchedule.length : null;
+    summary.flexibleSequenceLength = Array.isArray(decoded.flexibleSequence) ? decoded.flexibleSequence.length : null;
+    summary.workoutsType = Array.isArray(decoded.workouts)
+      ? 'array'
+      : decoded.workouts && typeof decoded.workouts === 'object'
+        ? 'object'
+        : decoded.workouts == null ? 'missing' : typeof decoded.workouts;
+    summary.workoutCount =
+      decoded.workouts && typeof decoded.workouts === 'object'
+        ? Array.isArray(decoded.workouts) ? decoded.workouts.length : Object.keys(decoded.workouts).length
+        : null;
+    summary.hasNextPlan = !!decoded.nextPlan;
+
+    let nested = decoded.plan;
+    for (let depth = 0; depth < 4 && typeof nested === 'string'; depth += 1) {
+      try {
+        nested = JSON.parse(nested);
+      } catch {
+        break;
+      }
+    }
+    summary.hasPlanKey = decoded.plan != null;
+    summary.nestedPlanType = Array.isArray(nested)
+      ? 'array'
+      : nested === null ? 'null' : typeof nested;
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+      summary.nestedPlanKeys = Object.keys(nested).sort().slice(0, 50);
+      summary.nestedScheduleMode = typeof nested.scheduleMode === 'string' ? nested.scheduleMode : null;
+      summary.nestedWeekScheduleLength = Array.isArray(nested.weekSchedule) ? nested.weekSchedule.length : null;
+      summary.nestedFlexibleSequenceLength = Array.isArray(nested.flexibleSequence) ? nested.flexibleSequence.length : null;
+      summary.nestedWorkoutsType = Array.isArray(nested.workouts)
+        ? 'array'
+        : nested.workouts && typeof nested.workouts === 'object'
+          ? 'object'
+          : nested.workouts == null ? 'missing' : typeof nested.workouts;
+      summary.nestedWorkoutCount =
+        nested.workouts && typeof nested.workouts === 'object'
+          ? Array.isArray(nested.workouts) ? nested.workouts.length : Object.keys(nested.workouts).length
+          : null;
+    }
+  }
+  return summary;
+}
+
 export async function handleWorkoutPlanRead({
   request,
   token,
@@ -261,6 +347,10 @@ export async function handleWorkoutPlanRead({
     const historyValues = historyRead.values;
 
     if (!plan) {
+      console.info('[workout-plan-read] unresolved-memory-shapes', {
+        planValueShapes: planValues.slice(0, 3).map(summarizeStoredValueShape),
+        historyValueShapes: historyValues.slice(0, 3).map(summarizeStoredValueShape),
+      });
       console.info('[workout-plan-read] plan-not-found', {
         planValueCount: planValues.length,
         historyValueCount: historyValues.length,
