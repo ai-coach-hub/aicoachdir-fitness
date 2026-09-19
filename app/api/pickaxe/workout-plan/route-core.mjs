@@ -191,6 +191,32 @@ export async function handleWorkoutPlanRead({
       return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Authorized workout plan was not found.' }, 404);
     }
 
+    const scheduleDates = Array.isArray(plan?.weekSchedule)
+      ? plan.weekSchedule
+          .map((entry) => (typeof entry?.date === 'string' ? entry.date : null))
+          .filter(Boolean)
+          .sort()
+      : [];
+    const workoutValues =
+      plan?.workouts && typeof plan.workouts === 'object' && !Array.isArray(plan.workouts)
+        ? Object.values(plan.workouts)
+        : [];
+    const exerciseCounts = workoutValues.map((workout) =>
+      Array.isArray(workout?.exercises) ? workout.exercises.length : -1,
+    );
+    console.info('[workout-plan-read] resolved-plan-shape', {
+      scheduleMode: plan?.scheduleMode || null,
+      weekStart: plan?.phase?.weekStart || scheduleDates[0] || null,
+      weekEnd: plan?.phase?.weekEnd || scheduleDates[scheduleDates.length - 1] || null,
+      weekEntries: Array.isArray(plan?.weekSchedule) ? plan.weekSchedule.length : 0,
+      workoutCount: workoutValues.length,
+      workoutsMissingExerciseArrays: exerciseCounts.filter((count) => count < 0).length,
+      workoutsWithZeroExercises: exerciseCounts.filter((count) => count === 0).length,
+      workoutsWithExercises: exerciseCounts.filter((count) => count > 0).length,
+      hasNextPlan: !!plan?.nextPlan?.plan,
+      nextEffectiveFrom: plan?.nextPlan?.effectiveFrom || null,
+    });
+
     const planBridgeCandidate = parseBridgeAuth(plan?._historyBridge || plan?.historyBridge);
     const proofAuth =
       planBridgeCandidate && verifyBridgeAuth(planBridgeCandidate, token)
