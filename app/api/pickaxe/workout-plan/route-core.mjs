@@ -17,10 +17,8 @@ const HISTORY_MEMORY_NAMES = new Set([
   'fitness workout history for ai coach',
 ]);
 const MAX_BODY_BYTES = 16 * 1024;
-const PICKAXE_REQUEST_TIMEOUTS_MS = [5_000, 8_000];
-const MEMORY_READ_TIMEOUTS_MS = [4_000, 6_000];
-const MEMORY_DEFINITION_CACHE_TTL_MS = 10 * 60 * 1000;
-let memoryDefinitionCache = null;
+const PICKAXE_REQUEST_TIMEOUTS_MS = [6_000, 10_000];
+const USER_MEMORY_READ_TIMEOUTS_MS = [6_000, 10_000];
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 function corsHeaders(origin, allowedOrigins) {
@@ -88,6 +86,22 @@ async function pickaxeRequest(fetchImpl, token, path, timeouts = PICKAXE_REQUEST
   throw lastError || new Error('pickaxe-request-failed');
 }
 
+async function readAllUserMemories(fetchImpl, token, email) {
+  const response = await pickaxeRequest(
+    fetchImpl,
+    token,
+    `/studio/memory/user/${encodeURIComponent(email)}?skip=0&take=100`,
+    USER_MEMORY_READ_TIMEOUTS_MS,
+  );
+  if (response.status === 404) return { values: [], payload: null };
+  if (!response.ok) throw new Error(`user-memory-read-${response.status}`);
+  const payload = await response.json();
+  return {
+    values: collectStoredValues(payload),
+    payload,
+  };
+}
+
 function findMemoryDefinition(items, acceptedNames) {
   return items.find((item) => {
     const name = memoryDefinitionName(item);
@@ -100,7 +114,7 @@ async function readMemory(fetchImpl, token, email, memoryId) {
     fetchImpl,
     token,
     `/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(memoryId)}&skip=0&take=100`,
-    MEMORY_READ_TIMEOUTS_MS,
+    USER_MEMORY_READ_TIMEOUTS_MS,
   );
   if (response.status === 404) return { values: [], payload: null };
   if (!response.ok) throw new Error(`memory-read-${response.status}`);
@@ -111,16 +125,7 @@ async function readMemory(fetchImpl, token, email, memoryId) {
   };
 }
 
-async function getWorkoutMemoryIds(fetchImpl, token) {
-  const now = Date.now();
-  if (
-    memoryDefinitionCache &&
-    memoryDefinitionCache.expiresAt > now &&
-    (memoryDefinitionCache.planMemoryId || memoryDefinitionCache.historyMemoryId)
-  ) {
-    return memoryDefinitionCache;
-  }
-
+async function readLegacyWorkoutMemories(fetchImpl, token, email) {
   const definitionsResponse = await pickaxeRequest(
     fetchImpl,
     token,
@@ -129,23 +134,23 @@ async function getWorkoutMemoryIds(fetchImpl, token) {
   if (!definitionsResponse.ok) {
     throw new Error(`memory-definition-list-${definitionsResponse.status}`);
   }
-
   const definitions = payloadItems(await definitionsResponse.json());
-  const planDefinition = findMemoryDefinition(definitions, PLAN_MEMORY_NAMES);
-  const historyDefinition = findMemoryDefinition(definitions, HISTORY_MEMORY_NAMES);
-  const planMemoryId = memoryDefinitionId(planDefinition);
-  const historyMemoryId = memoryDefinitionId(historyDefinition);
+  const planMemoryId = memoryDefinitionId(findMemoryDefinition(definitions, PLAN_MEMORY_NAMES));
+  const historyMemoryId = memoryDefinitionId(findMemoryDefinition(definitions, HISTORY_MEMORY_NAMES));
+  if (!planMemoryId && !historyMemoryId) return [];
 
-  if (!planMemoryId && !historyMemoryId) {
-    throw new Error('workout-memory-definitions-missing');
-  }
-
-  memoryDefinitionCache = {
-    planMemoryId,
-    historyMemoryId,
-    expiresAt: now + MEMORY_DEFINITION_CACHE_TTL_MS,
-  };
-  return memoryDefinitionCache;
+  const [planResult, historyResult] = await Promise.allSettled([
+    planMemoryId
+      ? readMemory(fetchImpl, token, email, planMemoryId)
+      : Promise.resolve({ values: [], payload: null }),
+    historyMemoryId
+      ? readMemory(fetchImpl, token, email, historyMemoryId)
+      : Promise.resolve({ values: [], payload: null }),
+  ]);
+  return [
+    planResult.status === 'fulfilled' ? planResult.value : { values: [], payload: null },
+    historyResult.status === 'fulfilled' ? historyResult.value : { values: [], payload: null },
+  ];
 }
 
 function sourcesFromReads(reads) {
@@ -295,81 +300,37 @@ export async function handleWorkoutPlanRead({
   }
 
   try {
-    // The HMAC already authenticates the member email + plan capability using the
-    // same workspace secret as the save action. Avoid a redundant user lookup so
-    // one slow Pickaxe endpoint cannot block the plan read.
-    const { planMemoryId, historyMemoryId } = await getWorkoutMemoryIds(fetchImpl, token);
+    // Read this verified member's memory collection in one request. This avoids
+    // the slower memory-definition lookup plus two separate filtered reads that
+    // were timing out in production. The signed HMAC capability already scopes
+    // this request to the member email used by the save action.
+    const memoryRead = await readAllUserMemories(fetchImpl, token, auth.email);
+    let reads = [memoryRead];
+    let plan = resolvePlanWindowFromReads(reads, auth, asOfDate);
 
-    let planRead = { values: [], payload: null };
-    let historyRead = { values: [], payload: null };
-    let planReadError = null;
-    let historyReadError = null;
-
-    const readPlanPromise = planMemoryId
-      ? readMemory(fetchImpl, token, auth.email, planMemoryId)
-      : Promise.resolve({ values: [], payload: null });
-    const readHistoryPromise = historyMemoryId
-      ? readMemory(fetchImpl, token, auth.email, historyMemoryId)
-      : Promise.resolve({ values: [], payload: null });
-
-    const [planResult, historyResult] = await Promise.allSettled([
-      readPlanPromise,
-      readHistoryPromise,
-    ]);
-
-    if (planResult.status === 'fulfilled') {
-      planRead = planResult.value;
-    } else {
-      planReadError = planResult.reason;
-      console.warn('[workout-plan-read] plan-memory-read-failed', {
-        name: planResult.reason?.name || 'Error',
-        message: String(planResult.reason?.message || planResult.reason).slice(0, 160),
-      });
+    // Some older test fixtures and older Pickaxe response paths may not support
+    // the unfiltered member-memory read. Keep the previous filtered-reader path
+    // only as a compatibility fallback; production should normally finish after
+    // the single request above.
+    if (!plan && memoryRead.values.length === 0 && memoryRead.payload == null) {
+      reads = await readLegacyWorkoutMemories(fetchImpl, token, auth.email);
+      plan = resolvePlanWindowFromReads(reads, auth, asOfDate);
     }
 
-    if (historyResult.status === 'fulfilled') {
-      historyRead = historyResult.value;
-    } else {
-      historyReadError = historyResult.reason;
-      console.warn('[workout-plan-read] history-memory-read-failed', {
-        name: historyResult.reason?.name || 'Error',
-        message: String(historyResult.reason?.message || historyResult.reason).slice(0, 160),
-      });
-    }
-
-    const plan = resolvePlanWindowFromReads(
-      [planRead, historyRead],
-      auth,
-      asOfDate,
-    );
-
-    const planValues = planRead.values;
-    const historyValues = historyRead.values;
+    const memoryValues = sourcesFromReads(reads);
 
     if (!plan) {
       console.info('[workout-plan-read] unresolved-memory-shapes', {
-        planValueShapes: planValues.slice(0, 3).map(summarizeStoredValueShape),
-        historyValueShapes: historyValues.slice(0, 3).map(summarizeStoredValueShape),
+        valueShapes: memoryValues.slice(0, 6).map(summarizeStoredValueShape),
       });
       console.info('[workout-plan-read] plan-not-found', {
-        planValueCount: planValues.length,
-        historyValueCount: historyValues.length,
-        hasPlanMemoryDefinition: !!planMemoryId,
-        hasHistoryMemoryDefinition: !!historyMemoryId,
-        planReadFailed: !!planReadError,
-        historyReadFailed: !!historyReadError,
+        memoryValueCount: memoryValues.length,
       });
-      const upstreamFailed = !!planReadError && (!historyMemoryId || !!historyReadError);
       return jsonResponse(
         origin,
         allowedOrigins,
-        {
-          ok: false,
-          message: upstreamFailed
-            ? 'Workout plan could not be loaded from Pickaxe.'
-            : 'Authorized workout plan was not found.',
-        },
-        upstreamFailed ? 502 : 404,
+        { ok: false, message: 'Authorized workout plan was not found.' },
+        404,
       );
     }
 
@@ -415,9 +376,7 @@ export async function handleWorkoutPlanRead({
       {
         ok: true,
         plan: planWithHandoffProof,
-        entries: historyRead.payload
-          ? extractHistoryEntries([...historyValues, historyRead.payload])
-          : [],
+        entries: extractHistoryEntries(memoryValues),
       },
       200,
     );

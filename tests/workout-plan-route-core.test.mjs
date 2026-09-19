@@ -605,3 +605,106 @@ test('combines current flexible plan with a separate future fixed week from hist
   assert.equal(body.plan.nextPlan.plan.weekSchedule[1].workoutId, 'otf');
   assert.ok(body.plan._handoffProof.workouts.some((item) => item.id === 'otf'));
 });
+
+
+test('loads current and future workout plans from one unfiltered member-memory request', async () => {
+  const currentFlexible = {
+    schemaVersion: 2,
+    planId: 'member-plan',
+    updatedAt: '2026-09-19T10:00:00.000Z',
+    scheduleMode: 'flexible_sequence',
+    selectionMode: 'free_choice',
+    weekSchedule: [
+      { id: 'a', label: 'OTF Class', sequenceIndex: 0, isRestDay: false, workoutId: 'otf' },
+    ],
+    workouts: {
+      otf: {
+        id: 'otf',
+        title: 'OTF Class',
+        durationMinutes: 60,
+        exercises: [{ id: 'otf-e1', name: 'OTF Class', sets: 1, reps: '1 class' }],
+      },
+    },
+  };
+  const auth = signAuth({
+    email: 'member@example.com',
+    planId: currentFlexible.planId,
+    planUpdatedAt: currentFlexible.updatedAt,
+  });
+  currentFlexible._historyBridge = auth;
+
+  const futureFixed = {
+    schemaVersion: 2,
+    planId: 'member-plan',
+    updatedAt: '2026-09-19T12:00:00.000Z',
+    scheduleMode: 'fixed_weekdays',
+    phase: { name: 'Next Week', weekStart: '2026-09-20', weekEnd: '2026-09-26' },
+    weekSchedule: [
+      { id: 'sun', day: 'Sunday', date: '2026-09-20', isRestDay: true, workoutId: null },
+      { id: 'mon', day: 'Monday', date: '2026-09-21', isRestDay: false, workoutId: 'otf' },
+      { id: 'tue', day: 'Tuesday', date: '2026-09-22', isRestDay: false, workoutId: 'otf' },
+      { id: 'wed', day: 'Wednesday', date: '2026-09-23', isRestDay: false, workoutId: 'otf' },
+      { id: 'thu', day: 'Thursday', date: '2026-09-24', isRestDay: false, workoutId: 'otf' },
+      { id: 'fri', day: 'Friday', date: '2026-09-25', isRestDay: false, workoutId: 'otf' },
+      { id: 'sat', day: 'Saturday', date: '2026-09-26', isRestDay: true, workoutId: null },
+    ],
+    workouts: {
+      otf: {
+        id: 'otf',
+        title: 'OTF Class',
+        durationMinutes: 60,
+        exercises: [{ id: 'otf-e1', name: 'OTF Class', sets: 1, reps: '1 class' }],
+      },
+    },
+  };
+  futureFixed._historyBridge = signAuth({
+    email: 'member@example.com',
+    planId: futureFixed.planId,
+    planUpdatedAt: futureFixed.updatedAt,
+  });
+
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url: String(url), init });
+    const value = String(url);
+    if (
+      value.includes('/studio/memory/user/member%40example.com?skip=0&take=100') &&
+      !value.includes('memoryId=')
+    ) {
+      return Response.json({
+        data: {
+          items: [
+            { memoryId: 'mem-plan', value: JSON.stringify(currentFlexible) },
+            {
+              memoryId: 'mem-history',
+              value: JSON.stringify({
+                plan: futureFixed,
+                entries: [{ title: 'Earlier' }],
+              }),
+            },
+          ],
+        },
+      });
+    }
+    throw new Error('unexpected fallback call');
+  };
+
+  const response = await routeCore.handleWorkoutPlanRead({
+    request: requestFor({ auth, asOfDate: '2026-09-19' }),
+    token: TOKEN,
+    fetchImpl,
+    allowedOrigins: new Set([ORIGIN]),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.plan.scheduleMode, 'flexible_sequence');
+  assert.equal(body.plan.nextPlan.effectiveFrom, '2026-09-20');
+  assert.equal(body.plan.nextPlan.plan.scheduleMode, 'fixed_weekdays');
+  assert.equal(body.plan.nextPlan.plan.weekSchedule.length, 7);
+  assert.deepEqual(body.entries, [{ title: 'Earlier' }]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url.includes('/studio/memory/list'), false);
+  assert.equal(calls[0].url.includes('memoryId='), false);
+});
