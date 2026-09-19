@@ -126,6 +126,9 @@ test('reads only the verified member plan and returns the effective nested plan'
   assert.equal(body.ok, true);
   assert.equal(body.plan.planId, 'sep13');
   assert.equal(body.plan.workouts.lower.title, 'Lower-Body + Core Strength');
+  assert.ok(body.plan._handoffProof);
+  assert.equal(body.plan._handoffProof.email, 'member@example.com');
+  assert.ok(body.plan._handoffProof.workouts.some((item) => item.id === 'lower'));
   assert.deepEqual(body.entries, [{ title: 'Earlier' }]);
   assert.ok(calls.every((call) => call.init.headers?.get?.('Authorization') === `Bearer ${TOKEN}`));
   assert.equal(response.headers.get('Access-Control-Allow-Origin'), ORIGIN);
