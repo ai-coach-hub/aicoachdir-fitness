@@ -88,7 +88,7 @@ test('rejects invalid signatures before any Pickaxe API call', async () => {
   assert.equal(fetchCalls, 0);
 });
 
-test('reads only the verified member plan and returns the effective nested plan', async () => {
+test('returns the plan from plan memory without redundant user or history lookups', async () => {
   const { outer, auth } = plan();
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
@@ -129,9 +129,84 @@ test('reads only the verified member plan and returns the effective nested plan'
   assert.ok(body.plan._handoffProof);
   assert.equal(body.plan._handoffProof.email, 'member@example.com');
   assert.ok(body.plan._handoffProof.workouts.some((item) => item.id === 'lower'));
-  assert.deepEqual(body.entries, [{ title: 'Earlier' }]);
+  assert.deepEqual(body.entries, []);
+  assert.equal(calls.some((call) => call.url.includes('/studio/user/')), false);
+  assert.equal(calls.some((call) => call.url.includes('memoryId=mem-history')), false);
   assert.ok(calls.every((call) => call.init.headers?.get?.('Authorization') === `Bearer ${TOKEN}`));
   assert.equal(response.headers.get('Access-Control-Allow-Origin'), ORIGIN);
+});
+
+test('falls back to history memory when the plan-memory read times out', async () => {
+  const { outer, auth } = plan();
+  let planReadCalls = 0;
+  let historyReadCalls = 0;
+
+  const fetchImpl = async (url) => {
+    const value = String(url);
+    if (value.includes('/studio/memory/list')) {
+      return Response.json({ data: { items: [
+        { id: 'mem-plan', name: 'fitness-workout-plan-v1' },
+        { id: 'mem-history', name: 'fitness-workout-history-v1' },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-plan')) {
+      planReadCalls += 1;
+      throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    }
+    if (value.includes('memoryId=mem-history')) {
+      historyReadCalls += 1;
+      return Response.json({ data: { items: [
+        {
+          memoryId: 'mem-history',
+          value: JSON.stringify({ plan: outer, entries: [{ title: 'Earlier' }] }),
+        },
+      ] } });
+    }
+    return new Response('not found', { status: 404 });
+  };
+
+  const response = await routeCore.handleWorkoutPlanRead({
+    request: requestFor({ auth, asOfDate: '2026-09-14' }),
+    token: TOKEN,
+    fetchImpl,
+    allowedOrigins: new Set([ORIGIN]),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.plan.planId, 'sep13');
+  assert.deepEqual(body.entries, [{ title: 'Earlier' }]);
+  assert.equal(planReadCalls, 2);
+  assert.equal(historyReadCalls, 1);
+});
+
+test('returns 502 only when both plan and history recovery reads fail upstream', async () => {
+  const { auth } = plan();
+  const fetchImpl = async (url) => {
+    const value = String(url);
+    if (value.includes('/studio/memory/list')) {
+      return Response.json({ data: { items: [
+        { id: 'mem-plan', name: 'fitness-workout-plan-v1' },
+        { id: 'mem-history', name: 'fitness-workout-history-v1' },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-plan') || value.includes('memoryId=mem-history')) {
+      throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    }
+    return new Response('not found', { status: 404 });
+  };
+
+  const response = await routeCore.handleWorkoutPlanRead({
+    request: requestFor({ auth, asOfDate: '2026-09-14' }),
+    token: TOKEN,
+    fetchImpl,
+    allowedOrigins: new Set([ORIGIN]),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 502);
+  assert.equal(body.ok, false);
 });
 
 test('does not allow an unapproved browser origin', async () => {
