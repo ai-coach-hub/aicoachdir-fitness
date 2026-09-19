@@ -186,12 +186,15 @@ function isIsoDateKey(value) {
 }
 
 function isUsablePlan(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const schedule =
+    Array.isArray(value.weekSchedule) && value.weekSchedule.length > 0
+      ? value.weekSchedule
+      : Array.isArray(value.flexibleSequence) && value.flexibleSequence.length > 0
+        ? value.flexibleSequence
+        : null;
   return !!(
-    value &&
-    typeof value === 'object' &&
-    !Array.isArray(value) &&
-    Array.isArray(value.weekSchedule) &&
-    value.weekSchedule.length > 0 &&
+    schedule &&
     value.workouts &&
     typeof value.workouts === 'object' &&
     !Array.isArray(value.workouts) &&
