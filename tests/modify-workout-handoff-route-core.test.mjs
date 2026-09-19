@@ -7,8 +7,9 @@ import { handleModifyWorkoutHandoff } from '../app/api/pickaxe/modify-workout-ha
 const ORIGIN = 'https://studio.pickaxe.co';
 const WORKSPACE_TOKEN = 'workspace-test-token';
 const DEPLOYMENT_ID = 'deployment-test-token';
-const COACH_ID = 'W7S4B963AI9ELAW';
 const MEMBER_USER_ID = 'user-member-123';
+const REQUEST_ID = '11111111-2222-4333-8444-555555555555';
+const SESSION_ID = `modify-workout-${REQUEST_ID}`;
 const PLAN = {
   schemaVersion: 2,
   planId: 'plan-1',
@@ -40,7 +41,7 @@ function body(overrides = {}) {
     workoutId: 'mobility-recovery',
     planId: PLAN.planId,
     planUpdatedAt: PLAN.updatedAt,
-    sessionId: 'session-123',
+    requestId: REQUEST_ID,
     historyBridge: auth(),
     ...overrides,
   };
@@ -58,9 +59,6 @@ function adapters(overrides = {}) {
     fetchImpl: async (url) => {
       const u = String(url);
       if (u.includes('/studio/user/')) return memberResponse();
-      if (u.endsWith('/studio/workspace/history')) {
-        return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: MEMBER_USER_ID }] });
-      }
       if (u.endsWith('/triggers')) return Response.json({ success: true, result: 'Ready' });
       throw new Error(`Unexpected fetch ${u}`);
     },
@@ -72,22 +70,23 @@ function adapters(overrides = {}) {
   };
 }
 
-test('valid request resolves portal member userId, triggers once, and returns ok', async () => {
+test('valid request creates a dedicated session, triggers once, and returns that session', async () => {
   let triggerCalls = 0;
-  let historyUsers = null;
+  let memberCalls = 0;
   const a = adapters({
     fetchImpl: async (url, init = {}) => {
       const u = String(url);
-      if (u.includes('/studio/user/')) return memberResponse();
+      if (u.includes('/studio/user/')) {
+        memberCalls += 1;
+        return memberResponse();
+      }
       if (u.endsWith('/studio/workspace/history')) {
-        const payload = JSON.parse(init.body);
-        historyUsers = payload.users;
-        return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: MEMBER_USER_ID }] });
+        throw new Error('workspace history must not be required for a new handoff session');
       }
       if (u.endsWith('/triggers')) {
         triggerCalls += 1;
         const payload = JSON.parse(init.body);
-        assert.equal(payload.conversationId, 'session-123');
+        assert.equal(payload.conversationId, SESSION_ID);
         assert.equal(payload.userId, MEMBER_USER_ID);
         assert.match(payload.message, /Mobility & Recovery/);
         return Response.json({ success: true, result: 'Ready' });
@@ -95,41 +94,41 @@ test('valid request resolves portal member userId, triggers once, and returns ok
       throw new Error(`Unexpected fetch ${u}`);
     },
   });
+
   const response = await handleModifyWorkoutHandoff({ request: requestFor(body()), ...a });
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { ok: true });
-  assert.deepEqual(historyUsers, [MEMBER_USER_ID]);
+  assert.deepEqual(await response.json(), { ok: true, sessionId: SESSION_ID });
+  assert.equal(memberCalls, 1);
   assert.equal(triggerCalls, 1);
 });
 
-test('rejects bad bridge before member, session, or trigger calls', async () => {
+test('rejects bad bridge before member lookup or trigger', async () => {
   let calls = 0;
   const a = adapters({ fetchImpl: async () => { calls += 1; return Response.json({}); } });
-  const response = await handleModifyWorkoutHandoff({ request: requestFor(body({ historyBridge: { ...auth(), signature: '0'.repeat(64) } })), ...a });
+  const response = await handleModifyWorkoutHandoff({
+    request: requestFor(body({ historyBridge: { ...auth(), signature: '0'.repeat(64) } })),
+    ...a,
+  });
   assert.equal(response.status, 401);
   assert.equal(calls, 0);
 });
 
-test('rejects wrong session/member', async () => {
-  const a = adapters({
-    fetchImpl: async (url) => {
-      const u = String(url);
-      if (u.includes('/studio/user/')) return memberResponse();
-      if (u.endsWith('/studio/workspace/history')) {
-        return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: 'other-user-id' }] });
-      }
-      throw new Error('trigger must not run');
-    },
+test('rejects invalid requestId before member lookup or trigger', async () => {
+  let calls = 0;
+  const a = adapters({ fetchImpl: async () => { calls += 1; return Response.json({}); } });
+  const response = await handleModifyWorkoutHandoff({
+    request: requestFor(body({ requestId: 'not-a-uuid' })),
+    ...a,
   });
-  const response = await handleModifyWorkoutHandoff({ request: requestFor(body()), ...a });
-  assert.equal(response.status, 401);
+  assert.equal(response.status, 400);
+  assert.equal(calls, 0);
 });
 
 test('returns 502 when portal member userId cannot be resolved', async () => {
   const a = adapters({
     fetchImpl: async (url) => {
       if (String(url).includes('/studio/user/')) return Response.json({ data: {} });
-      throw new Error('history and trigger must not run');
+      throw new Error('trigger must not run');
     },
   });
   const response = await handleModifyWorkoutHandoff({ request: requestFor(body()), ...a });
@@ -137,16 +136,22 @@ test('returns 502 when portal member userId cannot be resolved', async () => {
 });
 
 test('returns 404 for unknown workout', async () => {
-  const response = await handleModifyWorkoutHandoff({ request: requestFor(body({ workoutId: 'unknown' })), ...adapters() });
+  const response = await handleModifyWorkoutHandoff({
+    request: requestFor(body({ workoutId: 'unknown' })),
+    ...adapters(),
+  });
   assert.equal(response.status, 404);
 });
 
 test('returns 409 when signed plan is stale or unavailable', async () => {
-  const response = await handleModifyWorkoutHandoff({ request: requestFor(body()), ...adapters({ readPlan: async () => null }) });
+  const response = await handleModifyWorkoutHandoff({
+    request: requestFor(body()),
+    ...adapters({ readPlan: async () => null }),
+  });
   assert.equal(response.status, 409);
 });
 
-test('reuses succeeded duplicate without second trigger', async () => {
+test('reuses succeeded duplicate and returns the same session without second trigger', async () => {
   let fetchCalls = 0;
   const response = await handleModifyWorkoutHandoff({
     request: requestFor(body()),
@@ -156,20 +161,20 @@ test('reuses succeeded duplicate without second trigger', async () => {
         fetchCalls += 1;
         const u = String(url);
         if (u.includes('/studio/user/')) return memberResponse();
-        if (u.endsWith('/studio/workspace/history')) {
-          return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: MEMBER_USER_ID }] });
-        }
         throw new Error('trigger must not run for succeeded duplicate');
       },
     }),
   });
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { ok: true, reused: true });
-  assert.equal(fetchCalls, 2);
+  assert.deepEqual(await response.json(), { ok: true, reused: true, sessionId: SESSION_ID });
+  assert.equal(fetchCalls, 1);
 });
 
 test('returns 409 for processing duplicate', async () => {
-  const response = await handleModifyWorkoutHandoff({ request: requestFor(body()), ...adapters({ claimHandoff: async () => 'processing' }) });
+  const response = await handleModifyWorkoutHandoff({
+    request: requestFor(body()),
+    ...adapters({ claimHandoff: async () => 'processing' }),
+  });
   assert.equal(response.status, 409);
 });
 
@@ -179,9 +184,6 @@ test('trigger failure returns 502 and marks failed', async () => {
     fetchImpl: async (url) => {
       const u = String(url);
       if (u.includes('/studio/user/')) return memberResponse();
-      if (u.endsWith('/studio/workspace/history')) {
-        return Response.json({ success: true, data: [{ responseId: 'session-123', formId: COACH_ID, userId: MEMBER_USER_ID }] });
-      }
       if (u.endsWith('/triggers')) return Response.json({ success: false }, { status: 502 });
       throw new Error('unexpected');
     },
