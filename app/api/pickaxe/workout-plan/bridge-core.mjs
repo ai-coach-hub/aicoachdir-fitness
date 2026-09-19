@@ -337,7 +337,7 @@ function decodeEscapedJsonLayer(text) {
     return null;
   }
   try {
-    const wrapped = '"' + source.replace(/"/g, '\\"') + '"';
+    const wrapped = '"' + source.replace(/\r/g, '\\r').replace(/\n/g, '\\n') + '"';
     const decoded = JSON.parse(wrapped);
     return typeof decoded === 'string' ? decoded : null;
   } catch {
