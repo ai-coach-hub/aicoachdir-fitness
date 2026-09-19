@@ -7,7 +7,6 @@ import { handleModifyWorkoutHandoff } from '../app/api/pickaxe/modify-workout-ha
 const ORIGIN = 'https://studio.pickaxe.co';
 const WORKSPACE_TOKEN = 'workspace-test-token';
 const DEPLOYMENT_ID = 'deployment-test-token';
-const MEMBER_USER_ID = 'user-member-123';
 const REQUEST_ID = '11111111-2222-4333-8444-555555555555';
 const SESSION_ID = `modify-workout-${REQUEST_ID}`;
 const PLAN = {
@@ -47,10 +46,6 @@ function body(overrides = {}) {
   };
 }
 
-function memberResponse() {
-  return Response.json({ data: { userId: MEMBER_USER_ID, email: 'member@example.com' } });
-}
-
 function adapters(overrides = {}) {
   return {
     workspaceToken: WORKSPACE_TOKEN,
@@ -58,7 +53,6 @@ function adapters(overrides = {}) {
     allowedOrigins: new Set([ORIGIN]),
     fetchImpl: async (url) => {
       const u = String(url);
-      if (u.includes('/studio/user/')) return memberResponse();
       if (u.endsWith('/triggers')) return Response.json({ success: true, result: 'Ready' });
       throw new Error(`Unexpected fetch ${u}`);
     },
@@ -72,22 +66,14 @@ function adapters(overrides = {}) {
 
 test('valid request creates a dedicated session, triggers once, and returns that session', async () => {
   let triggerCalls = 0;
-  let memberCalls = 0;
   const a = adapters({
     fetchImpl: async (url, init = {}) => {
       const u = String(url);
-      if (u.includes('/studio/user/')) {
-        memberCalls += 1;
-        return memberResponse();
-      }
-      if (u.endsWith('/studio/workspace/history')) {
-        throw new Error('workspace history must not be required for a new handoff session');
-      }
       if (u.endsWith('/triggers')) {
         triggerCalls += 1;
         const payload = JSON.parse(init.body);
         assert.equal(payload.conversationId, SESSION_ID);
-        assert.equal(payload.userId, MEMBER_USER_ID);
+        assert.equal(payload.userId, 'member@example.com');
         assert.match(payload.message, /Mobility & Recovery/);
         return Response.json({ success: true, result: 'Ready' });
       }
@@ -98,7 +84,6 @@ test('valid request creates a dedicated session, triggers once, and returns that
   const response = await handleModifyWorkoutHandoff({ request: requestFor(body()), ...a });
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true, sessionId: SESSION_ID });
-  assert.equal(memberCalls, 1);
   assert.equal(triggerCalls, 1);
 });
 
@@ -124,17 +109,6 @@ test('rejects invalid requestId before member lookup or trigger', async () => {
   assert.equal(calls, 0);
 });
 
-test('returns 502 when portal member userId cannot be resolved', async () => {
-  const a = adapters({
-    fetchImpl: async (url) => {
-      if (String(url).includes('/studio/user/')) return Response.json({ data: {} });
-      throw new Error('trigger must not run');
-    },
-  });
-  const response = await handleModifyWorkoutHandoff({ request: requestFor(body()), ...a });
-  assert.equal(response.status, 502);
-});
-
 test('returns 404 for unknown workout', async () => {
   const response = await handleModifyWorkoutHandoff({
     request: requestFor(body({ workoutId: 'unknown' })),
@@ -157,17 +131,15 @@ test('reuses succeeded duplicate and returns the same session without second tri
     request: requestFor(body()),
     ...adapters({
       claimHandoff: async () => 'succeeded',
-      fetchImpl: async (url) => {
+      fetchImpl: async () => {
         fetchCalls += 1;
-        const u = String(url);
-        if (u.includes('/studio/user/')) return memberResponse();
         throw new Error('trigger must not run for succeeded duplicate');
       },
     }),
   });
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true, reused: true, sessionId: SESSION_ID });
-  assert.equal(fetchCalls, 1);
+  assert.equal(fetchCalls, 0);
 });
 
 test('returns 409 for processing duplicate', async () => {
@@ -183,7 +155,6 @@ test('trigger failure returns 502 and marks failed', async () => {
   const a = adapters({
     fetchImpl: async (url) => {
       const u = String(url);
-      if (u.includes('/studio/user/')) return memberResponse();
       if (u.endsWith('/triggers')) return Response.json({ success: false }, { status: 502 });
       throw new Error('unexpected');
     },
@@ -192,4 +163,32 @@ test('trigger failure returns 502 and marks failed', async () => {
   const response = await handleModifyWorkoutHandoff({ request: requestFor(body()), ...a });
   assert.equal(response.status, 502);
   assert.equal(failed, 1);
+});
+
+
+test('continues safely when idempotency storage is unavailable', async () => {
+  let triggerCalls = 0;
+  const response = await handleModifyWorkoutHandoff({
+    request: requestFor(body()),
+    ...adapters({
+      claimHandoff: async () => { throw new Error('db unavailable'); },
+      fetchImpl: async (url, init = {}) => {
+        const u = String(url);
+        if (u.endsWith('/triggers')) {
+          triggerCalls += 1;
+          const payload = JSON.parse(init.body);
+          assert.equal(payload.userId, 'member@example.com');
+          assert.equal(payload.conversationId, SESSION_ID);
+          return Response.json({ success: true, result: 'Ready' });
+        }
+        throw new Error(`Unexpected fetch ${u}`);
+      },
+      markSucceeded: async () => { throw new Error('must not run when idempotency unavailable'); },
+      markFailed: async () => { throw new Error('must not run when idempotency unavailable'); },
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { ok: true, sessionId: SESSION_ID });
+  assert.equal(triggerCalls, 1);
 });
