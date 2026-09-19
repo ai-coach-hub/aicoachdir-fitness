@@ -295,6 +295,67 @@ function pythonLiteralToJson(text) {
   return result;
 }
 
+
+function removeTrailingCommas(text) {
+  const source = String(text || '');
+  let result = '';
+  let quote = null;
+  let escaped = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (quote) {
+      result += char;
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      result += char;
+      continue;
+    }
+    if (char === ',') {
+      let lookahead = index + 1;
+      while (lookahead < source.length && /\s/.test(source[lookahead])) lookahead += 1;
+      if (source[lookahead] === '}' || source[lookahead] === ']') continue;
+    }
+    result += char;
+  }
+  return result;
+}
+
+function decodeEscapedJsonLayer(text) {
+  const source = String(text || '').trim();
+  if (!(source.startsWith('{\\"') || source.startsWith('[\\"') || source.includes('\\"schemaVersion\\"'))) {
+    return null;
+  }
+  try {
+    const wrapped = '"' + source.replace(/"/g, '\\"') + '"';
+    const decoded = JSON.parse(wrapped);
+    return typeof decoded === 'string' ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeUrlEncodedLayer(text) {
+  const source = String(text || '').trim();
+  if (!/%(?:7B|7D|5B|5D|22|27)/i.test(source)) return null;
+  try {
+    const decoded = decodeURIComponent(source);
+    return decoded !== source ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
 function decodeStoredText(value) {
   if (typeof value !== 'string') return value;
 
@@ -307,14 +368,24 @@ function decodeStoredText(value) {
       .replace(/&#39;/g, "'")
       .replace(/&amp;/g, '&');
 
+    const escapedDecoded = decodeEscapedJsonLayer(htmlDecoded);
+    const urlDecoded = decodeUrlEncodedLayer(htmlDecoded);
+
     const candidates = [];
     for (const candidate of [
       normalized,
       htmlDecoded,
+      escapedDecoded,
+      urlDecoded,
       extractStructuredSlice(normalized),
       extractStructuredSlice(htmlDecoded),
+      escapedDecoded ? extractStructuredSlice(escapedDecoded) : null,
+      urlDecoded ? extractStructuredSlice(urlDecoded) : null,
     ]) {
-      if (candidate && !candidates.includes(candidate)) candidates.push(candidate);
+      if (!candidate) continue;
+      for (const variant of [candidate, removeTrailingCommas(candidate)]) {
+        if (variant && !candidates.includes(variant)) candidates.push(variant);
+      }
     }
 
     let parsed = null;
