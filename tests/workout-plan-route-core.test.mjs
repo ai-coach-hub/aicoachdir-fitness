@@ -274,3 +274,136 @@ test('uses a valid stale capability to recover the newest member plan and signs 
   assert.equal(body.plan._handoffProof.planUpdatedAt, '2026-09-19T12:00:00.000Z');
   assert.ok(body.plan._handoffProof.workouts.some((item) => item.id === 'otf'));
 });
+
+
+test('recovers plan from full Pickaxe payload when generic value field is misleading', async () => {
+  const newestPlan = {
+    schemaVersion: 2,
+    planId: 'next-fixed',
+    updatedAt: '2026-09-19T12:00:00.000Z',
+    scheduleMode: 'fixed_weekdays',
+    phase: { name: 'Next Week', weekStart: '2026-09-20' },
+    weekSchedule: [
+      { id: 'sun', day: 'Sunday', date: '2026-09-20', isRestDay: true, workoutId: null },
+      { id: 'mon', day: 'Monday', date: '2026-09-21', isRestDay: false, workoutId: 'otf' },
+    ],
+    workouts: {
+      otf: {
+        id: 'otf',
+        title: 'OTF Class',
+        durationMinutes: 60,
+        exercises: [{ id: 'otf-e1', name: 'OTF Class', sets: 1, reps: '1 class' }],
+      },
+    },
+  };
+  const auth = signAuth({
+    email: 'member@example.com',
+    planId: 'old-flex',
+    planUpdatedAt: '2026-09-18T10:00:00.000Z',
+  });
+  newestPlan._historyBridge = signAuth({
+    email: 'member@example.com',
+    planId: newestPlan.planId,
+    planUpdatedAt: newestPlan.updatedAt,
+  });
+
+  const fetchImpl = async (url) => {
+    const value = String(url);
+    if (value.includes('/studio/user/member%40example.com')) {
+      return Response.json({ data: { email: 'member@example.com' } });
+    }
+    if (value.includes('/studio/memory/list')) {
+      return Response.json({ data: { items: [
+        { id: 'mem-plan', name: 'fitness-workout-plan-v1' },
+        { id: 'mem-history', name: 'fitness-workout-history-v1' },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-plan')) {
+      return Response.json({
+        data: {
+          items: [{
+            memoryId: 'mem-plan',
+            value: 'not-the-plan',
+            record: {
+              payload: {
+                currentPlan: JSON.stringify(newestPlan),
+              },
+            },
+          }],
+        },
+      });
+    }
+    if (value.includes('memoryId=mem-history')) {
+      return Response.json({ data: { items: [] } });
+    }
+    return new Response('not found', { status: 404 });
+  };
+
+  const response = await routeCore.handleWorkoutPlanRead({
+    request: requestFor({ auth, asOfDate: '2026-09-19' }),
+    token: TOKEN,
+    fetchImpl,
+    allowedOrigins: new Set([ORIGIN]),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.plan.planId, 'next-fixed');
+});
+
+test('accepts a flexible plan whose schedule is present only in flexibleSequence', async () => {
+  const flexible = {
+    schemaVersion: 2,
+    planId: 'flex-only',
+    updatedAt: '2026-09-19T12:00:00.000Z',
+    scheduleMode: 'flexible_sequence',
+    selectionMode: 'free_choice',
+    flexibleSequence: [
+      { id: 'a', label: 'Workout A', sequenceIndex: 0, isRestDay: false, workoutId: 'a' },
+    ],
+    workouts: {
+      a: {
+        id: 'a',
+        title: 'Workout A',
+        durationMinutes: 30,
+        exercises: [{ id: 'e1', name: 'Exercise', sets: 2, reps: '8' }],
+      },
+    },
+  };
+  const auth = signAuth({
+    email: 'member@example.com',
+    planId: flexible.planId,
+    planUpdatedAt: flexible.updatedAt,
+  });
+
+  const fetchImpl = async (url) => {
+    const value = String(url);
+    if (value.includes('/studio/user/member%40example.com')) {
+      return Response.json({ data: { email: 'member@example.com' } });
+    }
+    if (value.includes('/studio/memory/list')) {
+      return Response.json({ data: { items: [
+        { id: 'mem-plan', name: 'fitness-workout-plan-v1' },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-plan')) {
+      return Response.json({ data: { items: [
+        { memoryId: 'mem-plan', value: JSON.stringify(flexible) },
+      ] } });
+    }
+    return new Response('not found', { status: 404 });
+  };
+
+  const response = await routeCore.handleWorkoutPlanRead({
+    request: requestFor({ auth, asOfDate: '2026-09-19' }),
+    token: TOKEN,
+    fetchImpl,
+    allowedOrigins: new Set([ORIGIN]),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.plan.planId, 'flex-only');
+});
