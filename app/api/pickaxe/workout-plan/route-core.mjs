@@ -98,10 +98,13 @@ async function readMemory(fetchImpl, token, email, memoryId) {
     token,
     `/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(memoryId)}&skip=0&take=100`,
   );
-  if (response.status === 404) return [];
+  if (response.status === 404) return { values: [], payload: null };
   if (!response.ok) throw new Error(`memory-read-${response.status}`);
   const payload = await response.json();
-  return collectStoredValues(payload, memoryId);
+  return {
+    values: collectStoredValues(payload, memoryId),
+    payload,
+  };
 }
 
 export async function handleWorkoutPlanRead({
@@ -179,13 +182,32 @@ export async function handleWorkoutPlanRead({
       throw new Error('workout-memory-definitions-missing');
     }
 
-    const [planValues, historyValues] = await Promise.all([
-      planMemoryId ? readMemory(fetchImpl, token, auth.email, planMemoryId) : Promise.resolve([]),
-      historyMemoryId ? readMemory(fetchImpl, token, auth.email, historyMemoryId) : Promise.resolve([]),
+    const [planRead, historyRead] = await Promise.all([
+      planMemoryId
+        ? readMemory(fetchImpl, token, auth.email, planMemoryId)
+        : Promise.resolve({ values: [], payload: null }),
+      historyMemoryId
+        ? readMemory(fetchImpl, token, auth.email, historyMemoryId)
+        : Promise.resolve({ values: [], payload: null }),
     ]);
 
+    const planValues = planRead.values;
+    const historyValues = historyRead.values;
+
+    // Use both the extracted memory values and the complete member-scoped Pickaxe
+    // payloads. Pickaxe has changed its memory response wrappers over time, and
+    // some valid plans can live beside rather than inside the first generic
+    // `value` field. The request itself is already authenticated and scoped to
+    // this verified member, so scanning the full returned payload is safe.
+    const planSources = [
+      ...planValues,
+      ...historyValues,
+      planRead.payload,
+      historyRead.payload,
+    ].filter((value) => value != null);
+
     const plan = resolveAuthorizedPlanFromValues(
-      [...planValues, ...historyValues],
+      planSources,
       auth,
       asOfDate,
       { allowLatestFallback: true },
@@ -242,7 +264,7 @@ export async function handleWorkoutPlanRead({
       {
         ok: true,
         plan: planWithHandoffProof,
-        entries: extractHistoryEntries(historyValues),
+        entries: extractHistoryEntries([...historyValues, historyRead.payload]),
       },
       200,
     );

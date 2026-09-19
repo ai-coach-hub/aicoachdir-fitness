@@ -186,12 +186,15 @@ function isIsoDateKey(value) {
 }
 
 function isUsablePlan(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const schedule =
+    Array.isArray(value.weekSchedule) && value.weekSchedule.length > 0
+      ? value.weekSchedule
+      : Array.isArray(value.flexibleSequence) && value.flexibleSequence.length > 0
+        ? value.flexibleSequence
+        : null;
   return !!(
-    value &&
-    typeof value === 'object' &&
-    !Array.isArray(value) &&
-    Array.isArray(value.weekSchedule) &&
-    value.weekSchedule.length > 0 &&
+    schedule &&
     value.workouts &&
     typeof value.workouts === 'object' &&
     !Array.isArray(value.workouts) &&
@@ -214,29 +217,37 @@ function candidatePlansFromDecoded(decoded) {
   const seen = new WeakSet();
 
   function visit(value, depth = 0) {
-    if (depth > 10) return;
+    if (depth > 12 || value == null) return;
 
-    const unwrapped = unwrapStoredValue(value);
-
-    if (Array.isArray(unwrapped)) {
-      for (const item of unwrapped) visit(item, depth + 1);
+    if (typeof value === 'string') {
+      let parsed = value;
+      for (let index = 0; index < 8 && typeof parsed === 'string'; index += 1) {
+        try {
+          parsed = JSON.parse(parsed);
+        } catch {
+          return;
+        }
+      }
+      if (parsed !== value) visit(parsed, depth + 1);
       return;
     }
 
-    if (!unwrapped || typeof unwrapped !== 'object') return;
-    if (seen.has(unwrapped)) return;
-    seen.add(unwrapped);
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item, depth + 1);
+      return;
+    }
 
-    if (isUsablePlan(unwrapped)) candidates.push(unwrapped);
+    if (typeof value !== 'object') return;
+    if (seen.has(value)) return;
+    seen.add(value);
 
-    // Pickaxe memory responses have appeared behind several wrapper shapes over
-    // time. Traverse object children defensively instead of assuming the plan is
-    // only at plan/currentPlan/workoutPlan on the first decoded object.
-    for (const child of Object.values(unwrapped)) {
-      if (
-        child &&
-        (typeof child === 'object' || typeof child === 'string')
-      ) {
+    if (isUsablePlan(value)) candidates.push(value);
+
+    // Never collapse an object to its generic `value` field before walking
+    // sibling properties. Pickaxe can return metadata/value wrappers alongside
+    // the actual plan envelope, so every child must remain discoverable.
+    for (const child of Object.values(value)) {
+      if (child != null && (typeof child === 'object' || typeof child === 'string')) {
         visit(child, depth + 1);
       }
     }
@@ -285,8 +296,7 @@ function newestUsableStoredPlan(values) {
   const candidates = [];
 
   for (const rawValue of sourceValues) {
-    const decoded = unwrapStoredValue(rawValue);
-    for (const candidate of candidatePlansFromDecoded(decoded)) {
+    for (const candidate of candidatePlansFromDecoded(rawValue)) {
       if (!isUsablePlan(candidate)) continue;
       candidates.push(candidate);
     }
@@ -301,8 +311,7 @@ export function resolveAuthorizedPlanFromValues(values, auth, asOfDate, { allowL
   const sourceValues = Array.isArray(values) ? values : [values];
 
   for (const rawValue of sourceValues) {
-    const decoded = unwrapStoredValue(rawValue);
-    for (const candidate of candidatePlansFromDecoded(decoded)) {
+    for (const candidate of candidatePlansFromDecoded(rawValue)) {
       const resolved = activePlanForAuthorizedCandidate(candidate, auth, asOfDate);
       if (resolved) return resolved;
     }
