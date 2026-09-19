@@ -2,12 +2,20 @@ import {
   collectStoredValues,
   createWorkoutHandoffProof,
   extractHistoryEntries,
+  memoryDefinitionId,
+  memoryDefinitionName,
   parseBridgeAuth,
+  payloadItems,
   resolveAuthorizedPlanWindowFromValues,
   verifyBridgeAuth,
 } from './bridge-core.mjs';
 
 const PICKAXE_API_BASE = 'https://api.pickaxe.co/v1';
+const PLAN_MEMORY_NAMES = new Set(['fitness workout plan v1']);
+const HISTORY_MEMORY_NAMES = new Set([
+  'fitness workout history v1',
+  'fitness workout history for ai coach',
+]);
 const MAX_BODY_BYTES = 16 * 1024;
 const PICKAXE_REQUEST_TIMEOUTS_MS = [6_000, 10_000];
 const USER_MEMORY_READ_TIMEOUTS_MS = [6_000, 10_000];
@@ -92,6 +100,57 @@ async function readAllUserMemories(fetchImpl, token, email) {
     values: collectStoredValues(payload),
     payload,
   };
+}
+
+function findMemoryDefinition(items, acceptedNames) {
+  return items.find((item) => {
+    const name = memoryDefinitionName(item);
+    return !!name && acceptedNames.has(name);
+  }) || null;
+}
+
+async function readMemory(fetchImpl, token, email, memoryId) {
+  const response = await pickaxeRequest(
+    fetchImpl,
+    token,
+    `/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(memoryId)}&skip=0&take=100`,
+    USER_MEMORY_READ_TIMEOUTS_MS,
+  );
+  if (response.status === 404) return { values: [], payload: null };
+  if (!response.ok) throw new Error(`memory-read-${response.status}`);
+  const payload = await response.json();
+  return {
+    values: collectStoredValues(payload, memoryId),
+    payload,
+  };
+}
+
+async function readLegacyWorkoutMemories(fetchImpl, token, email) {
+  const definitionsResponse = await pickaxeRequest(
+    fetchImpl,
+    token,
+    '/studio/memory/list?skip=0&take=100',
+  );
+  if (!definitionsResponse.ok) {
+    throw new Error(`memory-definition-list-${definitionsResponse.status}`);
+  }
+  const definitions = payloadItems(await definitionsResponse.json());
+  const planMemoryId = memoryDefinitionId(findMemoryDefinition(definitions, PLAN_MEMORY_NAMES));
+  const historyMemoryId = memoryDefinitionId(findMemoryDefinition(definitions, HISTORY_MEMORY_NAMES));
+  if (!planMemoryId && !historyMemoryId) return [];
+
+  const [planResult, historyResult] = await Promise.allSettled([
+    planMemoryId
+      ? readMemory(fetchImpl, token, email, planMemoryId)
+      : Promise.resolve({ values: [], payload: null }),
+    historyMemoryId
+      ? readMemory(fetchImpl, token, email, historyMemoryId)
+      : Promise.resolve({ values: [], payload: null }),
+  ]);
+  return [
+    planResult.status === 'fulfilled' ? planResult.value : { values: [], payload: null },
+    historyResult.status === 'fulfilled' ? historyResult.value : { values: [], payload: null },
+  ];
 }
 
 function sourcesFromReads(reads) {
@@ -246,8 +305,19 @@ export async function handleWorkoutPlanRead({
     // were timing out in production. The signed HMAC capability already scopes
     // this request to the member email used by the save action.
     const memoryRead = await readAllUserMemories(fetchImpl, token, auth.email);
-    const plan = resolvePlanWindowFromReads([memoryRead], auth, asOfDate);
-    const memoryValues = memoryRead.values;
+    let reads = [memoryRead];
+    let plan = resolvePlanWindowFromReads(reads, auth, asOfDate);
+
+    // Some older test fixtures and older Pickaxe response paths may not support
+    // the unfiltered member-memory read. Keep the previous filtered-reader path
+    // only as a compatibility fallback; production should normally finish after
+    // the single request above.
+    if (!plan && memoryRead.values.length === 0 && memoryRead.payload == null) {
+      reads = await readLegacyWorkoutMemories(fetchImpl, token, auth.email);
+      plan = resolvePlanWindowFromReads(reads, auth, asOfDate);
+    }
+
+    const memoryValues = sourcesFromReads(reads);
 
     if (!plan) {
       console.info('[workout-plan-read] unresolved-memory-shapes', {
@@ -306,9 +376,7 @@ export async function handleWorkoutPlanRead({
       {
         ok: true,
         plan: planWithHandoffProof,
-        entries: memoryRead.payload
-          ? extractHistoryEntries([...memoryValues, memoryRead.payload])
-          : [],
+        entries: extractHistoryEntries(memoryValues),
       },
       200,
     );
