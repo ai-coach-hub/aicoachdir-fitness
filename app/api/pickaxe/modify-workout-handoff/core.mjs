@@ -23,6 +23,10 @@ export function parseModifyHandoffRequest(value) {
   const planUpdatedAt = cleanString(value.planUpdatedAt, 100);
   const requestId = cleanString(value.requestId, 100);
   const historyBridge = value.historyBridge;
+  const handoffProof =
+    value.handoffProof && typeof value.handoffProof === 'object' && !Array.isArray(value.handoffProof)
+      ? value.handoffProof
+      : null;
   if (!historyBridge || typeof historyBridge !== 'object' || Array.isArray(historyBridge)) return null;
   const email = normalizeEmail(historyBridge.email);
   const bridgePlanId = cleanString(historyBridge.planId, 200);
@@ -41,6 +45,7 @@ export function parseModifyHandoffRequest(value) {
     planUpdatedAt,
     requestId: requestId.toLowerCase(),
     historyBridge: { email, planId: bridgePlanId, planUpdatedAt: bridgeUpdatedAt, signature },
+    handoffProof,
   };
 }
 
