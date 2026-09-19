@@ -6,7 +6,6 @@ import {
   memoryDefinitionName,
   parseBridgeAuth,
   payloadItems,
-  resolveAuthorizedPlanFromValues,
   resolveAuthorizedPlanWindowFromValues,
   verifyBridgeAuth,
 } from './bridge-core.mjs';
