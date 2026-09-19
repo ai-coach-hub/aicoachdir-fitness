@@ -262,3 +262,118 @@ test('finds a usable plan inside nested Pickaxe memory wrappers', () => {
   assert.equal(recovered?.planId, 'wrapped-plan');
   assert.equal(recovered?.workouts?.['workout-a']?.title, 'Wrapped Plan');
 });
+
+
+test('assembles a flexible current plan with a separate future fixed plan', () => {
+  const current = {
+    schemaVersion: 2,
+    planId: 'member-plan',
+    updatedAt: '2026-09-19T10:00:00.000Z',
+    scheduleMode: 'flexible_sequence',
+    selectionMode: 'free_choice',
+    weekSchedule: [
+      { id: 'a', label: 'OTF Class', sequenceIndex: 0, isRestDay: false, workoutId: 'otf' },
+      { id: 'b', label: 'Bodyweight Strength Basics', sequenceIndex: 1, isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'c', label: 'Mobility & Recovery', sequenceIndex: 2, isRestDay: false, workoutId: 'mobility' },
+    ],
+    workouts: {
+      otf: {
+        id: 'otf',
+        title: 'OTF Class',
+        durationMinutes: 60,
+        exercises: [{ id: 'otf-e1', name: 'OTF Class', sets: 1, reps: '1 class' }],
+      },
+      bodyweight: {
+        id: 'bodyweight',
+        title: 'Bodyweight Strength Basics',
+        durationMinutes: 25,
+        exercises: [{ id: 'bw-e1', name: 'Push-up', sets: 3, reps: '8' }],
+      },
+      mobility: {
+        id: 'mobility',
+        title: 'Mobility & Recovery',
+        durationMinutes: 20,
+        exercises: [{ id: 'mob-e1', name: 'Mobility', sets: 1, reps: '8' }],
+      },
+    },
+  };
+  const auth = authFor(current);
+
+  const future = {
+    schemaVersion: 2,
+    planId: 'member-plan',
+    updatedAt: '2026-09-19T12:00:00.000Z',
+    scheduleMode: 'fixed_weekdays',
+    phase: {
+      name: 'Next Week',
+      weekStart: '2026-09-20',
+      weekEnd: '2026-09-26',
+    },
+    weekSchedule: [
+      { id: 'sun', day: 'Sunday', date: '2026-09-20', isRestDay: true, workoutId: null },
+      { id: 'mon', day: 'Monday', date: '2026-09-21', isRestDay: false, workoutId: 'otf' },
+      { id: 'tue', day: 'Tuesday', date: '2026-09-22', isRestDay: false, workoutId: 'otf' },
+      { id: 'wed', day: 'Wednesday', date: '2026-09-23', isRestDay: false, workoutId: 'otf' },
+      { id: 'thu', day: 'Thursday', date: '2026-09-24', isRestDay: false, workoutId: 'otf' },
+      { id: 'fri', day: 'Friday', date: '2026-09-25', isRestDay: false, workoutId: 'otf' },
+      { id: 'sat', day: 'Saturday', date: '2026-09-26', isRestDay: true, workoutId: null },
+    ],
+    workouts: {
+      otf: {
+        id: 'otf',
+        title: 'OTF Class',
+        durationMinutes: 60,
+        exercises: [{ id: 'otf-e1', name: 'OTF Class', sets: 1, reps: '1 class' }],
+      },
+    },
+  };
+
+  const combined = bridge.resolveAuthorizedPlanWindowFromValues(
+    [current, future],
+    auth,
+    '2026-09-19',
+    { allowLatestFallback: true },
+  );
+
+  assert.equal(combined?.scheduleMode, 'flexible_sequence');
+  assert.equal(combined?.nextPlan?.effectiveFrom, '2026-09-20');
+  assert.equal(combined?.nextPlan?.plan?.scheduleMode, 'fixed_weekdays');
+  assert.equal(combined?.nextPlan?.plan?.phase?.weekStart, '2026-09-20');
+  assert.equal(combined?.nextPlan?.plan?.weekSchedule?.length, 7);
+});
+
+test('keeps an existing future nextPlan instead of replacing it', () => {
+  const future = workoutPlan({
+    planId: 'future',
+    updatedAt: '2026-09-19T12:00:00.000Z',
+    title: 'Future Week',
+    weekStart: '2026-09-20',
+  });
+  future.weekSchedule[0].date = '2026-09-21';
+
+  const current = workoutPlan({
+    planId: 'current',
+    updatedAt: '2026-09-19T10:00:00.000Z',
+    title: 'Current Week',
+    weekStart: '2026-09-13',
+    nextPlan: { effectiveFrom: '2026-09-20', plan: future },
+  });
+  const auth = authFor(current);
+
+  const unrelatedLater = workoutPlan({
+    planId: 'later',
+    updatedAt: '2026-09-19T14:00:00.000Z',
+    title: 'Later Week',
+    weekStart: '2026-09-27',
+  });
+
+  const combined = bridge.resolveAuthorizedPlanWindowFromValues(
+    [current, unrelatedLater],
+    auth,
+    '2026-09-19',
+    { allowLatestFallback: true },
+  );
+
+  assert.equal(combined?.nextPlan?.effectiveFrom, '2026-09-20');
+  assert.equal(combined?.nextPlan?.plan?.planId, 'future');
+});
