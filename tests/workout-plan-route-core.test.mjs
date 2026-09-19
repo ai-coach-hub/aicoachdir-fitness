@@ -88,7 +88,7 @@ test('rejects invalid signatures before any Pickaxe API call', async () => {
   assert.equal(fetchCalls, 0);
 });
 
-test('returns the plan from plan memory without redundant user or history lookups', async () => {
+test('returns the current plan while reading history for future-plan assembly', async () => {
   const { outer, auth } = plan();
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
@@ -129,9 +129,9 @@ test('returns the plan from plan memory without redundant user or history lookup
   assert.ok(body.plan._handoffProof);
   assert.equal(body.plan._handoffProof.email, 'member@example.com');
   assert.ok(body.plan._handoffProof.workouts.some((item) => item.id === 'lower'));
-  assert.deepEqual(body.entries, []);
+  assert.deepEqual(body.entries, [{ title: 'Earlier' }]);
   assert.equal(calls.some((call) => call.url.includes('/studio/user/')), false);
-  assert.equal(calls.some((call) => call.url.includes('memoryId=mem-history')), false);
+  assert.equal(calls.some((call) => call.url.includes('memoryId=mem-history')), true);
   assert.ok(calls.every((call) => call.init.headers?.get?.('Authorization') === `Bearer ${TOKEN}`));
   assert.equal(response.headers.get('Access-Control-Allow-Origin'), ORIGIN);
 });
