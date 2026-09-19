@@ -60,14 +60,24 @@ export function findVerifiedSession(payload, sessionId, email) {
 
 export function resolveWorkout(plan, workoutId) {
   if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return null;
-  const workouts = plan.workouts;
-  if (!workouts || typeof workouts !== 'object' || Array.isArray(workouts)) return null;
-  const workout = workouts[workoutId];
-  if (!workout || typeof workout !== 'object' || Array.isArray(workout)) return null;
-  const id = cleanString(workout.id, 200) || workoutId;
-  const title = cleanString(workout.title, 200) || cleanString(workout.name, 200);
-  if (!title) return null;
-  return { id, title };
+
+  const plans = [plan];
+  const stagedPlan = plan.nextPlan?.plan;
+  if (stagedPlan && typeof stagedPlan === 'object' && !Array.isArray(stagedPlan)) {
+    plans.push(stagedPlan);
+  }
+
+  for (const candidate of plans) {
+    const workouts = candidate.workouts;
+    if (!workouts || typeof workouts !== 'object' || Array.isArray(workouts)) continue;
+    const workout = workouts[workoutId];
+    if (!workout || typeof workout !== 'object' || Array.isArray(workout)) continue;
+    const id = cleanString(workout.id, 200) || workoutId;
+    const title = cleanString(workout.title, 200) || cleanString(workout.name, 200);
+    if (title) return { id, title };
+  }
+
+  return null;
 }
 
 export function buildTriggerMessage(workout) {

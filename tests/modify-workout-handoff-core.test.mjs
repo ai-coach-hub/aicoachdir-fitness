@@ -84,3 +84,29 @@ test('handoff key is deterministic and sensitive to workout/session/version', ()
   assert.notEqual(first, changed);
   assert.match(first, /^[a-f0-9]{64}$/);
 });
+
+
+test('resolves a workout from the immediately staged next-week plan', () => {
+  const plan = {
+    planId: bridge.planId,
+    updatedAt: bridge.planUpdatedAt,
+    workouts: {
+      'current-strength': { id: 'current-strength', title: 'Current Strength' },
+    },
+    nextPlan: {
+      effectiveFrom: '2026-09-20',
+      plan: {
+        planId: 'plan-2',
+        updatedAt: '2026-09-18T16:00:00.000Z',
+        workouts: {
+          'next-mobility': { id: 'next-mobility', title: 'Next Week Mobility' },
+        },
+      },
+    },
+  };
+
+  assert.deepEqual(resolveWorkout(plan, 'next-mobility'), {
+    id: 'next-mobility',
+    title: 'Next Week Mobility',
+  });
+});
