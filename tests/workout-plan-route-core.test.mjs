@@ -88,7 +88,7 @@ test('rejects invalid signatures before any Pickaxe API call', async () => {
   assert.equal(fetchCalls, 0);
 });
 
-test('returns the plan from plan memory without redundant user or history lookups', async () => {
+test('returns the current plan while reading history for future-plan assembly', async () => {
   const { outer, auth } = plan();
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
@@ -129,9 +129,9 @@ test('returns the plan from plan memory without redundant user or history lookup
   assert.ok(body.plan._handoffProof);
   assert.equal(body.plan._handoffProof.email, 'member@example.com');
   assert.ok(body.plan._handoffProof.workouts.some((item) => item.id === 'lower'));
-  assert.deepEqual(body.entries, []);
+  assert.deepEqual(body.entries, [{ title: 'Earlier' }]);
   assert.equal(calls.some((call) => call.url.includes('/studio/user/')), false);
-  assert.equal(calls.some((call) => call.url.includes('memoryId=mem-history')), false);
+  assert.equal(calls.some((call) => call.url.includes('memoryId=mem-history')), true);
   assert.ok(calls.every((call) => call.init.headers?.get?.('Authorization') === `Bearer ${TOKEN}`));
   assert.equal(response.headers.get('Access-Control-Allow-Origin'), ORIGIN);
 });
@@ -481,4 +481,127 @@ test('accepts a flexible plan whose schedule is present only in flexibleSequence
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.equal(body.plan.planId, 'flex-only');
+});
+
+
+test('combines current flexible plan with a separate future fixed week from history memory', async () => {
+  const currentFlexible = {
+    schemaVersion: 2,
+    planId: 'member-plan',
+    updatedAt: '2026-09-19T10:00:00.000Z',
+    scheduleMode: 'flexible_sequence',
+    selectionMode: 'free_choice',
+    weekSchedule: [
+      { id: 'a', label: 'OTF Class', sequenceIndex: 0, isRestDay: false, workoutId: 'otf' },
+      { id: 'b', label: 'Bodyweight Strength Basics', sequenceIndex: 1, isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'c', label: 'Mobility & Recovery', sequenceIndex: 2, isRestDay: false, workoutId: 'mobility' },
+    ],
+    workouts: {
+      otf: {
+        id: 'otf',
+        title: 'OTF Class',
+        durationMinutes: 60,
+        exercises: [{ id: 'otf-e1', name: 'OTF Class', sets: 1, reps: '1 class' }],
+      },
+      bodyweight: {
+        id: 'bodyweight',
+        title: 'Bodyweight Strength Basics',
+        durationMinutes: 25,
+        exercises: [{ id: 'bw-e1', name: 'Push-up', sets: 3, reps: '8' }],
+      },
+      mobility: {
+        id: 'mobility',
+        title: 'Mobility & Recovery',
+        durationMinutes: 20,
+        exercises: [{ id: 'mob-e1', name: 'Mobility', sets: 1, reps: '8' }],
+      },
+    },
+  };
+  const auth = signAuth({
+    email: 'member@example.com',
+    planId: currentFlexible.planId,
+    planUpdatedAt: currentFlexible.updatedAt,
+  });
+  currentFlexible._historyBridge = auth;
+
+  const futureFixed = {
+    schemaVersion: 2,
+    planId: 'member-plan',
+    updatedAt: '2026-09-19T12:00:00.000Z',
+    scheduleMode: 'fixed_weekdays',
+    phase: {
+      name: 'Next Week',
+      weekStart: '2026-09-20',
+      weekEnd: '2026-09-26',
+    },
+    weekSchedule: [
+      { id: 'sun', day: 'Sunday', date: '2026-09-20', isRestDay: true, workoutId: null },
+      { id: 'mon', day: 'Monday', date: '2026-09-21', isRestDay: false, workoutId: 'otf' },
+      { id: 'tue', day: 'Tuesday', date: '2026-09-22', isRestDay: false, workoutId: 'otf' },
+      { id: 'wed', day: 'Wednesday', date: '2026-09-23', isRestDay: false, workoutId: 'otf' },
+      { id: 'thu', day: 'Thursday', date: '2026-09-24', isRestDay: false, workoutId: 'otf' },
+      { id: 'fri', day: 'Friday', date: '2026-09-25', isRestDay: false, workoutId: 'otf' },
+      { id: 'sat', day: 'Saturday', date: '2026-09-26', isRestDay: true, workoutId: null },
+    ],
+    workouts: {
+      otf: {
+        id: 'otf',
+        title: 'OTF Class',
+        durationMinutes: 60,
+        exercises: [{ id: 'otf-e1', name: 'OTF Class', sets: 1, reps: '1 class' }],
+      },
+    },
+  };
+  futureFixed._historyBridge = signAuth({
+    email: 'member@example.com',
+    planId: futureFixed.planId,
+    planUpdatedAt: futureFixed.updatedAt,
+  });
+
+  const fetchImpl = async (url) => {
+    const value = String(url);
+    if (value.includes('/studio/memory/list')) {
+      return Response.json({ data: { items: [
+        { id: 'mem-plan', name: 'fitness-workout-plan-v1' },
+        { id: 'mem-history', name: 'fitness-workout-history-v1' },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-plan')) {
+      return Response.json({ data: { items: [
+        { memoryId: 'mem-plan', value: JSON.stringify(currentFlexible) },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-history')) {
+      return Response.json({ data: { items: [
+        {
+          memoryId: 'mem-history',
+          value: JSON.stringify({
+            plan: futureFixed,
+            entries: [{ title: 'Earlier' }],
+          }),
+        },
+      ] } });
+    }
+    return new Response('not found', { status: 404 });
+  };
+
+  const response = await routeCore.handleWorkoutPlanRead({
+    request: requestFor({ auth, asOfDate: '2026-09-19' }),
+    token: TOKEN,
+    fetchImpl,
+    allowedOrigins: new Set([ORIGIN]),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.plan.scheduleMode, 'flexible_sequence');
+  assert.equal(body.plan.nextPlan.effectiveFrom, '2026-09-20');
+  assert.equal(body.plan.nextPlan.plan.scheduleMode, 'fixed_weekdays');
+  assert.equal(body.plan.nextPlan.plan.phase.weekStart, '2026-09-20');
+  assert.equal(body.plan.nextPlan.plan.phase.weekEnd, '2026-09-26');
+  assert.equal(body.plan.nextPlan.plan.weekSchedule.length, 7);
+  assert.equal(body.plan.nextPlan.plan.weekSchedule[1].date, '2026-09-21');
+  assert.equal(body.plan.nextPlan.plan.weekSchedule[1].workoutId, 'otf');
+  assert.ok(body.plan._handoffProof.workouts.some((item) => item.id === 'otf'));
 });

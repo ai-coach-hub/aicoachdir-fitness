@@ -6,7 +6,7 @@ import {
   memoryDefinitionName,
   parseBridgeAuth,
   payloadItems,
-  resolveAuthorizedPlanFromValues,
+  resolveAuthorizedPlanWindowFromValues,
   verifyBridgeAuth,
 } from './bridge-core.mjs';
 
@@ -148,15 +148,19 @@ async function getWorkoutMemoryIds(fetchImpl, token) {
   return memoryDefinitionCache;
 }
 
-function resolvePlanFromReads(reads, auth, asOfDate) {
+function sourcesFromReads(reads) {
   const sources = [];
   for (const read of reads) {
     if (!read) continue;
     if (Array.isArray(read.values)) sources.push(...read.values);
     if (read.payload != null) sources.push(read.payload);
   }
-  return resolveAuthorizedPlanFromValues(
-    sources,
+  return sources;
+}
+
+function resolvePlanWindowFromReads(reads, auth, asOfDate) {
+  return resolveAuthorizedPlanWindowFromValues(
+    sourcesFromReads(reads),
     auth,
     asOfDate,
     { allowLatestFallback: true },
@@ -214,35 +218,44 @@ export async function handleWorkoutPlanRead({
     let historyRead = { values: [], payload: null };
     let planReadError = null;
     let historyReadError = null;
-    let plan = null;
 
-    if (planMemoryId) {
-      try {
-        planRead = await readMemory(fetchImpl, token, auth.email, planMemoryId);
-        plan = resolvePlanFromReads([planRead], auth, asOfDate);
-      } catch (error) {
-        planReadError = error;
-        console.warn('[workout-plan-read] plan-memory-read-failed', {
-          name: error?.name || 'Error',
-          message: String(error?.message || error).slice(0, 160),
-        });
-      }
+    const readPlanPromise = planMemoryId
+      ? readMemory(fetchImpl, token, auth.email, planMemoryId)
+      : Promise.resolve({ values: [], payload: null });
+    const readHistoryPromise = historyMemoryId
+      ? readMemory(fetchImpl, token, auth.email, historyMemoryId)
+      : Promise.resolve({ values: [], payload: null });
+
+    const [planResult, historyResult] = await Promise.allSettled([
+      readPlanPromise,
+      readHistoryPromise,
+    ]);
+
+    if (planResult.status === 'fulfilled') {
+      planRead = planResult.value;
+    } else {
+      planReadError = planResult.reason;
+      console.warn('[workout-plan-read] plan-memory-read-failed', {
+        name: planResult.reason?.name || 'Error',
+        message: String(planResult.reason?.message || planResult.reason).slice(0, 160),
+      });
     }
 
-    // History is only a fallback for plan recovery. Do not make a slow history
-    // lookup block a valid plan-memory response.
-    if (!plan && historyMemoryId) {
-      try {
-        historyRead = await readMemory(fetchImpl, token, auth.email, historyMemoryId);
-        plan = resolvePlanFromReads([planRead, historyRead], auth, asOfDate);
-      } catch (error) {
-        historyReadError = error;
-        console.warn('[workout-plan-read] history-memory-read-failed', {
-          name: error?.name || 'Error',
-          message: String(error?.message || error).slice(0, 160),
-        });
-      }
+    if (historyResult.status === 'fulfilled') {
+      historyRead = historyResult.value;
+    } else {
+      historyReadError = historyResult.reason;
+      console.warn('[workout-plan-read] history-memory-read-failed', {
+        name: historyResult.reason?.name || 'Error',
+        message: String(historyResult.reason?.message || historyResult.reason).slice(0, 160),
+      });
     }
+
+    const plan = resolvePlanWindowFromReads(
+      [planRead, historyRead],
+      auth,
+      asOfDate,
+    );
 
     const planValues = planRead.values;
     const historyValues = historyRead.values;

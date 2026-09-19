@@ -328,6 +328,98 @@ export function resolveAuthorizedPlanFromValues(values, auth, asOfDate, { allowL
   return newestUsableStoredPlan(sourceValues);
 }
 
+function planStartDate(candidate) {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return null;
+  const phaseStart = candidate?.phase?.weekStart;
+  if (isIsoDateKey(phaseStart)) return phaseStart;
+
+  const dates = Array.isArray(candidate.weekSchedule)
+    ? candidate.weekSchedule
+        .map((entry) => (isIsoDateKey(entry?.date) ? entry.date : null))
+        .filter(Boolean)
+        .sort()
+    : [];
+  return dates[0] || null;
+}
+
+function samePlanVersion(a, b) {
+  if (!a || !b) return false;
+  return (
+    String(a.planId || '') === String(b.planId || '') &&
+    String(a.updatedAt || '') === String(b.updatedAt || '')
+  );
+}
+
+function allUsablePlanCandidates(values) {
+  const sourceValues = Array.isArray(values) ? values : [values];
+  const candidates = [];
+  const seenVersions = new Set();
+
+  for (const rawValue of sourceValues) {
+    for (const candidate of candidatePlansFromDecoded(rawValue)) {
+      if (!isUsablePlan(candidate)) continue;
+      const key = `${String(candidate.planId || '')}\n${String(candidate.updatedAt || '')}\n${planStartDate(candidate) || ''}`;
+      if (seenVersions.has(key)) continue;
+      seenVersions.add(key);
+      candidates.push(candidate);
+    }
+  }
+
+  return candidates;
+}
+
+export function resolveAuthorizedPlanWindowFromValues(
+  values,
+  auth,
+  asOfDate,
+  { allowLatestFallback = false } = {},
+) {
+  const current = resolveAuthorizedPlanFromValues(
+    values,
+    auth,
+    asOfDate,
+    { allowLatestFallback },
+  );
+  if (!current) return null;
+
+  const existingNext = current?.nextPlan;
+  const existingNextPlan = unwrapStoredValue(existingNext?.plan);
+  if (
+    isIsoDateKey(existingNext?.effectiveFrom) &&
+    existingNext.effectiveFrom > asOfDate &&
+    isUsablePlan(existingNextPlan)
+  ) {
+    return current;
+  }
+
+  const futureCandidates = allUsablePlanCandidates(values)
+    .map((candidate) => ({ candidate, start: planStartDate(candidate) }))
+    .filter(({ candidate, start }) => (
+      start &&
+      start > asOfDate &&
+      !samePlanVersion(candidate, current)
+    ))
+    .sort((a, b) => {
+      const byStart = a.start.localeCompare(b.start);
+      if (byStart !== 0) return byStart;
+      return candidateUpdatedAtMs(b.candidate) - candidateUpdatedAtMs(a.candidate);
+    });
+
+  const future = futureCandidates[0];
+  if (!future) return current;
+
+  const stagedFuture = { ...future.candidate };
+  delete stagedFuture.nextPlan;
+
+  return {
+    ...current,
+    nextPlan: {
+      effectiveFrom: future.start,
+      plan: stagedFuture,
+    },
+  };
+}
+
 export function collectStoredValues(payload, memoryId = null) {
   const targetId = memoryId == null ? null : String(memoryId);
   const exact = [];
