@@ -226,3 +226,39 @@ test('recovers the newest complete plan from a valid stale member capability onl
   assert.equal(recovered?.planId, 'next-fixed');
   assert.equal(recovered?.workouts?.['workout-a']?.title, 'Next Fixed Week');
 });
+
+
+test('finds a usable plan inside nested Pickaxe memory wrappers', () => {
+  const latestPlan = workoutPlan({
+    planId: 'wrapped-plan',
+    updatedAt: '2026-09-19T12:00:00.000Z',
+    title: 'Wrapped Plan',
+    weekStart: '2026-09-20',
+  });
+  const auth = authFor(latestPlan);
+  const wrapped = {
+    data: {
+      result: {
+        payload: {
+          record: {
+            content: JSON.stringify({
+              envelope: {
+                currentPlan: latestPlan,
+              },
+            }),
+          },
+        },
+      },
+    },
+  };
+
+  const recovered = bridge.resolveAuthorizedPlanFromValues(
+    [wrapped],
+    auth,
+    '2026-09-19',
+    { allowLatestFallback: true },
+  );
+
+  assert.equal(recovered?.planId, 'wrapped-plan');
+  assert.equal(recovered?.workouts?.['workout-a']?.title, 'Wrapped Plan');
+});
