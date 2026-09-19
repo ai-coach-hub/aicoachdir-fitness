@@ -194,3 +194,35 @@ test('creates and verifies a short-lived handoff proof for current and staged wo
     null,
   );
 });
+
+
+test('recovers the newest complete plan from a valid stale member capability only when enabled', () => {
+  const oldPlan = workoutPlan({
+    planId: 'old-flex',
+    updatedAt: '2026-09-18T10:00:00.000Z',
+    title: 'Old Flexible Plan',
+    weekStart: '2026-09-13',
+  });
+  const latestPlan = workoutPlan({
+    planId: 'next-fixed',
+    updatedAt: '2026-09-19T12:00:00.000Z',
+    title: 'Next Fixed Week',
+    weekStart: '2026-09-20',
+  });
+  latestPlan._historyBridge = authFor(latestPlan);
+  const staleAuth = authFor(oldPlan);
+
+  assert.equal(
+    bridge.resolveAuthorizedPlanFromValues([latestPlan], staleAuth, '2026-09-19'),
+    null,
+  );
+
+  const recovered = bridge.resolveAuthorizedPlanFromValues(
+    [latestPlan],
+    staleAuth,
+    '2026-09-19',
+    { allowLatestFallback: true },
+  );
+  assert.equal(recovered?.planId, 'next-fixed');
+  assert.equal(recovered?.workouts?.['workout-a']?.title, 'Next Fixed Week');
+});

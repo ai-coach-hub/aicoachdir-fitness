@@ -185,12 +185,18 @@ export async function handleWorkoutPlanRead({
       [...planValues, ...historyValues],
       auth,
       asOfDate,
+      { allowLatestFallback: true },
     );
     if (!plan) {
       return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Authorized workout plan was not found.' }, 404);
     }
 
-    const handoffProof = createWorkoutHandoffProof(plan, auth, token);
+    const planBridgeCandidate = parseBridgeAuth(plan?._historyBridge || plan?.historyBridge);
+    const proofAuth =
+      planBridgeCandidate && verifyBridgeAuth(planBridgeCandidate, token)
+        ? planBridgeCandidate
+        : auth;
+    const handoffProof = createWorkoutHandoffProof(plan, proofAuth, token);
     const planWithHandoffProof = handoffProof
       ? { ...plan, _handoffProof: handoffProof }
       : plan;

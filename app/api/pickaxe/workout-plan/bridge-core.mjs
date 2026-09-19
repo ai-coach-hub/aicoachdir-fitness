@@ -249,7 +249,29 @@ function activePlanForAuthorizedCandidate(candidate, auth, asOfDate) {
   return null;
 }
 
-export function resolveAuthorizedPlanFromValues(values, auth, asOfDate) {
+function candidateUpdatedAtMs(candidate) {
+  const value = typeof candidate?.updatedAt === 'string' ? candidate.updatedAt : '';
+  const parsed = value ? new Date(value).getTime() : Number.NaN;
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function newestUsableStoredPlan(values) {
+  const sourceValues = Array.isArray(values) ? values : [values];
+  const candidates = [];
+
+  for (const rawValue of sourceValues) {
+    const decoded = unwrapStoredValue(rawValue);
+    for (const candidate of candidatePlansFromDecoded(decoded)) {
+      if (!isUsablePlan(candidate)) continue;
+      candidates.push(candidate);
+    }
+  }
+
+  candidates.sort((a, b) => candidateUpdatedAtMs(b) - candidateUpdatedAtMs(a));
+  return candidates[0] || null;
+}
+
+export function resolveAuthorizedPlanFromValues(values, auth, asOfDate, { allowLatestFallback = false } = {}) {
   if (!auth || !isIsoDateKey(asOfDate)) return null;
   const sourceValues = Array.isArray(values) ? values : [values];
 
@@ -261,7 +283,15 @@ export function resolveAuthorizedPlanFromValues(values, auth, asOfDate) {
     }
   }
 
-  return null;
+  if (!allowLatestFallback) return null;
+
+  // A valid bridge HMAC is a member-scoped capability created by the save action.
+  // If that exact plan version has since been replaced, let the server recover the
+  // newest complete plan for the same verified member. This is needed for transitions
+  // such as flexible_sequence -> fixed next week, where Pickaxe may replace the
+  // top-level plan record while My Workouts still holds the immediately previous
+  // signed capability in Page State.
+  return newestUsableStoredPlan(sourceValues);
 }
 
 export function collectStoredValues(payload, memoryId = null) {
