@@ -87,6 +87,7 @@ test('valid request creates a dedicated session, triggers once, and returns that
         const payload = JSON.parse(init.body);
         assert.equal(payload.conversationId, SESSION_ID);
         assert.equal(payload.userId, 'member@example.com');
+        assert.equal(payload.stream, true);
         assert.match(payload.message, /Mobility & Recovery/);
         return Response.json({ success: true, result: 'Ready' });
       }
@@ -222,4 +223,45 @@ test('falls back to authoritative plan read when handoff proof is absent', async
 
   assert.equal(response.status, 200);
   assert.equal(readPlanCalls, 1);
+});
+
+
+test('returns the dedicated session before the background Pickaxe trigger finishes', async () => {
+  let scheduledTask = null;
+  let triggerStarted = false;
+  let triggerFinished = false;
+
+  const response = await handleModifyWorkoutHandoff({
+    request: requestFor(body()),
+    ...adapters({
+      scheduleAfter: (task) => {
+        scheduledTask = task;
+      },
+      fetchImpl: async (url, init = {}) => {
+        const u = String(url);
+        if (!u.endsWith('/triggers')) throw new Error(`Unexpected fetch ${u}`);
+        triggerStarted = true;
+        const payload = JSON.parse(init.body);
+        assert.equal(payload.stream, true);
+        assert.equal(payload.conversationId, SESSION_ID);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        triggerFinished = true;
+        return new Response('done', { status: 200 });
+      },
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    ok: true,
+    sessionId: SESSION_ID,
+    pending: true,
+  });
+  assert.equal(triggerStarted, false);
+  assert.equal(triggerFinished, false);
+  assert.equal(typeof scheduledTask, 'function');
+
+  await scheduledTask();
+  assert.equal(triggerStarted, true);
+  assert.equal(triggerFinished, true);
 });
