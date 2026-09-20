@@ -443,20 +443,13 @@ export async function handleWorkoutPlanRead({
         token,
         auth.email,
       );
-      // The dedicated workout-plan memory is authoritative. My Workouts is allowed
-      // to rewrite the history envelope when workout history changes, so a newer
-      // history timestamp must never outrank the plan saved by the coach action.
-      // Use history only for entries and as a recovery source if the dedicated
-      // plan memory is unavailable or cannot resolve a usable plan.
-      const planReads = [filtered.planRead];
-      const historyReads = [filtered.historyRead];
-      plan = resolvePlanWindowFromReads(planReads, auth, asOfDate);
-      if (plan) {
-        reads = [filtered.planRead, filtered.historyRead];
-      } else {
-        plan = resolvePlanWindowFromReads(historyReads, auth, asOfDate);
-        reads = [filtered.planRead, filtered.historyRead];
-      }
+      // Resolve plan + history together. The resolver upgrades a valid stale
+      // capability only within the exact same calendar week, based on the nested
+      // plan's own updatedAt. This lets a later coach correction with a new planId
+      // win, while a history envelope's later write time cannot make an older
+      // nested plan outrank the coach's saved correction.
+      reads = [filtered.planRead, filtered.historyRead];
+      plan = resolvePlanWindowFromReads(reads, auth, asOfDate);
       if (!plan && filtered.planReadFailed && filtered.historyReadFailed) {
         throw new Error('both-filtered-memory-reads-failed');
       }
