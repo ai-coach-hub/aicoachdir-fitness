@@ -450,3 +450,72 @@ test('recovers a plan from Python-style literal text with trailing commas', () =
 
   assert.equal(recovered?.planId, 'python-plan');
 });
+
+
+test('stale bridge auth upgrades to the newest saved version of the same week, not the following week', () => {
+  const staleWeek = workoutPlan({
+    planId: 'member-plan',
+    updatedAt: '2026-09-19T17:00:00.000Z',
+    title: 'Alternating Week',
+    weekStart: '2026-09-20',
+  });
+  staleWeek.phase.weekEnd = '2026-09-26';
+  staleWeek.weekSchedule = [
+    { id: 'sun', day: 'Sunday', date: '2026-09-20', isRestDay: true, workoutId: null },
+    { id: 'mon', day: 'Monday', date: '2026-09-21', isRestDay: false, workoutId: 'workout-a' },
+    { id: 'tue', day: 'Tuesday', date: '2026-09-22', isRestDay: false, workoutId: 'workout-b' },
+    { id: 'wed', day: 'Wednesday', date: '2026-09-23', isRestDay: false, workoutId: 'workout-a' },
+    { id: 'thu', day: 'Thursday', date: '2026-09-24', isRestDay: false, workoutId: 'workout-b' },
+    { id: 'fri', day: 'Friday', date: '2026-09-25', isRestDay: false, workoutId: 'workout-a' },
+    { id: 'sat', day: 'Saturday', date: '2026-09-26', isRestDay: true, workoutId: null },
+  ];
+  staleWeek.workouts['workout-b'] = {
+    id: 'workout-b',
+    title: 'Bodyweight Strength Basics',
+    durationMinutes: 25,
+    exercises: [{ id: 'b1', name: 'Push-up', sets: 3, reps: '8' }],
+  };
+
+  const auth = authFor(staleWeek);
+  staleWeek._historyBridge = auth;
+
+  const correctedWeek = {
+    ...staleWeek,
+    updatedAt: '2026-09-19T18:00:00.000Z',
+    weekSchedule: staleWeek.weekSchedule.map((entry) => (
+      entry.isRestDay ? entry : { ...entry, workoutId: 'workout-a' }
+    )),
+  };
+  correctedWeek._historyBridge = authFor(correctedWeek);
+
+  const followingWeek = {
+    ...correctedWeek,
+    updatedAt: '2026-09-19T18:30:00.000Z',
+    phase: { ...correctedWeek.phase, weekStart: '2026-09-27', weekEnd: '2026-10-03' },
+    weekSchedule: correctedWeek.weekSchedule.map((entry, index) => ({
+      ...entry,
+      date: [
+        '2026-09-27',
+        '2026-09-28',
+        '2026-09-29',
+        '2026-09-30',
+        '2026-10-01',
+        '2026-10-02',
+        '2026-10-03',
+      ][index],
+    })),
+  };
+  followingWeek._historyBridge = authFor(followingWeek);
+
+  const resolved = bridge.resolveAuthorizedPlanFromValues(
+    [staleWeek, correctedWeek, followingWeek],
+    auth,
+    '2026-09-19',
+    { allowLatestFallback: true },
+  );
+
+  assert.equal(resolved?.updatedAt, '2026-09-19T18:00:00.000Z');
+  assert.equal(resolved?.phase?.weekStart, '2026-09-20');
+  assert.equal(resolved?.weekSchedule?.[2]?.workoutId, 'workout-a');
+  assert.equal(resolved?.weekSchedule?.[4]?.workoutId, 'workout-a');
+});
