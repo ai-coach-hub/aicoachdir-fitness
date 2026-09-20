@@ -718,17 +718,26 @@ async function maybeRepairKnownSep20BetaPlan({
     }
   }
 
-  const repairedPlan = resolveAuthorizedPlanWindowFromValues(
-    [repaired.storedPlan],
-    auth,
-    asOfDate,
-    { allowLatestFallback: true },
-  ) || repaired.targetPlan;
+  // Once Sep 20 is the active calendar week, return the corrected Sep 20 node
+  // itself. It still carries its Sep 27 nextPlan, so My Workouts can render both
+  // "This Week" and "Next Week". Re-running the generic resolver here can promote
+  // the Sep 27 child to the root because the bridge capability is allowed to fall
+  // forward to the newest stored plan.
+  const repairedPlan =
+    asOfDate >= '2026-09-20'
+      ? repaired.targetPlan
+      : resolveAuthorizedPlanWindowFromValues(
+          [repaired.storedPlan],
+          auth,
+          asOfDate,
+          { allowLatestFallback: true },
+        ) || repaired.targetPlan;
 
   console.info('[workout-plan-read] repaired-known-sep20-beta-plan', {
     source: repairSource?.source || null,
     weekStart: repaired.targetPlan?.phase?.weekStart || null,
     weekEnd: repaired.targetPlan?.phase?.weekEnd || null,
+    preservedNextEffectiveFrom: repaired.targetPlan?.nextPlan?.effectiveFrom || null,
   });
 
   return repairedPlan;
