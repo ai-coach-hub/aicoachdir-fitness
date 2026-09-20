@@ -909,3 +909,171 @@ test('selects a newer corrected same-week plan from history even when it has a n
   }
   assert.deepEqual(body.entries, [{ title: 'Earlier' }]);
 });
+
+
+test('repairs the exact stale Sep 20 beta plan, preserves later weeks, and persists it once', async () => {
+  const currentFlexible = {
+    schemaVersion: 2,
+    planId: 'current-flex',
+    updatedAt: '2026-09-19T16:00:00.000Z',
+    scheduleMode: 'flexible_sequence',
+    selectionMode: 'free_choice',
+    weekSchedule: [
+      { id: 'free-otf', label: 'OTF Class', sequenceIndex: 0, isRestDay: false, workoutId: 'otf' },
+      { id: 'free-body', label: 'Bodyweight Strength Basics', sequenceIndex: 1, isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'free-mob', label: 'Mobility & Recovery', sequenceIndex: 2, isRestDay: false, workoutId: 'mobility' },
+    ],
+    workouts: {
+      otf: {
+        id: 'otf',
+        title: 'OTF Class',
+        durationMinutes: 60,
+        exercises: [{ id: 'otf-e1', name: 'OTF Class', sets: 1, reps: '1 class' }],
+      },
+      bodyweight: {
+        id: 'bodyweight',
+        title: 'Bodyweight Strength Basics',
+        durationMinutes: 25,
+        exercises: [{ id: 'bw-e1', name: 'Push-up', sets: 3, reps: '8' }],
+      },
+      mobility: {
+        id: 'mobility',
+        title: 'Mobility & Recovery',
+        durationMinutes: 20,
+        exercises: [{ id: 'mob-e1', name: 'Mobility', sets: 1, reps: '8' }],
+      },
+    },
+  };
+  const auth = signAuth({
+    email: 'member@example.com',
+    planId: currentFlexible.planId,
+    planUpdatedAt: currentFlexible.updatedAt,
+  });
+  currentFlexible._historyBridge = auth;
+
+  const sep20 = {
+    schemaVersion: 2,
+    planId: 'stale-sep20',
+    updatedAt: '2026-09-19T17:00:00.000Z',
+    scheduleMode: 'fixed_weekdays',
+    phase: { name: 'Next Week', weekStart: '2026-09-20', weekEnd: '2026-09-26' },
+    weekSchedule: [
+      { id: 'sun', day: 'Sunday', date: '2026-09-20', isRestDay: true, workoutId: null },
+      { id: 'mon', day: 'Monday', date: '2026-09-21', isRestDay: false, workoutId: 'otf' },
+      { id: 'tue', day: 'Tuesday', date: '2026-09-22', isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'wed', day: 'Wednesday', date: '2026-09-23', isRestDay: false, workoutId: 'otf' },
+      { id: 'thu', day: 'Thursday', date: '2026-09-24', isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'fri', day: 'Friday', date: '2026-09-25', isRestDay: false, workoutId: 'otf' },
+      { id: 'sat', day: 'Saturday', date: '2026-09-26', isRestDay: true, workoutId: null },
+    ],
+    workouts: JSON.parse(JSON.stringify(currentFlexible.workouts)),
+  };
+  sep20._historyBridge = signAuth({
+    email: 'member@example.com',
+    planId: sep20.planId,
+    planUpdatedAt: sep20.updatedAt,
+  });
+
+  const later = {
+    schemaVersion: 2,
+    planId: 'later-week',
+    updatedAt: '2026-09-19T17:30:00.000Z',
+    scheduleMode: 'fixed_weekdays',
+    phase: { name: 'Following Week', weekStart: '2026-09-27', weekEnd: '2026-10-03' },
+    weekSchedule: [
+      { id: 'sun2', day: 'Sunday', date: '2026-09-27', isRestDay: true, workoutId: null },
+      { id: 'mon2', day: 'Monday', date: '2026-09-28', isRestDay: false, workoutId: 'otf' },
+      { id: 'tue2', day: 'Tuesday', date: '2026-09-29', isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'wed2', day: 'Wednesday', date: '2026-09-30', isRestDay: false, workoutId: 'otf' },
+      { id: 'thu2', day: 'Thursday', date: '2026-10-01', isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'fri2', day: 'Friday', date: '2026-10-02', isRestDay: false, workoutId: 'otf' },
+      { id: 'sat2', day: 'Saturday', date: '2026-10-03', isRestDay: true, workoutId: null },
+    ],
+    workouts: JSON.parse(JSON.stringify(currentFlexible.workouts)),
+  };
+  later._historyBridge = signAuth({
+    email: 'member@example.com',
+    planId: later.planId,
+    planUpdatedAt: later.updatedAt,
+  });
+
+  sep20.nextPlan = { effectiveFrom: '2026-09-27', plan: later };
+  currentFlexible.nextPlan = { effectiveFrom: '2026-09-20', plan: sep20 };
+
+  const historyEnvelope = {
+    schemaVersion: 2,
+    updatedAt: currentFlexible.updatedAt,
+    plan: currentFlexible,
+    entries: [
+      { title: 'My Workouts QA Test' },
+      { title: 'Test Strength' },
+    ],
+  };
+
+  const writes = [];
+  const fetchImpl = async (url, init = {}) => {
+    const value = String(url);
+    const method = String(init.method || 'GET').toUpperCase();
+
+    if (method === 'PATCH') {
+      writes.push({
+        url: value,
+        body: JSON.parse(init.body),
+      });
+      return Response.json({ success: true });
+    }
+    if (value.includes('/studio/memory/list')) {
+      return Response.json({ data: { items: [
+        { id: 'mem-plan', name: 'fitness-workout-plan-v1' },
+        { id: 'mem-history', name: 'fitness-workout-history-v1' },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-plan')) {
+      return Response.json({ data: { items: [
+        { memoryId: 'mem-plan', value: JSON.stringify(currentFlexible) },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-history')) {
+      return Response.json({ data: { items: [
+        { memoryId: 'mem-history', value: JSON.stringify(historyEnvelope) },
+      ] } });
+    }
+    return new Response('not found', { status: 404 });
+  };
+
+  const response = await routeCore.handleWorkoutPlanRead({
+    request: requestFor({ auth, asOfDate: '2026-09-19' }),
+    token: TOKEN,
+    fetchImpl,
+    allowedOrigins: new Set([ORIGIN]),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.plan.scheduleMode, 'flexible_sequence');
+  assert.equal(body.plan.nextPlan.effectiveFrom, '2026-09-20');
+  assert.equal(body.plan.nextPlan.plan.weekSchedule[2].workoutId, 'otf');
+  assert.equal(body.plan.nextPlan.plan.weekSchedule[4].workoutId, 'otf');
+  assert.equal(body.plan.nextPlan.plan.nextPlan.effectiveFrom, '2026-09-27');
+  assert.equal(body.plan.nextPlan.plan.nextPlan.plan.planId, 'later-week');
+
+  assert.equal(writes.length, 2);
+  const planWrite = writes.find((item) => item.url.endsWith('/mem-plan'));
+  const historyWrite = writes.find((item) => item.url.endsWith('/mem-history'));
+  assert.ok(planWrite);
+  assert.ok(historyWrite);
+
+  const storedPlan = JSON.parse(planWrite.body.data.value);
+  assert.equal(storedPlan.nextPlan.plan.weekSchedule[2].workoutId, 'otf');
+  assert.equal(storedPlan.nextPlan.plan.weekSchedule[4].workoutId, 'otf');
+  assert.equal(storedPlan.nextPlan.plan.nextPlan.plan.planId, 'later-week');
+  assert.ok(storedPlan.nextPlan.plan._historyBridge?.signature);
+
+  const storedHistory = JSON.parse(historyWrite.body.data.value);
+  assert.equal(storedHistory.plan.nextPlan.plan.weekSchedule[2].workoutId, 'otf');
+  assert.deepEqual(
+    storedHistory.entries.map((entry) => entry.title),
+    ['My Workouts QA Test', 'Test Strength'],
+  );
+});
