@@ -295,12 +295,19 @@ function normalizedTitle(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
-function isExactKnownSep20AlternatingPlan(plan) {
+function isExactKnownSep20AlternatingPlan(plan, effectiveFrom = null) {
   if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return false;
   if (plan.scheduleMode !== 'fixed_weekdays') return false;
-  if (plan?.phase?.weekStart !== '2026-09-20' || plan?.phase?.weekEnd !== '2026-09-26') {
-    return false;
-  }
+
+  const weekStart =
+    typeof plan?.phase?.weekStart === 'string'
+      ? plan.phase.weekStart
+      : typeof effectiveFrom === 'string'
+        ? effectiveFrom
+        : null;
+  if (weekStart !== '2026-09-20') return false;
+  if (plan?.phase?.weekEnd && plan.phase.weekEnd !== '2026-09-26') return false;
+
   if (!Array.isArray(plan.weekSchedule) || plan.weekSchedule.length !== 7) return false;
   if (!plan.workouts || typeof plan.workouts !== 'object' || Array.isArray(plan.workouts)) {
     return false;
@@ -324,9 +331,7 @@ function isExactKnownSep20AlternatingPlan(plan) {
     '2026-09-25',
     '2026-09-26',
   ];
-  // Some saved plan versions rely on phase.weekStart/weekEnd and omit per-row dates.
-  // Keep this beta repair exact by requiring the weekday order and, when a row date
-  // exists, requiring it to match the known Sep 20-26 calendar.
+
   if (
     !plan.weekSchedule.every(
       (entry, index) =>
@@ -339,22 +344,19 @@ function isExactKnownSep20AlternatingPlan(plan) {
 
   const [sun, mon, tue, wed, thu, fri, sat] = plan.weekSchedule;
   if (sun?.isRestDay !== true || sat?.isRestDay !== true) return false;
-  if (!mon?.workoutId || mon.workoutId !== wed?.workoutId || mon.workoutId !== fri?.workoutId) {
-    return false;
-  }
-  if (!tue?.workoutId || tue.workoutId !== thu?.workoutId || tue.workoutId === mon.workoutId) {
+  if ([mon, tue, wed, thu, fri].some((entry) => entry?.isRestDay || !entry?.workoutId)) {
     return false;
   }
 
-  const otf = plan.workouts[mon.workoutId];
-  const bodyweight = plan.workouts[tue.workoutId];
-  const hasMobility = Object.values(plan.workouts).some(
-    (workout) => normalizedTitle(workout?.title || workout?.name) === 'mobility & recovery',
-  );
+  const titleFor = (entry) =>
+    normalizedTitle(plan.workouts?.[entry?.workoutId]?.title || plan.workouts?.[entry?.workoutId]?.name);
+
   return (
-    normalizedTitle(otf?.title || otf?.name) === 'otf class' &&
-    normalizedTitle(bodyweight?.title || bodyweight?.name) === 'bodyweight strength basics' &&
-    hasMobility
+    titleFor(mon) === 'otf class' &&
+    titleFor(tue) === 'bodyweight strength basics' &&
+    titleFor(wed) === 'otf class' &&
+    titleFor(thu) === 'bodyweight strength basics' &&
+    titleFor(fri) === 'otf class'
   );
 }
 
@@ -372,20 +374,20 @@ function repairKnownSep20PlanNode(root, email, token, now = new Date()) {
   const cloned = JSON.parse(JSON.stringify(root));
   let repairedTarget = null;
 
-  function visit(node, depth = 0) {
+  function visit(node, depth = 0, effectiveFrom = null) {
     if (repairedTarget || depth > 12 || !node || typeof node !== 'object') {
       return;
     }
 
     if (Array.isArray(node)) {
       for (const child of node) {
-        visit(child, depth + 1);
+        visit(child, depth + 1, effectiveFrom);
         if (repairedTarget) return;
       }
       return;
     }
 
-    if (isExactKnownSep20AlternatingPlan(node)) {
+    if (isExactKnownSep20AlternatingPlan(node, effectiveFrom)) {
       const otfId = node.weekSchedule[1].workoutId;
       node.weekSchedule[2].workoutId = otfId;
       node.weekSchedule[4].workoutId = otfId;
@@ -397,11 +399,20 @@ function repairKnownSep20PlanNode(root, email, token, now = new Date()) {
       return;
     }
 
+    const next = node.nextPlan;
+    if (next && typeof next === 'object' && !Array.isArray(next) && next.plan) {
+      const nextEffective =
+        typeof next.effectiveFrom === 'string' ? next.effectiveFrom : effectiveFrom;
+      visit(next.plan, depth + 1, nextEffective);
+      if (repairedTarget) return;
+    }
+
     // Match the resolver's defensive traversal: Pickaxe can wrap a saved plan
     // under arbitrary payload/data/result/record objects, not just plan/currentPlan.
-    for (const child of Object.values(node)) {
+    for (const [key, child] of Object.entries(node)) {
+      if (key === 'nextPlan') continue;
       if (child && typeof child === 'object') {
-        visit(child, depth + 1);
+        visit(child, depth + 1, effectiveFrom);
         if (repairedTarget) return;
       }
     }
