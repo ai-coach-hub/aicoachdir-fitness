@@ -671,6 +671,34 @@ export async function handleWorkoutPlanRead({
   try {
     const cached = await tryCacheRead(cacheRead, auth, asOfDate);
     if (cached) {
+      // A cached plan can contain the exact stale Sep 20-26 beta schedule nested
+      // under nextPlan. Repair the cached copy before the early return so the
+      // cache can never bypass the same narrow correction applied to Pickaxe reads.
+      const cachedRepair = repairKnownSep20PlanNode(
+        cached.plan,
+        auth.email,
+        token,
+      );
+      if (cachedRepair) {
+        const repairedCachedPlan = cachedRepair.storedPlan;
+        await tryCacheWrite(
+          cacheWrite,
+          auth.email,
+          repairedCachedPlan,
+          cached.entries,
+        );
+        console.info('[workout-plan-read] repaired-cached-sep20-beta-plan', {
+          weekStart: cachedRepair.targetPlan?.phase?.weekStart || null,
+          weekEnd: cachedRepair.targetPlan?.phase?.weekEnd || null,
+        });
+        return jsonResponse(
+          origin,
+          allowedOrigins,
+          successPayload(repairedCachedPlan, cached.entries, auth, token),
+          200,
+        );
+      }
+
       console.info('[workout-plan-read] resolved-from-cache', {
         hasNextPlan: !!cached.plan?.nextPlan?.plan,
       });
