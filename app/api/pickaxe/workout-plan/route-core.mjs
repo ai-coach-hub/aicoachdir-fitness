@@ -416,11 +416,12 @@ async function patchUserMemory(fetchImpl, token, email, memoryId, storedValue) {
 }
 
 function repairResolvedKnownSep20BetaPlan(plan, entries, email, token, now = new Date()) {
-  if (
-    !plan ||
-    !hasKnownBetaHistoryMarkers(entries) ||
-    !isExactKnownSep20AlternatingPlan(plan)
-  ) {
+  // This repair is already narrowly gated by the exact Sep 20-26 calendar,
+  // exact OTF/bodyweight alternating pattern, rest-day positions, workout titles,
+  // and the existing Sep 27 staged week. Do not additionally require history
+  // markers: some live accounts resolve the plan correctly while history entries
+  // are absent or shaped differently, which prevented the repair from ever firing.
+  if (!plan || !isExactKnownSep20AlternatingPlan(plan)) {
     return null;
   }
 
