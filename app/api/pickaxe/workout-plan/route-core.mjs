@@ -356,7 +356,15 @@ function repairKnownSep20PlanNode(root, email, token, now = new Date()) {
   let repairedTarget = null;
 
   function visit(node, depth = 0) {
-    if (repairedTarget || depth > 10 || !node || typeof node !== 'object' || Array.isArray(node)) {
+    if (repairedTarget || depth > 12 || !node || typeof node !== 'object') {
+      return;
+    }
+
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        visit(child, depth + 1);
+        if (repairedTarget) return;
+      }
       return;
     }
 
@@ -372,14 +380,13 @@ function repairKnownSep20PlanNode(root, email, token, now = new Date()) {
       return;
     }
 
-    for (const child of [
-      node.nextPlan?.plan,
-      node.plan,
-      node.currentPlan,
-      node.workoutPlan,
-    ]) {
-      visit(child, depth + 1);
-      if (repairedTarget) return;
+    // Match the resolver's defensive traversal: Pickaxe can wrap a saved plan
+    // under arbitrary payload/data/result/record objects, not just plan/currentPlan.
+    for (const child of Object.values(node)) {
+      if (child && typeof child === 'object') {
+        visit(child, depth + 1);
+        if (repairedTarget) return;
+      }
     }
   }
 
