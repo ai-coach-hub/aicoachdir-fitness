@@ -1650,3 +1650,87 @@ test('repairs the visible Sep 20 alternating next-week plan from cache when nest
   assert.equal(cacheWrites[0].plan.nextPlan.plan.weekSchedule[2].workoutId, 'otf-next');
   assert.equal(cacheWrites[0].plan.nextPlan.plan.weekSchedule[4].workoutId, 'otf-next');
 });
+
+
+test('repairs cached Sep 20 alternating plan using the same normalization as My Workouts', async () => {
+  const currentFlexible = {
+    schemaVersion: 2,
+    planId: 'current-normalized-shape',
+    updatedAt: '2026-09-19T16:00:00.000Z',
+    scheduleMode: 'flexible_sequence',
+    selectionMode: 'free_choice',
+    weekSchedule: [
+      { id: 'free-otf', label: 'OTF Class', sequenceIndex: 0, isRestDay: false, workoutId: 'otf' },
+      { id: 'free-body', label: 'Bodyweight Strength Basics', sequenceIndex: 1, isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'free-mob', label: 'Mobility & Recovery', sequenceIndex: 2, isRestDay: false, workoutId: 'mobility' },
+    ],
+    workouts: {
+      otf: { id: 'otf', title: 'OTF Class', durationMinutes: 60, exercises: [{ id: 'e1', name: 'OTF Class', sets: 1, reps: '1 class' }] },
+      bodyweight: { id: 'bodyweight', title: 'Bodyweight Strength Basics', durationMinutes: 25, exercises: [{ id: 'e2', name: 'Push-up', sets: 3, reps: '8' }] },
+      mobility: { id: 'mobility', title: 'Mobility & Recovery', durationMinutes: 20, exercises: [{ id: 'e3', name: 'Mobility', sets: 1, reps: '8' }] },
+    },
+  };
+  const auth = signAuth({
+    email: 'member@example.com',
+    planId: currentFlexible.planId,
+    planUpdatedAt: currentFlexible.updatedAt,
+  });
+  currentFlexible._historyBridge = auth;
+
+  const staleNextWeek = {
+    schemaVersion: 2,
+    planId: 'stale-normalized-sep20',
+    updatedAt: '2026-09-19T17:00:00.000Z',
+    // Intentionally omit scheduleMode. My Workouts normalizes every non-flexible
+    // plan to fixed_weekdays, so the cache repair must accept the same stored shape.
+    phase: { name: 'Next Week' },
+    weekSchedule: [
+      { id: 'sun', label: 'Sunday', isRestDay: true, workoutId: null },
+      { id: 'mon', label: 'Monday', isRestDay: false, workoutId: 'otf-next' },
+      { id: 'tue', label: 'Tuesday', isRestDay: false, workoutId: 'body-next' },
+      { id: 'wed', label: 'Wednesday', isRestDay: false, workoutId: 'otf-next' },
+      { id: 'thu', label: 'Thursday', isRestDay: false, workoutId: 'body-next' },
+      { id: 'fri', label: 'Friday', isRestDay: false, workoutId: 'otf-next' },
+      { id: 'sat', label: 'Saturday', isRestDay: true, workoutId: null },
+    ],
+    workouts: {
+      'otf-next': { id: 'otf-next', title: 'OTF Class', durationMinutes: 60, exercises: [{ id: 'n1', name: 'OTF Class', sets: 1, reps: '1 class' }] },
+      'body-next': { id: 'body-next', title: 'Bodyweight Strength Basics', durationMinutes: 25, exercises: [{ id: 'n2', name: 'Push-up', sets: 3, reps: '8' }] },
+    },
+  };
+  staleNextWeek._historyBridge = signAuth({
+    email: 'member@example.com',
+    planId: staleNextWeek.planId,
+    planUpdatedAt: staleNextWeek.updatedAt,
+  });
+
+  currentFlexible.nextPlan = {
+    effectiveFrom: '2026-09-20',
+    plan: staleNextWeek,
+  };
+
+  const cacheWrites = [];
+  const response = await routeCore.handleWorkoutPlanRead({
+    request: requestFor({ auth, asOfDate: '2026-09-19' }),
+    token: TOKEN,
+    fetchImpl: async () => {
+      throw new Error('cache hit should not call Pickaxe');
+    },
+    allowedOrigins: new Set([ORIGIN]),
+    cacheRead: async () => ({
+      plan: currentFlexible,
+      entries: [],
+    }),
+    cacheWrite: async (email, planValue, entries) => {
+      cacheWrites.push({ email, plan: planValue, entries });
+    },
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.plan.nextPlan.effectiveFrom, '2026-09-20');
+  assert.equal(body.plan.nextPlan.plan.weekSchedule[2].workoutId, 'otf-next');
+  assert.equal(body.plan.nextPlan.plan.weekSchedule[4].workoutId, 'otf-next');
+  assert.equal(cacheWrites.length, 1);
+});
