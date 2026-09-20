@@ -268,13 +268,19 @@ async function readFilteredWorkoutMemories(fetchImpl, token, email) {
       : Promise.resolve({ values: [], payload: null }),
   ]);
 
-  const reads = [
-    planResult.status === 'fulfilled' ? planResult.value : { values: [], payload: null },
-    historyResult.status === 'fulfilled' ? historyResult.value : { values: [], payload: null },
-  ];
+  const planRead =
+    planResult.status === 'fulfilled'
+      ? planResult.value
+      : { values: [], payload: null };
+  const historyRead =
+    historyResult.status === 'fulfilled'
+      ? historyResult.value
+      : { values: [], payload: null };
 
   return {
-    reads,
+    planRead,
+    historyRead,
+    reads: [planRead, historyRead],
     planReadFailed: planResult.status === 'rejected',
     historyReadFailed: historyResult.status === 'rejected',
   };
@@ -437,8 +443,20 @@ export async function handleWorkoutPlanRead({
         token,
         auth.email,
       );
-      reads = filtered.reads;
-      plan = resolvePlanWindowFromReads(reads, auth, asOfDate);
+      // The dedicated workout-plan memory is authoritative. My Workouts is allowed
+      // to rewrite the history envelope when workout history changes, so a newer
+      // history timestamp must never outrank the plan saved by the coach action.
+      // Use history only for entries and as a recovery source if the dedicated
+      // plan memory is unavailable or cannot resolve a usable plan.
+      const planReads = [filtered.planRead];
+      const historyReads = [filtered.historyRead];
+      plan = resolvePlanWindowFromReads(planReads, auth, asOfDate);
+      if (plan) {
+        reads = [filtered.planRead, filtered.historyRead];
+      } else {
+        plan = resolvePlanWindowFromReads(historyReads, auth, asOfDate);
+        reads = [filtered.planRead, filtered.historyRead];
+      }
       if (!plan && filtered.planReadFailed && filtered.historyReadFailed) {
         throw new Error('both-filtered-memory-reads-failed');
       }
