@@ -1917,6 +1917,10 @@ test('persists authoritative Sep 20 alternating current week even without histor
   assert.equal(body.ok, true);
   assert.equal(body.plan.weekSchedule[2].workoutId, 'otf');
   assert.equal(body.plan.weekSchedule[4].workoutId, 'otf');
+  assert.equal(body.plan.nextPlan?.effectiveFrom, '2026-09-27');
+  assert.equal(body.plan.nextPlan?.plan?.phase?.weekStart, '2026-09-27');
+  assert.equal(body.plan.nextPlan?.plan?.weekSchedule?.[2]?.workoutId, 'otf');
+  assert.equal(body.plan.nextPlan?.plan?.weekSchedule?.[4]?.workoutId, 'otf');
   assert.ok(patchBodies.length >= 1);
 
   const saved = JSON.parse(patchBodies[0].data.value);
