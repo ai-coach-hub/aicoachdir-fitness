@@ -374,6 +374,119 @@ function isExactKnownSep20AlternatingPlan(plan, effectiveFrom = null) {
   );
 }
 
+
+function repairSep20NextPlanByVisiblePattern(root, email, token, now = new Date()) {
+  if (!root || typeof root !== 'object' || Array.isArray(root)) return null;
+  const cloned = JSON.parse(JSON.stringify(root));
+  let repairedTarget = null;
+
+  function titleFor(plan, entry) {
+    if (!entry || typeof entry !== 'object') return '';
+    if (entry.workoutId && plan?.workouts && typeof plan.workouts === 'object') {
+      const workout = plan.workouts[entry.workoutId];
+      const mapped = normalizedTitle(workout?.title || workout?.name);
+      if (mapped) return mapped;
+    }
+    return normalizedTitle(entry.workout || entry.workoutTitle || entry.title || entry.name);
+  }
+
+  function visit(node, depth = 0) {
+    if (repairedTarget || depth > 12 || !node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        visit(child, depth + 1);
+        if (repairedTarget) return;
+      }
+      return;
+    }
+
+    const next = node.nextPlan;
+    if (
+      next &&
+      typeof next === 'object' &&
+      !Array.isArray(next) &&
+      next.effectiveFrom === '2026-09-20' &&
+      next.plan &&
+      typeof next.plan === 'object' &&
+      !Array.isArray(next.plan)
+    ) {
+      const plan = next.plan;
+      const schedule = Array.isArray(plan.weekSchedule) ? plan.weekSchedule : null;
+      if (schedule && schedule.length === 7) {
+        const [sun, mon, tue, wed, thu, fri, sat] = schedule;
+        const visiblePatternMatches =
+          (sun?.isRestDay === true || titleFor(plan, sun) === 'rest') &&
+          titleFor(plan, mon) === 'otf class' &&
+          titleFor(plan, tue) === 'bodyweight strength basics' &&
+          titleFor(plan, wed) === 'otf class' &&
+          titleFor(plan, thu) === 'bodyweight strength basics' &&
+          titleFor(plan, fri) === 'otf class' &&
+          (sat?.isRestDay === true || titleFor(plan, sat) === 'rest') &&
+          !!mon?.workoutId;
+
+        if (visiblePatternMatches) {
+          tue.workoutId = mon.workoutId;
+          thu.workoutId = mon.workoutId;
+          plan.updatedAt = now.toISOString();
+          const signed = createBridgeAuthForPlan(plan, email, token);
+          if (!signed) throw new Error('direct-nextplan-repair-signing-failed');
+          plan._historyBridge = signed;
+          repairedTarget = plan;
+          return;
+        }
+      }
+    }
+
+    for (const child of Object.values(node)) {
+      if (child && typeof child === 'object') {
+        visit(child, depth + 1);
+        if (repairedTarget) return;
+      }
+    }
+  }
+
+  visit(cloned);
+  return repairedTarget ? { storedPlan: cloned, targetPlan: repairedTarget } : null;
+}
+
+function summarizeCachedNextPlan(plan) {
+  const next = plan?.nextPlan;
+  const nested = next?.plan;
+  const rows = Array.isArray(nested?.weekSchedule)
+    ? nested.weekSchedule.slice(0, 7).map((entry) => {
+        const workout =
+          entry?.workoutId && nested?.workouts && typeof nested.workouts === 'object'
+            ? nested.workouts[entry.workoutId]
+            : null;
+        return {
+          day: entry?.day || entry?.label || null,
+          date: entry?.date || null,
+          isRestDay: entry?.isRestDay === true,
+          workoutId: entry?.workoutId || null,
+          title:
+            workout?.title ||
+            workout?.name ||
+            entry?.workout ||
+            entry?.workoutTitle ||
+            entry?.title ||
+            entry?.name ||
+            null,
+        };
+      })
+    : [];
+
+  return {
+    effectiveFrom: typeof next?.effectiveFrom === 'string' ? next.effectiveFrom : null,
+    nestedScheduleMode: typeof nested?.scheduleMode === 'string' ? nested.scheduleMode : null,
+    nestedWeekStart:
+      typeof nested?.phase?.weekStart === 'string' ? nested.phase.weekStart : null,
+    nestedWeekEnd:
+      typeof nested?.phase?.weekEnd === 'string' ? nested.phase.weekEnd : null,
+    rowCount: rows.length,
+    rows,
+  };
+}
+
 function hasKnownBetaHistoryMarkers(entries) {
   const titles = new Set(
     (Array.isArray(entries) ? entries : [])
@@ -716,11 +829,18 @@ export async function handleWorkoutPlanRead({
       // A cached plan can contain the exact stale Sep 20-26 beta schedule nested
       // under nextPlan. Repair the cached copy before the early return so the
       // cache can never bypass the same narrow correction applied to Pickaxe reads.
-      const cachedRepair = repairKnownSep20PlanNode(
+      const directNextPlanRepair = repairSep20NextPlanByVisiblePattern(
         cached.plan,
         auth.email,
         token,
       );
+      const cachedRepair =
+        directNextPlanRepair ||
+        repairKnownSep20PlanNode(
+          cached.plan,
+          auth.email,
+          token,
+        );
       if (cachedRepair) {
         const repairedCachedPlan = cachedRepair.storedPlan;
         await tryCacheWrite(
@@ -743,6 +863,7 @@ export async function handleWorkoutPlanRead({
 
       console.info('[workout-plan-read] resolved-from-cache', {
         hasNextPlan: !!cached.plan?.nextPlan?.plan,
+        nextPlanShape: summarizeCachedNextPlan(cached.plan),
       });
       return jsonResponse(
         origin,
