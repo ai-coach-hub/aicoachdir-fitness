@@ -297,7 +297,11 @@ function normalizedTitle(value) {
 
 function isExactKnownSep20AlternatingPlan(plan, effectiveFrom = null) {
   if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return false;
-  if (plan.scheduleMode !== 'fixed_weekdays') return false;
+
+  // My Workouts normalizes every non-flexible plan to fixed_weekdays. Match the
+  // stored representation the same way so raw cached plans with scheduleMode
+  // omitted or an older fixed-mode label do not bypass this exact beta repair.
+  if (plan.scheduleMode === 'flexible_sequence') return false;
 
   const weekStart =
     typeof plan?.phase?.weekStart === 'string'
@@ -314,13 +318,13 @@ function isExactKnownSep20AlternatingPlan(plan, effectiveFrom = null) {
   }
 
   const expectedDays = [
-    'Sunday',
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
+    'sunday',
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
   ];
   const expectedDates = [
     '2026-09-20',
@@ -333,11 +337,18 @@ function isExactKnownSep20AlternatingPlan(plan, effectiveFrom = null) {
   ];
 
   if (
-    !plan.weekSchedule.every(
-      (entry, index) =>
-        entry?.day === expectedDays[index] &&
-        (!entry?.date || entry.date === expectedDates[index]),
-    )
+    !plan.weekSchedule.every((entry, index) => {
+      const storedDay =
+        typeof entry?.day === 'string'
+          ? entry.day.trim().toLowerCase()
+          : typeof entry?.label === 'string'
+            ? entry.label.trim().toLowerCase()
+            : '';
+      return (
+        storedDay === expectedDays[index] &&
+        (!entry?.date || entry.date === expectedDates[index])
+      );
+    })
   ) {
     return false;
   }
@@ -349,7 +360,10 @@ function isExactKnownSep20AlternatingPlan(plan, effectiveFrom = null) {
   }
 
   const titleFor = (entry) =>
-    normalizedTitle(plan.workouts?.[entry?.workoutId]?.title || plan.workouts?.[entry?.workoutId]?.name);
+    normalizedTitle(
+      plan.workouts?.[entry?.workoutId]?.title ||
+      plan.workouts?.[entry?.workoutId]?.name,
+    );
 
   return (
     titleFor(mon) === 'otf class' &&
