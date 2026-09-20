@@ -306,6 +306,15 @@ function isExactKnownSep20AlternatingPlan(plan) {
     return false;
   }
 
+  const expectedDays = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ];
   const expectedDates = [
     '2026-09-20',
     '2026-09-21',
@@ -315,7 +324,16 @@ function isExactKnownSep20AlternatingPlan(plan) {
     '2026-09-25',
     '2026-09-26',
   ];
-  if (!plan.weekSchedule.every((entry, index) => entry?.date === expectedDates[index])) {
+  // Some saved plan versions rely on phase.weekStart/weekEnd and omit per-row dates.
+  // Keep this beta repair exact by requiring the weekday order and, when a row date
+  // exists, requiring it to match the known Sep 20-26 calendar.
+  if (
+    !plan.weekSchedule.every(
+      (entry, index) =>
+        entry?.day === expectedDays[index] &&
+        (!entry?.date || entry.date === expectedDates[index]),
+    )
+  ) {
     return false;
   }
 
