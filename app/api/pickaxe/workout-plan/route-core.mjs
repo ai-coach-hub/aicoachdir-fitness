@@ -301,7 +301,6 @@ function isExactKnownSep20AlternatingPlan(plan) {
   if (plan?.phase?.weekStart !== '2026-09-20' || plan?.phase?.weekEnd !== '2026-09-26') {
     return false;
   }
-  if (plan?.nextPlan?.effectiveFrom !== '2026-09-27') return false;
   if (!Array.isArray(plan.weekSchedule) || plan.weekSchedule.length !== 7) return false;
   if (!plan.workouts || typeof plan.workouts !== 'object' || Array.isArray(plan.workouts)) {
     return false;
