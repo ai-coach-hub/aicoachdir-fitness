@@ -544,6 +544,58 @@ function candidateUpdatedAtMs(candidate) {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+function planEndDate(candidate) {
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return null;
+  const phaseEnd = candidate?.phase?.weekEnd;
+  if (isIsoDateKey(phaseEnd)) return phaseEnd;
+
+  const dates = Array.isArray(candidate.weekSchedule)
+    ? candidate.weekSchedule
+        .map((entry) => (isIsoDateKey(entry?.date) ? entry.date : null))
+        .filter(Boolean)
+        .sort()
+    : [];
+  return dates[dates.length - 1] || null;
+}
+
+function samePlanWindow(a, b) {
+  if (!a || !b) return false;
+  const aStart = planStartDate(a);
+  const bStart = planStartDate(b);
+  const aEnd = planEndDate(a);
+  const bEnd = planEndDate(b);
+
+  if (aStart || bStart || aEnd || bEnd) {
+    return (
+      aStart === bStart &&
+      aEnd === bEnd &&
+      String(a.planId || '') === String(b.planId || '')
+    );
+  }
+
+  return (
+    String(a.planId || '') === String(b.planId || '') &&
+    String(a.scheduleMode || '') === String(b.scheduleMode || '')
+  );
+}
+
+function newestUsableStoredPlanInSameWindow(values, baseline) {
+  if (!baseline) return null;
+  const sourceValues = Array.isArray(values) ? values : [values];
+  const candidates = [];
+
+  for (const rawValue of sourceValues) {
+    for (const candidate of candidatePlansFromDecoded(rawValue)) {
+      if (!isUsablePlan(candidate)) continue;
+      if (!samePlanWindow(candidate, baseline)) continue;
+      candidates.push(candidate);
+    }
+  }
+
+  candidates.sort((a, b) => candidateUpdatedAtMs(b) - candidateUpdatedAtMs(a));
+  return candidates[0] || null;
+}
+
 function newestUsableStoredPlan(values) {
   const sourceValues = Array.isArray(values) ? values : [values];
   const candidates = [];
@@ -566,7 +618,25 @@ export function resolveAuthorizedPlanFromValues(values, auth, asOfDate, { allowL
   for (const rawValue of sourceValues) {
     for (const candidate of candidatePlansFromDecoded(rawValue)) {
       const resolved = activePlanForAuthorizedCandidate(candidate, auth, asOfDate);
-      if (resolved) return resolved;
+      if (!resolved) continue;
+      if (!allowLatestFallback) return resolved;
+
+      // The bridge capability can legitimately lag behind after the coach edits the
+      // same calendar week. Pickaxe may retain both versions, so an exact stale HMAC
+      // match must not outrank a newer saved version of that same plan window.
+      // Restrict the upgrade to the same planId + calendar window so a future week
+      // (for example Sep 27-Oct 3) can never be promoted early.
+      const newestSameWindow = newestUsableStoredPlanInSameWindow(
+        sourceValues,
+        resolved,
+      );
+      if (
+        newestSameWindow &&
+        candidateUpdatedAtMs(newestSameWindow) > candidateUpdatedAtMs(resolved)
+      ) {
+        return newestSameWindow;
+      }
+      return resolved;
     }
   }
 
