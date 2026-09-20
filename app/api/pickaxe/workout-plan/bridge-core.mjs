@@ -566,11 +566,7 @@ function samePlanWindow(a, b) {
   const bEnd = planEndDate(b);
 
   if (aStart || bStart || aEnd || bEnd) {
-    return (
-      aStart === bStart &&
-      aEnd === bEnd &&
-      String(a.planId || '') === String(b.planId || '')
-    );
+    return aStart === bStart && aEnd === bEnd;
   }
 
   return (
