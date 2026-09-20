@@ -17,8 +17,8 @@ const HISTORY_MEMORY_NAMES = new Set([
   'fitness workout history for ai coach',
 ]);
 const MAX_BODY_BYTES = 16 * 1024;
-const PICKAXE_REQUEST_TIMEOUTS_MS = [6_000, 10_000];
-const USER_MEMORY_READ_TIMEOUTS_MS = [6_000, 10_000];
+const PICKAXE_REQUEST_TIMEOUTS_MS = [10_000, 20_000];
+const USER_MEMORY_READ_TIMEOUTS_MS = [10_000, 20_000];
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 function corsHeaders(origin, allowedOrigins) {
@@ -172,6 +172,114 @@ function resolvePlanWindowFromReads(reads, auth, asOfDate) {
   );
 }
 
+function newestPlanTimestampMs(plan) {
+  const values = [
+    plan?.updatedAt,
+    plan?.nextPlan?.plan?.updatedAt,
+  ];
+  let newest = 0;
+  for (const value of values) {
+    if (typeof value !== 'string') continue;
+    const parsed = new Date(value).getTime();
+    if (!Number.isNaN(parsed)) newest = Math.max(newest, parsed);
+  }
+  return newest;
+}
+
+function cacheCanSatisfyAuth(cachedPlan, auth) {
+  const authMs = new Date(auth.planUpdatedAt).getTime();
+  if (Number.isNaN(authMs)) return false;
+  return newestPlanTimestampMs(cachedPlan) >= authMs;
+}
+
+function successPayload(plan, entries, auth, token) {
+  const planBridgeCandidate = parseBridgeAuth(plan?._historyBridge || plan?.historyBridge);
+  const proofAuth =
+    planBridgeCandidate && verifyBridgeAuth(planBridgeCandidate, token)
+      ? planBridgeCandidate
+      : auth;
+  const handoffProof = createWorkoutHandoffProof(plan, proofAuth, token);
+  return {
+    ok: true,
+    plan: handoffProof ? { ...plan, _handoffProof: handoffProof } : plan,
+    entries: Array.isArray(entries) ? entries : [],
+  };
+}
+
+async function tryCacheRead(cacheRead, auth, asOfDate) {
+  if (typeof cacheRead !== 'function') return null;
+  try {
+    const cached = await cacheRead(auth.email);
+    if (!cached?.plan || !cacheCanSatisfyAuth(cached.plan, auth)) return null;
+    const plan = resolveAuthorizedPlanWindowFromValues(
+      [cached.plan],
+      auth,
+      asOfDate,
+      { allowLatestFallback: true },
+    );
+    if (!plan) return null;
+    return {
+      plan,
+      entries: Array.isArray(cached.entries) ? cached.entries : [],
+    };
+  } catch (error) {
+    console.warn('[workout-plan-read] cache-read-failed', {
+      name: error?.name || 'Error',
+      message: String(error?.message || error).slice(0, 120),
+    });
+    return null;
+  }
+}
+
+async function tryCacheWrite(cacheWrite, email, plan, entries) {
+  if (typeof cacheWrite !== 'function') return;
+  try {
+    await cacheWrite(email, plan, Array.isArray(entries) ? entries : []);
+  } catch (error) {
+    console.warn('[workout-plan-read] cache-write-failed', {
+      name: error?.name || 'Error',
+      message: String(error?.message || error).slice(0, 120),
+    });
+  }
+}
+
+async function readFilteredWorkoutMemories(fetchImpl, token, email) {
+  const definitionsResponse = await pickaxeRequest(
+    fetchImpl,
+    token,
+    '/studio/memory/list?skip=0&take=100',
+  );
+  if (!definitionsResponse.ok) {
+    throw new Error(`memory-definition-list-${definitionsResponse.status}`);
+  }
+  const definitions = payloadItems(await definitionsResponse.json());
+  const planMemoryId = memoryDefinitionId(findMemoryDefinition(definitions, PLAN_MEMORY_NAMES));
+  const historyMemoryId = memoryDefinitionId(findMemoryDefinition(definitions, HISTORY_MEMORY_NAMES));
+  if (!planMemoryId && !historyMemoryId) {
+    throw new Error('workout-memory-definitions-missing');
+  }
+
+  const [planResult, historyResult] = await Promise.allSettled([
+    planMemoryId
+      ? readMemory(fetchImpl, token, email, planMemoryId)
+      : Promise.resolve({ values: [], payload: null }),
+    historyMemoryId
+      ? readMemory(fetchImpl, token, email, historyMemoryId)
+      : Promise.resolve({ values: [], payload: null }),
+  ]);
+
+  const reads = [
+    planResult.status === 'fulfilled' ? planResult.value : { values: [], payload: null },
+    historyResult.status === 'fulfilled' ? historyResult.value : { values: [], payload: null },
+  ];
+
+  return {
+    reads,
+    planReadFailed: planResult.status === 'rejected',
+    historyReadFailed: historyResult.status === 'rejected',
+  };
+}
+
 function summarizeStoredValueShape(value) {
   const summary = {
     rawType: Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value,
@@ -263,6 +371,8 @@ export async function handleWorkoutPlanRead({
   token,
   fetchImpl = fetch,
   allowedOrigins = new Set(['https://studio.pickaxe.co']),
+  cacheRead = null,
+  cacheWrite = null,
 }) {
   const origin = request.headers.get('origin')?.trim() || '';
   if (origin && !allowedOrigins.has(origin)) {
@@ -300,21 +410,64 @@ export async function handleWorkoutPlanRead({
   }
 
   try {
-    // Read this verified member's memory collection in one request. This avoids
-    // the slower memory-definition lookup plus two separate filtered reads that
-    // were timing out in production. The signed HMAC capability already scopes
-    // this request to the member email used by the save action.
-    const memoryRead = await readAllUserMemories(fetchImpl, token, auth.email);
-    let reads = [memoryRead];
-    let plan = resolvePlanWindowFromReads(reads, auth, asOfDate);
+    const cached = await tryCacheRead(cacheRead, auth, asOfDate);
+    if (cached) {
+      console.info('[workout-plan-read] resolved-from-cache', {
+        hasNextPlan: !!cached.plan?.nextPlan?.plan,
+      });
+      return jsonResponse(
+        origin,
+        allowedOrigins,
+        successPayload(cached.plan, cached.entries, auth, token),
+        200,
+      );
+    }
 
-    // Some older test fixtures and older Pickaxe response paths may not support
-    // the unfiltered member-memory read. Keep the previous filtered-reader path
-    // only as a compatibility fallback; production should normally finish after
-    // the single request above.
-    if (!plan && memoryRead.values.length === 0 && memoryRead.payload == null) {
-      reads = await readLegacyWorkoutMemories(fetchImpl, token, auth.email);
+    let reads = [];
+    let plan = null;
+    let filteredFailure = null;
+
+    // Primary path: exactly mirror the proven Pickaxe actions. Resolve the two
+    // workout memory definitions, then read those exact member-scoped memories.
+    // The longer timeout matches the server-side action behavior and avoids the
+    // premature 4-6 second aborts that caused the earlier 502 loop.
+    try {
+      const filtered = await readFilteredWorkoutMemories(
+        fetchImpl,
+        token,
+        auth.email,
+      );
+      reads = filtered.reads;
       plan = resolvePlanWindowFromReads(reads, auth, asOfDate);
+      if (!plan && filtered.planReadFailed && filtered.historyReadFailed) {
+        throw new Error('both-filtered-memory-reads-failed');
+      }
+    } catch (error) {
+      filteredFailure = error;
+      console.warn('[workout-plan-read] filtered-read-failed', {
+        name: error?.name || 'Error',
+        message: String(error?.message || error).slice(0, 160),
+      });
+    }
+
+    // Fallback only: use the one-pass member-memory response if the exact
+    // filtered path cannot resolve a plan. The decoder tolerates Pickaxe's
+    // non-strict display representation, but this is no longer the normal path.
+    if (!plan) {
+      try {
+        const memoryRead = await readAllUserMemories(fetchImpl, token, auth.email);
+        const fallbackReads = [memoryRead];
+        const fallbackPlan = resolvePlanWindowFromReads(fallbackReads, auth, asOfDate);
+        if (fallbackPlan) {
+          reads = fallbackReads;
+          plan = fallbackPlan;
+        }
+      } catch (error) {
+        console.warn('[workout-plan-read] one-pass-fallback-failed', {
+          name: error?.name || 'Error',
+          message: String(error?.message || error).slice(0, 160),
+        });
+      }
     }
 
     const memoryValues = sourcesFromReads(reads);
@@ -322,17 +475,23 @@ export async function handleWorkoutPlanRead({
     if (!plan) {
       console.info('[workout-plan-read] unresolved-memory-shapes', {
         valueShapes: memoryValues.slice(0, 6).map(summarizeStoredValueShape),
-      });
-      console.info('[workout-plan-read] plan-not-found', {
-        memoryValueCount: memoryValues.length,
+        filteredFailure: filteredFailure ? String(filteredFailure.message || filteredFailure).slice(0, 120) : null,
       });
       return jsonResponse(
         origin,
         allowedOrigins,
-        { ok: false, message: 'Authorized workout plan was not found.' },
-        404,
+        {
+          ok: false,
+          message: filteredFailure
+            ? 'Workout plan could not be loaded from Pickaxe.'
+            : 'Authorized workout plan was not found.',
+        },
+        filteredFailure ? 502 : 404,
       );
     }
+
+    const entries = extractHistoryEntries(memoryValues);
+    await tryCacheWrite(cacheWrite, auth.email, plan, entries);
 
     const scheduleDates = Array.isArray(plan?.weekSchedule)
       ? plan.weekSchedule
@@ -360,24 +519,10 @@ export async function handleWorkoutPlanRead({
       nextEffectiveFrom: plan?.nextPlan?.effectiveFrom || null,
     });
 
-    const planBridgeCandidate = parseBridgeAuth(plan?._historyBridge || plan?.historyBridge);
-    const proofAuth =
-      planBridgeCandidate && verifyBridgeAuth(planBridgeCandidate, token)
-        ? planBridgeCandidate
-        : auth;
-    const handoffProof = createWorkoutHandoffProof(plan, proofAuth, token);
-    const planWithHandoffProof = handoffProof
-      ? { ...plan, _handoffProof: handoffProof }
-      : plan;
-
     return jsonResponse(
       origin,
       allowedOrigins,
-      {
-        ok: true,
-        plan: planWithHandoffProof,
-        entries: extractHistoryEntries(memoryValues),
-      },
+      successPayload(plan, entries, auth, token),
       200,
     );
   } catch (error) {
