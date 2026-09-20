@@ -1,3 +1,4 @@
+import { readWorkoutPlanCache, writeWorkoutPlanCache } from '../../../../lib/workout-plan-cache-db.mjs';
 import { buildCorsHeaders, handleWorkoutPlanRead } from './route-core.mjs';
 
 export const runtime = 'nodejs';
@@ -48,5 +49,7 @@ export async function POST(request) {
     token: getWorkspaceToken(),
     fetchImpl: fetch,
     allowedOrigins: allowedOrigins(),
+    cacheRead: readWorkoutPlanCache,
+    cacheWrite: writeWorkoutPlanCache,
   });
 }
