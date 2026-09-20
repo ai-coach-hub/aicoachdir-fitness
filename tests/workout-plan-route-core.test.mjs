@@ -745,7 +745,7 @@ test('prefers the dedicated coach plan over a newer stale history mirror', async
 
   const staleHistoryPlan = {
     ...dedicated,
-    updatedAt: '2026-09-19T18:05:00.000Z',
+    updatedAt: '2026-09-19T17:55:00.000Z',
     weekSchedule: [
       { id: 'sun', day: 'Sunday', date: '2026-09-20', isRestDay: true, workoutId: null },
       { id: 'mon', day: 'Monday', date: '2026-09-21', isRestDay: false, workoutId: 'otf' },
@@ -784,7 +784,7 @@ test('prefers the dedicated coach plan over a newer stale history mirror', async
         {
           memoryId: 'mem-history',
           value: JSON.stringify({
-            updatedAt: staleHistoryPlan.updatedAt,
+            updatedAt: '2026-09-19T18:05:00.000Z',
             currentPlan: staleHistoryPlan,
             entries: [{ title: 'Earlier' }],
           }),
@@ -809,5 +809,103 @@ test('prefers the dedicated coach plan over a newer stale history mirror', async
   assert.equal(body.plan.weekSchedule[3].workoutId, 'otf');
   assert.equal(body.plan.weekSchedule[4].workoutId, 'otf');
   assert.equal(body.plan.weekSchedule[5].workoutId, 'otf');
+  assert.deepEqual(body.entries, [{ title: 'Earlier' }]);
+});
+
+
+test('selects a newer corrected same-week plan from history even when it has a new plan id', async () => {
+  const stale = {
+    schemaVersion: 2,
+    planId: 'alternating-plan',
+    updatedAt: '2026-09-19T17:00:00.000Z',
+    scheduleMode: 'fixed_weekdays',
+    phase: { name: 'Next Week', weekStart: '2026-09-20', weekEnd: '2026-09-26' },
+    weekSchedule: [
+      { id: 'sun', day: 'Sunday', date: '2026-09-20', isRestDay: true, workoutId: null },
+      { id: 'mon', day: 'Monday', date: '2026-09-21', isRestDay: false, workoutId: 'otf' },
+      { id: 'tue', day: 'Tuesday', date: '2026-09-22', isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'wed', day: 'Wednesday', date: '2026-09-23', isRestDay: false, workoutId: 'otf' },
+      { id: 'thu', day: 'Thursday', date: '2026-09-24', isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'fri', day: 'Friday', date: '2026-09-25', isRestDay: false, workoutId: 'otf' },
+      { id: 'sat', day: 'Saturday', date: '2026-09-26', isRestDay: true, workoutId: null },
+    ],
+    workouts: {
+      otf: {
+        id: 'otf',
+        title: 'OTF Class',
+        durationMinutes: 60,
+        exercises: [{ id: 'otf-e1', name: 'OTF Class', sets: 1, reps: '1 class' }],
+      },
+      bodyweight: {
+        id: 'bodyweight',
+        title: 'Bodyweight Strength Basics',
+        durationMinutes: 25,
+        exercises: [{ id: 'bw-e1', name: 'Push-up', sets: 3, reps: '8' }],
+      },
+    },
+  };
+  const auth = signAuth({
+    email: 'member@example.com',
+    planId: stale.planId,
+    planUpdatedAt: stale.updatedAt,
+  });
+  stale._historyBridge = auth;
+
+  const corrected = {
+    ...stale,
+    planId: 'otf-corrected-plan',
+    updatedAt: '2026-09-19T18:00:00.000Z',
+    weekSchedule: stale.weekSchedule.map((entry) => (
+      entry.isRestDay ? entry : { ...entry, workoutId: 'otf' }
+    )),
+  };
+  corrected._historyBridge = signAuth({
+    email: 'member@example.com',
+    planId: corrected.planId,
+    planUpdatedAt: corrected.updatedAt,
+  });
+
+  const fetchImpl = async (url) => {
+    const value = String(url);
+    if (value.includes('/studio/memory/list')) {
+      return Response.json({ data: { items: [
+        { id: 'mem-plan', name: 'fitness-workout-plan-v1' },
+        { id: 'mem-history', name: 'fitness-workout-history-v1' },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-plan')) {
+      return Response.json({ data: { items: [
+        { memoryId: 'mem-plan', value: JSON.stringify(stale) },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-history')) {
+      return Response.json({ data: { items: [
+        {
+          memoryId: 'mem-history',
+          value: JSON.stringify({
+            updatedAt: '2026-09-19T18:03:00.000Z',
+            currentPlan: corrected,
+            entries: [{ title: 'Earlier' }],
+          }),
+        },
+      ] } });
+    }
+    return new Response('not found', { status: 404 });
+  };
+
+  const response = await routeCore.handleWorkoutPlanRead({
+    request: requestFor({ auth, asOfDate: '2026-09-19' }),
+    token: TOKEN,
+    fetchImpl,
+    allowedOrigins: new Set([ORIGIN]),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.plan.planId, 'otf-corrected-plan');
+  for (const index of [1, 2, 3, 4, 5]) {
+    assert.equal(body.plan.weekSchedule[index].workoutId, 'otf');
+  }
   assert.deepEqual(body.entries, [{ title: 'Earlier' }]);
 });
