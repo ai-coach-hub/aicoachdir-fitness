@@ -320,20 +320,11 @@ function normalizedTitle(value) {
 function isExactKnownSep20AlternatingPlan(plan, effectiveFrom = null) {
   if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return false;
 
-  // My Workouts normalizes every non-flexible plan to fixed_weekdays. Match the
-  // stored representation the same way so raw cached plans with scheduleMode
-  // omitted or an older fixed-mode label do not bypass this exact beta repair.
+  // This is a one-time migration for the exact known beta week. Keep the scope
+  // narrow by calendar + seven-day visible pattern, while accepting the raw
+  // representations Pickaxe actually stores (inline titles, omitted rest flags,
+  // sparse phase metadata, or labels instead of day).
   if (plan.scheduleMode === 'flexible_sequence') return false;
-
-  const weekStart =
-    typeof plan?.phase?.weekStart === 'string'
-      ? plan.phase.weekStart
-      : typeof effectiveFrom === 'string'
-        ? effectiveFrom
-        : null;
-  if (weekStart !== '2026-09-20') return false;
-  if (plan?.phase?.weekEnd && plan.phase.weekEnd !== '2026-09-26') return false;
-
   if (!Array.isArray(plan.weekSchedule) || plan.weekSchedule.length !== 7) return false;
   if (!plan.workouts || typeof plan.workouts !== 'object' || Array.isArray(plan.workouts)) {
     return false;
@@ -358,6 +349,39 @@ function isExactKnownSep20AlternatingPlan(plan, effectiveFrom = null) {
     '2026-09-26',
   ];
 
+  const rowDates = plan.weekSchedule
+    .map((entry) => (typeof entry?.date === 'string' ? entry.date : null))
+    .filter(Boolean)
+    .sort();
+
+  const weekStart =
+    typeof plan?.phase?.weekStart === 'string'
+      ? plan.phase.weekStart
+      : rowDates[0] ||
+        (typeof effectiveFrom === 'string' ? effectiveFrom : null);
+  const weekEnd =
+    typeof plan?.phase?.weekEnd === 'string'
+      ? plan.phase.weekEnd
+      : rowDates[rowDates.length - 1] || null;
+
+  if (weekStart !== '2026-09-20') return false;
+  if (weekEnd && weekEnd !== '2026-09-26') return false;
+
+  const titleFor = (entry) => {
+    if (!entry || typeof entry !== 'object') return '';
+    if (entry.workoutId && plan.workouts) {
+      const workout = plan.workouts[entry.workoutId];
+      const mapped = normalizedTitle(workout?.title || workout?.name);
+      if (mapped) return mapped;
+    }
+    return normalizedTitle(
+      entry.workout ||
+      entry.workoutTitle ||
+      entry.title ||
+      entry.name,
+    );
+  };
+
   if (
     !plan.weekSchedule.every((entry, index) => {
       const storedDay =
@@ -366,26 +390,22 @@ function isExactKnownSep20AlternatingPlan(plan, effectiveFrom = null) {
           : typeof entry?.label === 'string'
             ? entry.label.trim().toLowerCase()
             : '';
-      return (
-        storedDay === expectedDays[index] &&
-        (!entry?.date || entry.date === expectedDates[index])
-      );
+      const dayMatches = !storedDay || storedDay === expectedDays[index];
+      const dateMatches = !entry?.date || entry.date === expectedDates[index];
+      return dayMatches && dateMatches;
     })
   ) {
     return false;
   }
 
   const [sun, mon, tue, wed, thu, fri, sat] = plan.weekSchedule;
-  if (sun?.isRestDay !== true || sat?.isRestDay !== true) return false;
-  if ([mon, tue, wed, thu, fri].some((entry) => entry?.isRestDay || !entry?.workoutId)) {
-    return false;
-  }
+  const isRest = (entry) =>
+    entry?.isRestDay === true ||
+    titleFor(entry) === 'rest' ||
+    (!entry?.workoutId && !titleFor(entry));
 
-  const titleFor = (entry) =>
-    normalizedTitle(
-      plan.workouts?.[entry?.workoutId]?.title ||
-      plan.workouts?.[entry?.workoutId]?.name,
-    );
+  if (!isRest(sun) || !isRest(sat)) return false;
+  if (!mon?.workoutId) return false;
 
   return (
     titleFor(mon) === 'otf class' &&
@@ -395,7 +415,6 @@ function isExactKnownSep20AlternatingPlan(plan, effectiveFrom = null) {
     titleFor(fri) === 'otf class'
   );
 }
-
 
 function repairSep20NextPlanByVisiblePattern(root, email, token, now = new Date()) {
   if (!root || typeof root !== 'object' || Array.isArray(root)) return null;
@@ -627,7 +646,6 @@ async function maybeRepairKnownSep20BetaPlan({
   if (
     !filtered ||
     !plan ||
-    !hasKnownBetaHistoryMarkers(entries) ||
     asOfDate < '2026-09-19' ||
     asOfDate > '2026-09-26'
   ) {
@@ -971,34 +989,34 @@ export async function handleWorkoutPlanRead({
 
     const entries = extractHistoryEntries(memoryValues);
 
-    // Fast-path the exact known beta mismatch from the already-resolved plan.
-    // This avoids another Pickaxe write/read cycle: correct the resolved Sep 20-26
-    // plan in memory, return it immediately, and persist that corrected copy to
-    // Neon so subsequent My Workouts loads never need Pickaxe for this member.
-    const resolvedRepair = repairResolvedKnownSep20BetaPlan(
+    // For the exact known Sep 20 beta mismatch, repair the underlying Pickaxe
+    // memory first so future fresh reads cannot resurrect the bad current week.
+    // If the source wrapper cannot be patched, still repair the resolved response
+    // in memory as a safe fallback for this request.
+    const persistedRepair = await maybeRepairKnownSep20BetaPlan({
+      filtered: filteredMemories,
       plan,
       entries,
-      auth.email,
+      auth,
+      asOfDate,
       token,
-    );
-    if (resolvedRepair) {
-      plan = resolvedRepair;
-      console.info('[workout-plan-read] repaired-resolved-sep20-beta-plan', {
-        weekStart: plan?.phase?.weekStart || null,
-        weekEnd: plan?.phase?.weekEnd || null,
-      });
+      fetchImpl,
+    });
+    if (persistedRepair) {
+      plan = persistedRepair;
     } else {
-      const repairedPlan = await maybeRepairKnownSep20BetaPlan({
-        filtered: filteredMemories,
+      const resolvedRepair = repairResolvedKnownSep20BetaPlan(
         plan,
         entries,
-        auth,
-        asOfDate,
+        auth.email,
         token,
-        fetchImpl,
-      });
-      if (repairedPlan) {
-        plan = repairedPlan;
+      );
+      if (resolvedRepair) {
+        plan = resolvedRepair;
+        console.info('[workout-plan-read] repaired-resolved-sep20-beta-plan', {
+          weekStart: plan?.phase?.weekStart || null,
+          weekEnd: plan?.phase?.weekEnd || null,
+        });
       }
     }
 
@@ -1022,6 +1040,28 @@ export async function handleWorkoutPlanRead({
       weekStart: plan?.phase?.weekStart || scheduleDates[0] || null,
       weekEnd: plan?.phase?.weekEnd || scheduleDates[scheduleDates.length - 1] || null,
       weekEntries: Array.isArray(plan?.weekSchedule) ? plan.weekSchedule.length : 0,
+      rows: Array.isArray(plan?.weekSchedule)
+        ? plan.weekSchedule.slice(0, 7).map((entry) => {
+            const workout =
+              entry?.workoutId && plan?.workouts && typeof plan.workouts === 'object'
+                ? plan.workouts[entry.workoutId]
+                : null;
+            return {
+              day: entry?.day || entry?.label || null,
+              date: entry?.date || null,
+              isRestDay: entry?.isRestDay === true,
+              workoutId: entry?.workoutId || null,
+              title:
+                workout?.title ||
+                workout?.name ||
+                entry?.workout ||
+                entry?.workoutTitle ||
+                entry?.title ||
+                entry?.name ||
+                null,
+            };
+          })
+        : [],
       workoutCount: workoutValues.length,
       workoutsMissingExerciseArrays: exerciseCounts.filter((count) => count < 0).length,
       workoutsWithZeroExercises: exerciseCounts.filter((count) => count === 0).length,

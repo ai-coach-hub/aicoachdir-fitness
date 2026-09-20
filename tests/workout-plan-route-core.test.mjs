@@ -1816,3 +1816,110 @@ test('repairs the exact visible Sep 20 nextPlan directly before cached return', 
   assert.equal(cacheWrites[0].plan.nextPlan.plan.weekSchedule[2].workoutId, 'otf-next');
   assert.equal(cacheWrites[0].plan.nextPlan.plan.weekSchedule[4].workoutId, 'otf-next');
 });
+
+
+test('persists authoritative Sep 20 alternating current week even without history markers', async () => {
+  const staleCurrent = {
+    schemaVersion: 2,
+    planId: 'live-sep20-current',
+    updatedAt: '2026-09-20T12:00:00.000Z',
+    scheduleMode: 'fixed_weekdays',
+    phase: { name: 'This Week', weekStart: '2026-09-20', weekEnd: '2026-09-26' },
+    weekSchedule: [
+      { id: 'sun', day: 'Sunday', date: '2026-09-20', title: 'Rest', workoutId: null },
+      { id: 'mon', day: 'Monday', date: '2026-09-21', isRestDay: false, workoutId: 'otf' },
+      { id: 'tue', day: 'Tuesday', date: '2026-09-22', isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'wed', day: 'Wednesday', date: '2026-09-23', isRestDay: false, workoutId: 'otf' },
+      { id: 'thu', day: 'Thursday', date: '2026-09-24', isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'fri', day: 'Friday', date: '2026-09-25', isRestDay: false, workoutId: 'otf' },
+      { id: 'sat', day: 'Saturday', date: '2026-09-26', title: 'Rest', workoutId: null },
+    ],
+    workouts: {
+      otf: {
+        id: 'otf',
+        title: 'OTF Class',
+        durationMinutes: 60,
+        exercises: [{ id: 'e1', name: 'OTF Class', sets: 1, reps: '1 class' }],
+      },
+      bodyweight: {
+        id: 'bodyweight',
+        title: 'Bodyweight Strength Basics',
+        durationMinutes: 25,
+        exercises: [{ id: 'e2', name: 'Push-up', sets: 3, reps: '8' }],
+      },
+      mobility: {
+        id: 'mobility',
+        title: 'Mobility & Recovery',
+        durationMinutes: 20,
+        exercises: [{ id: 'e3', name: 'Mobility', sets: 1, reps: '8' }],
+      },
+    },
+  };
+  const auth = signAuth({
+    email: 'member@example.com',
+    planId: staleCurrent.planId,
+    planUpdatedAt: staleCurrent.updatedAt,
+  });
+  staleCurrent._historyBridge = auth;
+
+  const nextWeek = {
+    ...JSON.parse(JSON.stringify(staleCurrent)),
+    planId: 'sep27',
+    updatedAt: '2026-09-20T13:00:00.000Z',
+    phase: { name: 'Next Week', weekStart: '2026-09-27', weekEnd: '2026-10-03' },
+    weekSchedule: [
+      { id: 'sun2', day: 'Sunday', date: '2026-09-27', isRestDay: true, workoutId: null },
+      { id: 'mon2', day: 'Monday', date: '2026-09-28', isRestDay: false, workoutId: 'otf' },
+      { id: 'tue2', day: 'Tuesday', date: '2026-09-29', isRestDay: false, workoutId: 'otf' },
+      { id: 'wed2', day: 'Wednesday', date: '2026-09-30', isRestDay: false, workoutId: 'otf' },
+      { id: 'thu2', day: 'Thursday', date: '2026-10-01', isRestDay: false, workoutId: 'otf' },
+      { id: 'fri2', day: 'Friday', date: '2026-10-02', isRestDay: false, workoutId: 'otf' },
+      { id: 'sat2', day: 'Saturday', date: '2026-10-03', isRestDay: true, workoutId: null },
+    ],
+  };
+  staleCurrent.nextPlan = { effectiveFrom: '2026-09-27', plan: nextWeek };
+
+  const patchBodies = [];
+  const fetchImpl = async (url, init = {}) => {
+    const value = String(url);
+    if (value.includes('/studio/memory/list')) {
+      return Response.json({ data: { items: [
+        { id: 'mem-plan', name: 'fitness-workout-plan-v1' },
+        { id: 'mem-history', name: 'fitness-workout-history-v1' },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-plan')) {
+      return Response.json({ data: { items: [
+        { memoryId: 'mem-plan', value: JSON.stringify(staleCurrent) },
+      ] } });
+    }
+    if (value.includes('memoryId=mem-history')) {
+      return Response.json({ data: { items: [] } });
+    }
+    if (init.method === 'PATCH') {
+      patchBodies.push(JSON.parse(init.body));
+      return Response.json({ ok: true });
+    }
+    return new Response('not found', { status: 404 });
+  };
+
+  const response = await routeCore.handleWorkoutPlanRead({
+    request: requestFor({ auth, asOfDate: '2026-09-20' }),
+    token: TOKEN,
+    fetchImpl,
+    allowedOrigins: new Set([ORIGIN]),
+    cacheRead: async () => null,
+    cacheWrite: async () => {},
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.plan.weekSchedule[2].workoutId, 'otf');
+  assert.equal(body.plan.weekSchedule[4].workoutId, 'otf');
+  assert.ok(patchBodies.length >= 1);
+
+  const saved = JSON.parse(patchBodies[0].data.value);
+  assert.equal(saved.weekSchedule[2].workoutId, 'otf');
+  assert.equal(saved.weekSchedule[4].workoutId, 'otf');
+});
