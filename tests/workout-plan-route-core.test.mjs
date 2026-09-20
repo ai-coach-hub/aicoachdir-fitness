@@ -607,7 +607,7 @@ test('combines current flexible plan with a separate future fixed week from hist
 });
 
 
-test('loads current and future workout plans from one unfiltered member-memory request', async () => {
+test('uses one-pass member-memory read only after the authoritative filtered path is unavailable', async () => {
   const currentFlexible = {
     schemaVersion: 2,
     planId: 'member-plan',
@@ -704,7 +704,8 @@ test('loads current and future workout plans from one unfiltered member-memory r
   assert.equal(body.plan.nextPlan.plan.scheduleMode, 'fixed_weekdays');
   assert.equal(body.plan.nextPlan.plan.weekSchedule.length, 7);
   assert.deepEqual(body.entries, [{ title: 'Earlier' }]);
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].url.includes('/studio/memory/list'), false);
-  assert.equal(calls[0].url.includes('memoryId='), false);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url.includes('/studio/memory/list'), true);
+  assert.equal(calls[1].url.includes('/studio/memory/user/member%40example.com?skip=0&take=100'), true);
+  assert.equal(calls[1].url.includes('memoryId='), false);
 });
