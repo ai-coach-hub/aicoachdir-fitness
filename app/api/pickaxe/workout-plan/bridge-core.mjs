@@ -42,6 +42,31 @@ export function verifyBridgeAuth(auth, token) {
   return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }
 
+export function createBridgeAuthForPlan(plan, email, token) {
+  const normalizedEmail = normalizeEmail(email);
+  const planId = typeof plan?.planId === 'string' ? plan.planId.trim().slice(0, 200) : '';
+  const planUpdatedAt =
+    typeof plan?.updatedAt === 'string' ? plan.updatedAt.trim() : '';
+  if (
+    !normalizedEmail ||
+    !planId ||
+    !planUpdatedAt ||
+    Number.isNaN(new Date(planUpdatedAt).getTime()) ||
+    !token
+  ) {
+    return null;
+  }
+  const auth = {
+    email: normalizedEmail,
+    planId,
+    planUpdatedAt,
+  };
+  const signature = createHmac('sha256', token)
+    .update(signatureMessage(auth), 'utf8')
+    .digest('hex');
+  return { ...auth, signature };
+}
+
 
 function handoffWorkoutsFromPlan(plan) {
   const map = new Map();
