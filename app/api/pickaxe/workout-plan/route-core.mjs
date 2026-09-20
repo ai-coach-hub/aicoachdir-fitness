@@ -427,11 +427,13 @@ async function maybeRepairKnownSep20BetaPlan({
     return null;
   }
 
-  const rawPlanValue = filtered.planRead?.values?.[0];
-  const storedRoot = unwrapStoredValue(rawPlanValue);
-  if (!storedRoot || typeof storedRoot !== 'object' || Array.isArray(storedRoot)) return null;
-
-  const repaired = repairKnownSep20PlanNode(storedRoot, auth.email, token);
+  let repaired = null;
+  for (const rawPlanValue of filtered.planRead?.values || []) {
+    const storedRoot = unwrapStoredValue(rawPlanValue);
+    if (!storedRoot || typeof storedRoot !== 'object' || Array.isArray(storedRoot)) continue;
+    repaired = repairKnownSep20PlanNode(storedRoot, auth.email, token);
+    if (repaired) break;
+  }
   if (!repaired) return null;
 
   const serializedPlan = JSON.stringify(repaired.storedPlan);
@@ -446,7 +448,7 @@ async function maybeRepairKnownSep20BetaPlan({
   if (filtered.historyMemoryId) {
     const historyEnvelope = {
       schemaVersion: 2,
-      updatedAt: repaired.storedPlan.updatedAt || repaired.targetPlan.updatedAt,
+      updatedAt: repaired.targetPlan.updatedAt,
       plan: repaired.storedPlan,
       entries,
     };
