@@ -481,6 +481,7 @@ test('stale bridge auth upgrades to the newest saved version of the same week, n
 
   const correctedWeek = {
     ...staleWeek,
+    planId: 'corrected-week-plan',
     updatedAt: '2026-09-19T18:00:00.000Z',
     weekSchedule: staleWeek.weekSchedule.map((entry) => (
       entry.isRestDay ? entry : { ...entry, workoutId: 'workout-a' }
@@ -514,6 +515,7 @@ test('stale bridge auth upgrades to the newest saved version of the same week, n
     { allowLatestFallback: true },
   );
 
+  assert.equal(resolved?.planId, 'corrected-week-plan');
   assert.equal(resolved?.updatedAt, '2026-09-19T18:00:00.000Z');
   assert.equal(resolved?.phase?.weekStart, '2026-09-20');
   assert.equal(resolved?.weekSchedule?.[2]?.workoutId, 'workout-a');
