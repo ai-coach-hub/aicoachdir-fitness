@@ -22,6 +22,7 @@ const MAX_BODY_BYTES = 16 * 1024;
 const PICKAXE_REQUEST_TIMEOUTS_MS = [10_000, 20_000];
 const USER_MEMORY_READ_TIMEOUTS_MS = [10_000, 20_000];
 const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const WORKOUT_PLAN_CACHE_MAX_AGE_MS = 30_000;
 
 function corsHeaders(origin, allowedOrigins) {
   const headers = new Headers({
@@ -194,6 +195,20 @@ function cacheCanSatisfyAuth(cachedPlan, auth) {
   return newestPlanTimestampMs(cachedPlan) >= authMs;
 }
 
+export function isWorkoutPlanCacheFresh(cached, nowMs = Date.now()) {
+  // Production Neon reads always include cacheUpdatedAt. Keep custom/test cache readers
+  // without that metadata backward-compatible instead of silently disabling their cache path.
+  if (!cached?.cacheUpdatedAt) return true;
+
+  const updatedMs = new Date(cached.cacheUpdatedAt).getTime();
+  if (Number.isNaN(updatedMs)) return false;
+
+  const ageMs = nowMs - updatedMs;
+  // Reject malformed future timestamps beyond a small clock-skew allowance, and refresh
+  // cached plans older than 30 seconds so coach edits cannot remain stale indefinitely.
+  return ageMs >= -60_000 && ageMs <= WORKOUT_PLAN_CACHE_MAX_AGE_MS;
+}
+
 function successPayload(plan, entries, auth, token) {
   const planBridgeCandidate = parseBridgeAuth(plan?._historyBridge || plan?.historyBridge);
   const proofAuth =
@@ -213,6 +228,13 @@ async function tryCacheRead(cacheRead, auth, asOfDate) {
   try {
     const cached = await cacheRead(auth.email);
     if (!cached?.plan || !cacheCanSatisfyAuth(cached.plan, auth)) return null;
+    if (!isWorkoutPlanCacheFresh(cached)) {
+      const updatedMs = new Date(cached.cacheUpdatedAt).getTime();
+      console.info('[workout-plan-read] cache-stale-refreshing', {
+        ageMs: Number.isNaN(updatedMs) ? null : Math.max(0, Date.now() - updatedMs),
+      });
+      return null;
+    }
     const plan = resolveAuthorizedPlanWindowFromValues(
       [cached.plan],
       auth,
