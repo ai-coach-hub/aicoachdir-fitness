@@ -480,8 +480,13 @@ export async function handleWorkoutPlanRead({
       return jsonResponse(
         origin,
         allowedOrigins,
-        { ok: false, message: 'Authorized workout plan was not found.' },
-        404,
+        {
+          ok: false,
+          message: filteredFailure
+            ? 'Workout plan could not be loaded from Pickaxe.'
+            : 'Authorized workout plan was not found.',
+        },
+        filteredFailure ? 502 : 404,
       );
     }
 
