@@ -415,6 +415,28 @@ async function patchUserMemory(fetchImpl, token, email, memoryId, storedValue) {
   }
 }
 
+function repairResolvedKnownSep20BetaPlan(plan, entries, email, token, now = new Date()) {
+  if (
+    !plan ||
+    !hasKnownBetaHistoryMarkers(entries) ||
+    !isExactKnownSep20AlternatingPlan(plan)
+  ) {
+    return null;
+  }
+
+  const repaired = JSON.parse(JSON.stringify(plan));
+  const otfId = repaired.weekSchedule[1].workoutId;
+  repaired.weekSchedule[2].workoutId = otfId;
+  repaired.weekSchedule[4].workoutId = otfId;
+  repaired.updatedAt = now.toISOString();
+
+  const signed = createBridgeAuthForPlan(repaired, email, token);
+  if (!signed) return null;
+  repaired._historyBridge = signed;
+
+  return repaired;
+}
+
 async function maybeRepairKnownSep20BetaPlan({
   filtered,
   plan,
@@ -735,17 +757,35 @@ export async function handleWorkoutPlanRead({
 
     const entries = extractHistoryEntries(memoryValues);
 
-    const repairedPlan = await maybeRepairKnownSep20BetaPlan({
-      filtered: filteredMemories,
+    // Fast-path the exact known beta mismatch from the already-resolved plan.
+    // This avoids another Pickaxe write/read cycle: correct the resolved Sep 20-26
+    // plan in memory, return it immediately, and persist that corrected copy to
+    // Neon so subsequent My Workouts loads never need Pickaxe for this member.
+    const resolvedRepair = repairResolvedKnownSep20BetaPlan(
       plan,
       entries,
-      auth,
-      asOfDate,
+      auth.email,
       token,
-      fetchImpl,
-    });
-    if (repairedPlan) {
-      plan = repairedPlan;
+    );
+    if (resolvedRepair) {
+      plan = resolvedRepair;
+      console.info('[workout-plan-read] repaired-resolved-sep20-beta-plan', {
+        weekStart: plan?.phase?.weekStart || null,
+        weekEnd: plan?.phase?.weekEnd || null,
+      });
+    } else {
+      const repairedPlan = await maybeRepairKnownSep20BetaPlan({
+        filtered: filteredMemories,
+        plan,
+        entries,
+        auth,
+        asOfDate,
+        token,
+        fetchImpl,
+      });
+      if (repairedPlan) {
+        plan = repairedPlan;
+      }
     }
 
     await tryCacheWrite(cacheWrite, auth.email, plan, entries);
