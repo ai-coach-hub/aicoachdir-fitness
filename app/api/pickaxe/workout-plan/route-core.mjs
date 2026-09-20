@@ -435,24 +435,49 @@ async function maybeRepairKnownSep20BetaPlan({
   }
 
   let repaired = null;
-  for (const rawPlanValue of filtered.planRead?.values || []) {
-    const storedRoot = unwrapStoredValue(rawPlanValue);
-    if (!storedRoot || typeof storedRoot !== 'object' || Array.isArray(storedRoot)) continue;
-    repaired = repairKnownSep20PlanNode(storedRoot, auth.email, token);
+  let repairSource = null;
+  const candidateSources = [
+    {
+      source: 'plan',
+      memoryId: filtered.planMemoryId,
+      values: filtered.planRead?.values || [],
+    },
+    {
+      source: 'history',
+      memoryId: filtered.historyMemoryId,
+      values: filtered.historyRead?.values || [],
+    },
+  ];
+
+  for (const candidateSource of candidateSources) {
+    for (const rawValue of candidateSource.values) {
+      const storedRoot = unwrapStoredValue(rawValue);
+      if (!storedRoot || typeof storedRoot !== 'object' || Array.isArray(storedRoot)) continue;
+      repaired = repairKnownSep20PlanNode(storedRoot, auth.email, token);
+      if (repaired) {
+        repairSource = candidateSource;
+        break;
+      }
+    }
     if (repaired) break;
   }
-  if (!repaired) return null;
+  if (!repaired || !repairSource?.memoryId) return null;
 
-  const serializedPlan = JSON.stringify(repaired.storedPlan);
+  // Persist the correction back into the exact memory record that actually
+  // contained the stale plan. The live evidence shows some beta accounts have
+  // the usable plan only inside the history envelope, so assuming plan memory
+  // was the source prevented the one-time repair from firing.
   await patchUserMemory(
     fetchImpl,
     token,
     auth.email,
-    filtered.planMemoryId,
-    serializedPlan,
+    repairSource.memoryId,
+    JSON.stringify(repaired.storedPlan),
   );
 
-  if (filtered.historyMemoryId) {
+  // If the stale plan came from the dedicated plan memory, keep history in sync.
+  // If it came from history, do not overwrite plan memory with a history wrapper.
+  if (repairSource.source === 'plan' && filtered.historyMemoryId) {
     const historyEnvelope = {
       schemaVersion: 2,
       updatedAt: repaired.targetPlan.updatedAt,
@@ -483,6 +508,7 @@ async function maybeRepairKnownSep20BetaPlan({
   ) || repaired.targetPlan;
 
   console.info('[workout-plan-read] repaired-known-sep20-beta-plan', {
+    source: repairSource?.source || null,
     weekStart: repaired.targetPlan?.phase?.weekStart || null,
     weekEnd: repaired.targetPlan?.phase?.weekEnd || null,
   });
