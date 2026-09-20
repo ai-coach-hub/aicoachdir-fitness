@@ -1435,3 +1435,58 @@ test('repairs the stale Sep 20 beta plan when it is served from cache', async ()
   assert.equal(cacheWrites[0].plan.nextPlan.plan.weekSchedule[2].workoutId, 'otf');
   assert.equal(cacheWrites[0].plan.nextPlan.plan.weekSchedule[4].workoutId, 'otf');
 });
+
+
+test('repairs cached Sep 20 alternating plan even when it has no following nextPlan', async () => {
+  const stale = {
+    schemaVersion: 2,
+    planId: 'stale-sep20-cache-no-next',
+    updatedAt: '2026-09-19T17:00:00.000Z',
+    scheduleMode: 'fixed_weekdays',
+    phase: { name: 'Next Week', weekStart: '2026-09-20', weekEnd: '2026-09-26' },
+    weekSchedule: [
+      { id: 'sun', day: 'Sunday', date: '2026-09-20', isRestDay: true, workoutId: null },
+      { id: 'mon', day: 'Monday', date: '2026-09-21', isRestDay: false, workoutId: 'otf' },
+      { id: 'tue', day: 'Tuesday', date: '2026-09-22', isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'wed', day: 'Wednesday', date: '2026-09-23', isRestDay: false, workoutId: 'otf' },
+      { id: 'thu', day: 'Thursday', date: '2026-09-24', isRestDay: false, workoutId: 'bodyweight' },
+      { id: 'fri', day: 'Friday', date: '2026-09-25', isRestDay: false, workoutId: 'otf' },
+      { id: 'sat', day: 'Saturday', date: '2026-09-26', isRestDay: true, workoutId: null },
+    ],
+    workouts: {
+      otf: { id: 'otf', title: 'OTF Class', durationMinutes: 60, exercises: [{ id: 'e1', name: 'OTF Class', sets: 1, reps: '1 class' }] },
+      bodyweight: { id: 'bodyweight', title: 'Bodyweight Strength Basics', durationMinutes: 25, exercises: [{ id: 'e2', name: 'Push-up', sets: 3, reps: '8' }] },
+      mobility: { id: 'mobility', title: 'Mobility & Recovery', durationMinutes: 20, exercises: [{ id: 'e3', name: 'Mobility', sets: 1, reps: '8' }] },
+    },
+  };
+
+  const auth = signAuth({
+    email: 'member@example.com',
+    planId: stale.planId,
+    planUpdatedAt: stale.updatedAt,
+  });
+  stale._historyBridge = auth;
+
+  const cacheWrites = [];
+  const response = await routeCore.handleWorkoutPlanRead({
+    request: requestFor({ auth, asOfDate: '2026-09-20' }),
+    token: TOKEN,
+    fetchImpl: async () => {
+      throw new Error('cache hit should not call Pickaxe');
+    },
+    allowedOrigins: new Set([ORIGIN]),
+    cacheRead: async () => ({ plan: stale, entries: [] }),
+    cacheWrite: async (email, planValue, entries) => {
+      cacheWrites.push({ email, plan: planValue, entries });
+    },
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.plan.weekSchedule[2].workoutId, 'otf');
+  assert.equal(body.plan.weekSchedule[4].workoutId, 'otf');
+  assert.equal(cacheWrites.length, 1);
+  assert.equal(cacheWrites[0].plan.weekSchedule[2].workoutId, 'otf');
+  assert.equal(cacheWrites[0].plan.weekSchedule[4].workoutId, 'otf');
+});
