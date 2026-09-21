@@ -97,6 +97,7 @@ test('accepts previous-workout entries from an older plan when current bridge au
   }
 });
 
+// Regression: a fresh plan memory must rescue a stale history envelope.
 test('falls back to dedicated plan memory when history envelope lacks matching plan context', async () => {
   const auth = signedAuth();
   let writtenValue = null;
