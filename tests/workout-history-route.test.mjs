@@ -97,6 +97,69 @@ test('accepts previous-workout entries from an older plan when current bridge au
   }
 });
 
+test('falls back to dedicated plan memory when history envelope lacks matching plan context', async () => {
+  const auth = signedAuth();
+  let writtenValue = null;
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async (url, init = {}) => {
+    const path = String(url).replace('https://api.pickaxe.co/v1', '');
+    if (path.startsWith('/studio/memory/list')) {
+      return Response.json({
+        items: [
+          { id: 'history-memory', name: 'fitness workout history for ai coach' },
+          { id: 'plan-memory', name: 'fitness-workout-plan-v1' },
+        ],
+      });
+    }
+    if (path.includes('memoryId=history-memory')) {
+      const stalePlan = {
+        planId: 'older-plan',
+        updatedAt: '2026-09-15T17:00:00.000Z',
+        weekSchedule: [],
+        workouts: {},
+      };
+      const value = writtenValue ?? JSON.stringify({
+        schemaVersion: 2,
+        updatedAt: '2026-09-15T17:30:00.000Z',
+        plan: stalePlan,
+        entries: [],
+      });
+      return Response.json({ items: [{ value }] });
+    }
+    if (path.includes('memoryId=plan-memory')) {
+      const currentPlan = {
+        planId: auth.planId,
+        updatedAt: auth.planUpdatedAt,
+        weekSchedule: [],
+        workouts: {},
+      };
+      return Response.json({ items: [{ value: JSON.stringify(currentPlan) }] });
+    }
+    if (path === '/studio/memory/user/member%40example.com/history-memory' && init.method === 'PATCH') {
+      writtenValue = JSON.parse(init.body).data.value;
+      return Response.json({ ok: true });
+    }
+    throw new Error(`Unexpected fetch: ${init.method || 'GET'} ${path}`);
+  };
+
+  try {
+    const response = await POST(requestFor(auth, historyPayload('older-plan')));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      ok: true,
+      savedAt: '2026-09-15T18:30:00.000Z',
+    });
+    assert.ok(writtenValue, 'history should be written');
+    const stored = JSON.parse(writtenValue);
+    assert.equal(stored.plan.planId, auth.planId);
+    assert.equal(stored.plan.updatedAt, auth.planUpdatedAt);
+    assert.deepEqual(stored.plan._historyBridge, auth);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('still rejects invalid bridge signatures before any Pickaxe write', async () => {
   const auth = signedAuth();
   auth.signature = '0'.repeat(64);
