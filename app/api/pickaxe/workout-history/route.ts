@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PICKAXE_API_BASE = "https://api.pickaxe.co/v1";
+const PLAN_MEMORY_NAMES = new Set(["fitness workout plan v1"]);
 const HISTORY_MEMORY_NAMES = new Set([
   "fitness-workout-history-v1",
   "fitness workout history for ai coach",
@@ -311,17 +312,25 @@ function memoryDefinitionId(value: unknown) {
   return null;
 }
 
-async function historyMemoryId(token: string) {
+async function workoutMemoryIds(token: string) {
   const response = await pickaxeRequest(token, "/studio/memory/list?skip=0&take=100");
   if (!response.ok) throw new Error("memory-definition-list");
   const items = payloadItems(await response.json());
-  const definition = items.find((item) => {
+
+  const historyDefinition = items.find((item) => {
     const name = memoryDefinitionName(item);
     return !!name && HISTORY_MEMORY_NAMES.has(name);
   });
-  const id = memoryDefinitionId(definition);
-  if (!id) throw new Error("history-memory-definition");
-  return id;
+  const historyMemoryId = memoryDefinitionId(historyDefinition);
+  if (!historyMemoryId) throw new Error("history-memory-definition");
+
+  const planDefinition = items.find((item) => {
+    const name = memoryDefinitionName(item);
+    return !!name && PLAN_MEMORY_NAMES.has(name);
+  });
+  const planMemoryId = memoryDefinitionId(planDefinition);
+
+  return { historyMemoryId, planMemoryId };
 }
 
 function unwrapStoredValue(value: unknown): unknown {
@@ -501,11 +510,29 @@ async function saveHistory(
   token: string,
   email: string,
   memoryId: string,
+  planMemoryId: string | null,
   history: HistoryPayload,
   auth: BridgeAuth,
 ) {
   const existing = await readHistory(token, email, memoryId);
-  const envelope = buildStoredEnvelope(history, existing, auth);
+
+  // The history envelope can temporarily lag behind the dedicated workout-plan
+  // memory after a coach edit. Keep the strict planId + updatedAt match, but
+  // resolve that exact signed plan from the dedicated plan memory when needed.
+  let contextValues = existing;
+  if (!findExistingPlan(existing, auth) && planMemoryId && planMemoryId !== memoryId) {
+    try {
+      const planValues = await readHistory(token, email, planMemoryId);
+      contextValues = [...existing, ...planValues];
+    } catch (error) {
+      console.warn(
+        "Pickaxe workout-history bridge plan-context fallback read failed.",
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  const envelope = buildStoredEnvelope(history, contextValues, auth);
   const storedValue = JSON.stringify(envelope);
 
   let response: Response;
@@ -577,8 +604,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const memoryId = await historyMemoryId(token);
-    await saveHistory(token, auth.email, memoryId, history, auth);
+    const { historyMemoryId: memoryId, planMemoryId } = await workoutMemoryIds(token);
+    await saveHistory(token, auth.email, memoryId, planMemoryId, history, auth);
     return jsonResponse(origin, { ok: true, savedAt: history.updatedAt });
   } catch (error) {
     console.error(
