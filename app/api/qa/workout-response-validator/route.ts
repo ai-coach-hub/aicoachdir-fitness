@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 const PICKAXE_COMPLETIONS_URL = "https://api.pickaxe.co/v1/completions";
 const PICKAXE_STUDIO_BASE_URL = "https://api.pickaxe.co/v1";
@@ -368,7 +369,7 @@ export async function POST(request: Request) {
         stream: false,
       }),
       cache: "no-store",
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(115_000),
     });
   } catch {
     return Response.json({ ok: false, error: "Pickaxe request timed out or failed." }, { status: 502 });
