@@ -97,6 +97,7 @@ type RelayResult = {
   finalDelivery: string;
   runId: string | null;
   runCount: number;
+  planPayloadPresent: boolean;
 };
 
 function cleanFinalDelivery(text: string) {
@@ -119,6 +120,14 @@ function cleanFinalDelivery(text: string) {
   }
 
   return cleaned;
+}
+
+function hasPlanPayload(content: string) {
+  const start = content.indexOf("PLAN_START::");
+  const end = content.indexOf("::PLAN_END");
+  if (start < 0 || end < 0 || end <= start) return false;
+  const payload = content.slice(start + "PLAN_START::".length, end).trim();
+  return payload !== "" && payload !== "null";
 }
 
 function extractFinalDelivery(content: string) {
@@ -166,11 +175,16 @@ function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number):
     return Number.isFinite(created) && created >= requestStartedAt - 5_000;
   });
 
-  const successes = currentTurnRuns
-    .map((run) => ({
+  const analyzedRuns = currentTurnRuns.map((run) => {
+    const content = typeof run.content === "string" ? run.content : "";
+    return {
       run,
-      finalDelivery: extractFinalDelivery(typeof run.content === "string" ? run.content : ""),
-    }))
+      finalDelivery: extractFinalDelivery(content),
+      planPayloadPresent: hasPlanPayload(content),
+    };
+  });
+
+  const successes = analyzedRuns
     .filter((item) => item.finalDelivery)
     .sort((a, b) => {
       const left = a.run.createdAt ? Date.parse(a.run.createdAt) : 0;
@@ -183,6 +197,7 @@ function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number):
       finalDelivery: successes[0].finalDelivery,
       runId: successes[0].run.id || null,
       runCount: currentTurnRuns.length,
+      planPayloadPresent: analyzedRuns.some((item) => item.planPayloadPresent),
     };
   }
 
@@ -190,6 +205,7 @@ function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number):
     finalDelivery: "",
     runId: null,
     runCount: currentTurnRuns.length,
+    planPayloadPresent: analyzedRuns.some((item) => item.planPayloadPresent),
   };
 }
 
@@ -199,7 +215,7 @@ async function pollForFirstValidatedDelivery(
   requestStartedAt: number,
   signal: AbortSignal,
 ): Promise<RelayResult> {
-  let latest: RelayResult = { finalDelivery: "", runId: null, runCount: 0 };
+  let latest: RelayResult = { finalDelivery: "", runId: null, runCount: 0, planPayloadPresent: false };
 
   while (!signal.aborted) {
     const runs = await fetchActionRunsForSession(sessionId, studioToken);
@@ -478,7 +494,7 @@ export async function POST(request: Request) {
 
   const first = await Promise.race([completionPromise, relayPromise]);
 
-  let relay: RelayResult = { finalDelivery: "", runId: null, runCount: 0 };
+  let relay: RelayResult = { finalDelivery: "", runId: null, runCount: 0, planPayloadPresent: false };
   let responseText = "";
 
   if (first.kind === "relay" && first.relay.finalDelivery) {
@@ -570,6 +586,7 @@ export async function POST(request: Request) {
     relaySource,
     actionRunCount: relay.runCount,
     actionRunId: relay.runId,
+    planPayloadPresent: relay.planPayloadPresent,
   });
 
   return Response.json({
@@ -580,6 +597,7 @@ export async function POST(request: Request) {
     relaySource,
     actionRunCount: relay.runCount,
     actionRunId: relay.runId,
+    planPayloadPresent: relay.planPayloadPresent,
     memberAuthenticated: true,
   });
 }
