@@ -1274,7 +1274,7 @@ export async function POST(request: Request) {
   console.info("[fitness-chat-relay] direct-plan-check", directPlanCheck);
 
   if (
-    !directPlanCheck.formalPlanPresent &&
+    (!directPlanCheck.formalPlanPresent || !directPlanCheck.recoveryPlanPresent) &&
     requiresValidatedWorkoutDelivery(message) === false
   ) {
     const recovery = await recoverStructuredPlanForMember(memberEmail, studioToken);
