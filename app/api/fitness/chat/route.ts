@@ -498,6 +498,117 @@ async function writePlanMemory(
   return false;
 }
 
+
+async function mirrorPlanIntoHistoryMemory(
+  email: string,
+  studioToken: string,
+  plan: Record<string, unknown>,
+) {
+  const headers = {
+    Authorization: `Bearer ${studioToken}`,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+
+  const definitionsResponse = await fetch(
+    `${PICKAXE_STUDIO_BASE_URL}/studio/memory/list?skip=0&take=100`,
+    { headers, cache: "no-store", signal: AbortSignal.timeout(15_000) },
+  );
+  if (!definitionsResponse.ok) return false;
+
+  const definitions = memoryPayloadItems(await definitionsResponse.json());
+  const historyNames = new Set(
+    [
+      "fitness workout history v1",
+      "fitness-workout-history-v1",
+      "fitness_workout_history_v1",
+      "fitness workout history for ai coach",
+      "fitness workout history (for ai coach)",
+    ].map(normalizeMemoryName),
+  );
+  const definition = definitions.find((item) =>
+    historyNames.has(memoryDefinitionName(item)),
+  );
+  const memoryId = memoryDefinitionId(definition);
+  if (!memoryId) return false;
+
+  const readUrl =
+    `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(memoryId)}&skip=0&take=100`;
+  const existingResponse = await fetch(readUrl, {
+    headers,
+    cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  let entries: unknown[] = [];
+  let hasExisting = false;
+  if (existingResponse.ok) {
+    const values = collectMemoryValues(await existingResponse.json());
+    hasExisting = values.length > 0;
+    for (const value of values) {
+      const decoded = unwrapMemoryValue(value);
+      if (
+        decoded &&
+        typeof decoded === "object" &&
+        !Array.isArray(decoded) &&
+        Array.isArray((decoded as Record<string, unknown>).entries)
+      ) {
+        entries = (decoded as Record<string, unknown>).entries as unknown[];
+        break;
+      }
+    }
+  }
+
+  const envelope = JSON.stringify({
+    schemaVersion: 2,
+    updatedAt: plan.updatedAt,
+    plan: clonePlan(plan),
+    entries,
+  });
+
+  const writeResponse = hasExisting
+    ? await fetch(
+        `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}/${encodeURIComponent(memoryId)}`,
+        {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ data: { value: envelope } }),
+          cache: "no-store",
+          signal: AbortSignal.timeout(20_000),
+        },
+      )
+    : await fetch(`${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/create`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ userId: email, memoryId, value: envelope }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(20_000),
+      });
+
+  if (!writeResponse.ok) return false;
+
+  for (const delay of [0, 400, 900]) {
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    const verifyResponse = await fetch(readUrl, {
+      headers,
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!verifyResponse.ok) continue;
+
+    const values = collectMemoryValues(await verifyResponse.json());
+    const verified = values.some((value) => {
+      const decoded = unwrapMemoryValue(value);
+      if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) return false;
+      return looksLikeFormalWorkoutPlan((decoded as Record<string, unknown>).plan);
+    });
+
+    if (verified) return true;
+  }
+
+  return false;
+}
+
 async function recoverStructuredPlanForMember(email: string, studioToken: string) {
   const runs = await fetchSuccessfulMemberSaveRuns(email, studioToken);
   if (!runs.length) return { attempted: true, restored: false, reason: "no-member-save-runs" };
@@ -536,11 +647,17 @@ async function recoverStructuredPlanForMember(email: string, studioToken: string
   }
 
   attachHistoryBridge(restored, email, studioToken);
-  const verified = await writePlanMemory(email, studioToken, restored);
+  const planVerified = await writePlanMemory(email, studioToken, restored);
+  const historyVerified = planVerified
+    ? await mirrorPlanIntoHistoryMemory(email, studioToken, restored)
+    : false;
+  const verified = planVerified && historyVerified;
 
   console.info("[fitness-chat-relay] plan-recovery", {
     attempted: true,
     restored: verified,
+    planVerified,
+    historyVerified,
     currentWeekStart,
     nextWeekPresent: !!next,
     memberSaveRunCount: runs.length,
@@ -549,6 +666,8 @@ async function recoverStructuredPlanForMember(email: string, studioToken: string
   return {
     attempted: true,
     restored: verified,
+    planVerified,
+    historyVerified,
     reason: verified ? "verified" : "write-verification-failed",
   };
 }
@@ -683,6 +802,7 @@ type RelayResult = {
   runId: string | null;
   runCount: number;
   planPayloadPresent: boolean;
+  planPayload: Record<string, unknown> | null;
   nullPlanPresent: boolean;
   actionErrorPresent: boolean;
   actionStatus: string | null;
@@ -725,12 +845,122 @@ function parseActionMode(run: ActionRun) {
   return null;
 }
 
-function hasPlanPayload(content: string) {
+function extractPlanPayload(content: string) {
   const start = content.indexOf("PLAN_START::");
   const end = content.indexOf("::PLAN_END");
-  if (start < 0 || end < 0 || end <= start) return false;
-  const payload = content.slice(start + "PLAN_START::".length, end).trim();
-  return payload !== "" && payload !== "null";
+  if (start < 0 || end < 0 || end <= start) return null;
+  const raw = content.slice(start + "PLAN_START::".length, end).trim();
+  if (!raw || raw === "null") return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function hasPlanPayload(content: string) {
+  return !!extractPlanPayload(content);
+}
+
+function isSavedPlanReadQuery(message: string) {
+  const normalized = message.toLowerCase();
+  return (
+    /\b(?:what|which|show|list|view|see|tell me)\b[^.!?\n]{0,80}\b(?:workouts?|plan|schedule)\b/.test(normalized) ||
+    /\b(?:current|saved|existing)\b[^.!?\n]{0,60}\b(?:workouts?|plan|schedule)\b/.test(normalized)
+  );
+}
+
+function scheduleRange(plan: Record<string, unknown>) {
+  if (!Array.isArray(plan.weekSchedule)) return null;
+  const entries = plan.weekSchedule
+    .filter((entry) => entry && typeof entry === "object" && !Array.isArray(entry))
+    .map((entry) => entry as Record<string, unknown>);
+  const dates = entries
+    .map((entry) => String(entry.date || ""))
+    .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value))
+    .sort();
+  if (!dates.length) return null;
+  return { start: dates[0], end: dates[dates.length - 1], entries };
+}
+
+function formatDateKey(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function summarizeWeek(plan: Record<string, unknown>, label: string) {
+  const range = scheduleRange(plan);
+  if (!range) return "";
+
+  const workouts =
+    plan.workouts && typeof plan.workouts === "object" && !Array.isArray(plan.workouts)
+      ? (plan.workouts as Record<string, unknown>)
+      : {};
+
+  const parts = range.entries.map((entry) => {
+    const day = String(entry.day || "");
+    if (entry.isRestDay === true || !entry.workoutId) return `${day}: Rest`;
+    const workout = workouts[String(entry.workoutId || "")];
+    const title =
+      workout && typeof workout === "object" && !Array.isArray(workout)
+        ? String((workout as Record<string, unknown>).title || entry.workoutId || "Workout")
+        : String(entry.workoutId || "Workout");
+    return `${day}: ${title}`;
+  });
+
+  return `**${label} (${formatDateKey(range.start)}–${formatDateKey(range.end)}):** ${parts.join("; ")}.`;
+}
+
+function summarizeSavedPlan(plan: Record<string, unknown>) {
+  const workouts =
+    plan.workouts && typeof plan.workouts === "object" && !Array.isArray(plan.workouts)
+      ? (plan.workouts as Record<string, unknown>)
+      : {};
+
+  const saved = Object.values(workouts)
+    .filter((value) => value && typeof value === "object" && !Array.isArray(value))
+    .map((value) => value as Record<string, unknown>)
+    .map((workout) => ({
+      title: String(workout.title || workout.id || "Workout"),
+      duration:
+        typeof workout.durationMinutes === "number"
+          ? ` (${workout.durationMinutes} min)`
+          : "",
+    }))
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+  const lines = [
+    `You have ${saved.length} workout${saved.length === 1 ? "" : "s"} saved in My Workouts:`,
+    "",
+    ...saved.map((item, index) => `**${index + 1}. ${item.title}**${item.duration}`),
+  ];
+
+  const current = summarizeWeek(plan, "Current saved week");
+  if (current) lines.push("", current);
+
+  const nextPlanContainer = plan.nextPlan;
+  if (
+    nextPlanContainer &&
+    typeof nextPlanContainer === "object" &&
+    !Array.isArray(nextPlanContainer)
+  ) {
+    const nested = (nextPlanContainer as Record<string, unknown>).plan;
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      const next = summarizeWeek(nested as Record<string, unknown>, "Next saved week");
+      if (next) lines.push("", next);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 function extractFinalDelivery(content: string) {
@@ -784,6 +1014,7 @@ function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number):
       run,
       finalDelivery: extractFinalDelivery(content),
       planPayloadPresent: hasPlanPayload(content),
+      planPayload: extractPlanPayload(content),
       nullPlanPresent: content.includes("PLAN_START::null::PLAN_END"),
       actionErrorPresent: /(?:^|\n)ERROR:/i.test(content),
       actionMode: parseActionMode(run),
@@ -804,6 +1035,7 @@ function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number):
       runId: successes[0].run.id || null,
       runCount: currentTurnRuns.length,
       planPayloadPresent: analyzedRuns.some((item) => item.planPayloadPresent),
+      planPayload: analyzedRuns.find((item) => item.planPayload)?.planPayload || null,
       nullPlanPresent: analyzedRuns.some((item) => item.nullPlanPresent),
       actionErrorPresent: analyzedRuns.some((item) => item.actionErrorPresent),
       actionStatus: successes[0].run.status || null,
@@ -816,6 +1048,7 @@ function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number):
     runId: null,
     runCount: currentTurnRuns.length,
     planPayloadPresent: analyzedRuns.some((item) => item.planPayloadPresent),
+    planPayload: analyzedRuns.find((item) => item.planPayload)?.planPayload || null,
     nullPlanPresent: analyzedRuns.some((item) => item.nullPlanPresent),
     actionErrorPresent: analyzedRuns.some((item) => item.actionErrorPresent),
     actionStatus: analyzedRuns[0]?.run.status || null,
@@ -834,6 +1067,7 @@ async function pollForFirstValidatedDelivery(
     runId: null,
     runCount: 0,
     planPayloadPresent: false,
+    planPayload: null,
     nullPlanPresent: false,
     actionErrorPresent: false,
     actionStatus: null,
@@ -1137,6 +1371,7 @@ export async function POST(request: Request) {
     runId: null,
     runCount: 0,
     planPayloadPresent: false,
+    planPayload: null,
     nullPlanPresent: false,
     actionErrorPresent: false,
     actionStatus: null,
@@ -1191,7 +1426,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const finalResponseText = relay.finalDelivery || responseText;
+  const finalResponseText =
+    isSavedPlanReadQuery(message) && relay.planPayload
+      ? summarizeSavedPlan(relay.planPayload)
+      : relay.finalDelivery || responseText;
   if (!finalResponseText) {
     return Response.json(
       { ok: false, error: "No completed assistant or validated Action response was available." },
@@ -1199,11 +1437,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const relaySource = relay.finalDelivery
-    ? "action-final-delivery"
-    : actionRunsPresent
-      ? "assistant-response-read-only-action"
-      : "assistant-response";
+  const relaySource =
+    isSavedPlanReadQuery(message) && relay.planPayload
+      ? "action-plan-payload-read-only"
+      : relay.finalDelivery
+        ? "action-final-delivery"
+        : actionRunsPresent
+          ? "assistant-response-read-only-action"
+          : "assistant-response";
 
   const violations = dedupeViolations([
     ...validateMovementAllowlist(message, finalResponseText),
