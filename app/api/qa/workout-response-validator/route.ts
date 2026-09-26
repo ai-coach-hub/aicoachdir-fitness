@@ -97,6 +97,34 @@ type ActionRun = {
   createdAt?: string;
 };
 
+type RelayResult = {
+  finalDelivery: string;
+  runId: string | null;
+  runCount: number;
+};
+
+function cleanFinalDelivery(text: string) {
+  let cleaned = text.trim();
+
+  // The validator-rendered workout is the deliverable. Drop model-style postscript
+  // commentary that appears after a terminal markdown divider.
+  const terminalDivider = cleaned.lastIndexOf("\n---\n");
+  if (terminalDivider >= 0) {
+    const before = cleaned.slice(0, terminalDivider).trim();
+    const after = cleaned.slice(terminalDivider + 5).trim();
+    const looksLikeWorkout =
+      /(?:warm[- ]?up|cool[- ]?down|sets?\s*[×x]|rest:|reps?)/i.test(before);
+    const looksLikePostscript =
+      /^(?:this workout|this session|this plan|you can|adjust|the pace|it hits|this hits)/i.test(after);
+
+    if (looksLikeWorkout && looksLikePostscript) {
+      cleaned = before;
+    }
+  }
+
+  return cleaned;
+}
+
 function extractFinalDelivery(content: string) {
   const startMarker = "FINAL_DELIVERY_START";
   const endMarker = "FINAL_DELIVERY_END";
@@ -105,7 +133,7 @@ function extractFinalDelivery(content: string) {
 
   if (start < 0 || end < 0 || end <= start) return "";
 
-  return content.slice(start + startMarker.length, end).trim();
+  return cleanFinalDelivery(content.slice(start + startMarker.length, end));
 }
 
 async function fetchActionRunsForSession(sessionId: string, studioToken: string) {
@@ -135,42 +163,67 @@ async function fetchActionRunsForSession(sessionId: string, studioToken: string)
   return Array.isArray(payload.data?.runs) ? payload.data.runs : [];
 }
 
-async function resolveValidatedFinalDelivery(sessionId: string, studioToken: string) {
-  let runs: ActionRun[] = [];
+function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number): RelayResult {
+  const currentTurnRuns = runs.filter((run) => {
+    if (!run.createdAt) return true;
+    const created = Date.parse(run.createdAt);
+    return Number.isFinite(created) && created >= requestStartedAt - 5_000;
+  });
 
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    runs = await fetchActionRunsForSession(sessionId, studioToken);
+  const successes = currentTurnRuns
+    .map((run) => ({
+      run,
+      finalDelivery: extractFinalDelivery(typeof run.content === "string" ? run.content : ""),
+    }))
+    .filter((item) => item.finalDelivery)
+    .sort((a, b) => {
+      const left = a.run.createdAt ? Date.parse(a.run.createdAt) : 0;
+      const right = b.run.createdAt ? Date.parse(b.run.createdAt) : 0;
+      return left - right;
+    });
 
-    const successes = runs
-      .map((run) => ({
-        run,
-        finalDelivery: extractFinalDelivery(typeof run.content === "string" ? run.content : ""),
-      }))
-      .filter((item) => item.finalDelivery)
-      .sort((a, b) => {
-        const left = a.run.createdAt ? Date.parse(a.run.createdAt) : 0;
-        const right = b.run.createdAt ? Date.parse(b.run.createdAt) : 0;
-        return right - left;
-      });
-
-    if (successes.length > 0) {
-      return {
-        finalDelivery: successes[0].finalDelivery,
-        runId: successes[0].run.id || null,
-        runCount: runs.length,
-      };
-    }
-
-    if (attempt < 5) {
-      await new Promise((resolve) => setTimeout(resolve, 750));
-    }
+  if (successes.length > 0) {
+    return {
+      finalDelivery: successes[0].finalDelivery,
+      runId: successes[0].run.id || null,
+      runCount: currentTurnRuns.length,
+    };
   }
 
   return {
     finalDelivery: "",
     runId: null,
-    runCount: runs.length,
+    runCount: currentTurnRuns.length,
   };
+}
+
+async function pollForFirstValidatedDelivery(
+  sessionId: string,
+  studioToken: string,
+  requestStartedAt: number,
+  signal: AbortSignal,
+): Promise<RelayResult> {
+  let latest: RelayResult = { finalDelivery: "", runId: null, runCount: 0 };
+
+  while (!signal.aborted) {
+    const runs = await fetchActionRunsForSession(sessionId, studioToken);
+    latest = selectCurrentTurnDelivery(runs, requestStartedAt);
+    if (latest.finalDelivery) return latest;
+
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, 500);
+      signal.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timer);
+          resolve();
+        },
+        { once: true },
+      );
+    });
+  }
+
+  return latest;
 }
 
 function getPositiveClause(message: string) {
@@ -360,69 +413,120 @@ export async function POST(request: Request) {
     ? requestedConversationId
     : `qa-validator-${crypto.randomUUID()}`;
 
-  let pickaxeResponse: Response;
-  try {
-    pickaxeResponse = await fetch(PICKAXE_COMPLETIONS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${deploymentKey}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        message,
-        userId: qaUserId,
-        conversationId,
-        stream: false,
-      }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(115_000),
-    });
-  } catch {
-    return Response.json({ ok: false, error: "Pickaxe request timed out or failed." }, { status: 502 });
+  const requestStartedAt = Date.now();
+  const completionAbort = new AbortController();
+  const pollAbort = new AbortController();
+
+  const completionPromise = (async () => {
+    let pickaxeResponse: Response;
+    try {
+      pickaxeResponse = await fetch(PICKAXE_COMPLETIONS_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${deploymentKey}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          message,
+          userId: qaUserId,
+          conversationId,
+          stream: false,
+        }),
+        cache: "no-store",
+        signal: AbortSignal.any([
+          completionAbort.signal,
+          AbortSignal.timeout(115_000),
+        ]),
+      });
+    } catch {
+      if (completionAbort.signal.aborted) {
+        return { kind: "aborted" as const };
+      }
+      return { kind: "error" as const, response: Response.json({ ok: false, error: "Pickaxe request timed out or failed." }, { status: 502 }) };
+    }
+
+    const raw = await pickaxeResponse.text();
+    let payload: unknown = null;
+    try {
+      payload = raw ? JSON.parse(raw) : null;
+    } catch {
+      payload = null;
+    }
+
+    if (!pickaxeResponse.ok) {
+      return {
+        kind: "error" as const,
+        response: Response.json(
+          {
+            ok: false,
+            error: "Pickaxe completion failed.",
+            status: pickaxeResponse.status,
+            detail:
+              payload && typeof payload === "object"
+                ? ((payload as { message?: unknown }).message ?? (payload as { error?: unknown }).error ?? null)
+                : null,
+          },
+          { status: 502 },
+        ),
+      };
+    }
+
+    const responseText = extractResult(payload);
+    if (!responseText) {
+      return {
+        kind: "error" as const,
+        response: Response.json({ ok: false, error: "Pickaxe returned no response text." }, { status: 502 }),
+      };
+    }
+
+    return { kind: "completion" as const, responseText };
+  })();
+
+  const relayPromise = pollForFirstValidatedDelivery(
+    conversationId,
+    studioToken,
+    requestStartedAt,
+    pollAbort.signal,
+  )
+    .then((relay) => ({ kind: "relay" as const, relay }))
+    .catch(() => ({ kind: "relay-error" as const }));
+
+  const first = await Promise.race([completionPromise, relayPromise]);
+
+  let relay: RelayResult = { finalDelivery: "", runId: null, runCount: 0 };
+  let responseText = "";
+
+  if (first.kind === "relay" && first.relay.finalDelivery) {
+    relay = first.relay;
+    completionAbort.abort();
+  } else if (first.kind === "relay-error") {
+    pollAbort.abort();
+    const completion = await completionPromise;
+    if (completion.kind === "error") return completion.response;
+    if (completion.kind === "completion") responseText = completion.responseText;
+  } else {
+    if (first.kind === "error") {
+      pollAbort.abort();
+      return first.response;
+    }
+    if (first.kind === "completion") responseText = first.responseText;
+
+    // Completion finished first. Give the Action store a short consistency window,
+    // then use the current-turn Action result if one exists.
+    const consistencyDeadline = Date.now() + 4_000;
+    while (Date.now() < consistencyDeadline && !relay.finalDelivery) {
+      try {
+        const runs = await fetchActionRunsForSession(conversationId, studioToken);
+        relay = selectCurrentTurnDelivery(runs, requestStartedAt);
+      } catch {
+        break;
+      }
+      if (!relay.finalDelivery) await new Promise((resolve) => setTimeout(resolve, 400));
+    }
   }
 
-  const raw = await pickaxeResponse.text();
-  let payload: unknown = null;
-  try {
-    payload = raw ? JSON.parse(raw) : null;
-  } catch {
-    payload = null;
-  }
-
-  if (!pickaxeResponse.ok) {
-    return Response.json(
-      {
-        ok: false,
-        error: "Pickaxe completion failed.",
-        status: pickaxeResponse.status,
-        detail:
-          payload && typeof payload === "object"
-            ? ((payload as { message?: unknown }).message ?? (payload as { error?: unknown }).error ?? null)
-            : null,
-      },
-      { status: 502 },
-    );
-  }
-
-  const responseText = extractResult(payload);
-  if (!responseText) {
-    return Response.json({ ok: false, error: "Pickaxe returned no response text." }, { status: 502 });
-  }
-
-  let relay;
-  try {
-    relay = await resolveValidatedFinalDelivery(conversationId, studioToken);
-  } catch {
-    return Response.json(
-      {
-        ok: false,
-        error: "The validated Action result could not be retrieved for this exact conversation session.",
-        conversationId,
-      },
-      { status: 502 },
-    );
-  }
+  pollAbort.abort();
 
   const actionRunsPresent = relay.runCount > 0;
   if (actionRunsPresent && !relay.finalDelivery) {
@@ -430,7 +534,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         blocked: true,
-        error: "The coach invoked workout feasibility validation, but no successful FINAL_DELIVERY was available for this exact session.",
+        error: "The coach invoked workout feasibility validation, but no successful FINAL_DELIVERY was available for this exact turn.",
         conversationId,
         relaySource: "action-session-fail-closed",
         actionRunCount: relay.runCount,
@@ -440,6 +544,13 @@ export async function POST(request: Request) {
   }
 
   const finalResponseText = relay.finalDelivery || responseText;
+  if (!finalResponseText) {
+    return Response.json(
+      { ok: false, error: "No completed assistant or validated Action response was available." },
+      { status: 502 },
+    );
+  }
+
   const relaySource = relay.finalDelivery ? "action-final-delivery" : "assistant-response";
 
   const violations = dedupeViolations([
