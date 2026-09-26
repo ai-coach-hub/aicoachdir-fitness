@@ -90,10 +90,14 @@ export default function FitnessChatPreviewPage() {
             style={{
               padding: 16,
               borderRadius: 12,
-              border: "1px solid #d1d5db",
+              border: "1px solid rgba(116, 182, 215, 0.26)",
               whiteSpace: "pre-wrap",
               lineHeight: 1.55,
-              background: message.role === "assistant" ? "#f9fafb" : "#fff",
+              color: "#f7fbff",
+              background:
+                message.role === "assistant"
+                  ? "rgba(13, 26, 43, 0.96)"
+                  : "rgba(7, 16, 27, 0.96)",
             }}
           >
             <strong>{message.role === "assistant" ? "Coach" : "You"}</strong>
@@ -108,7 +112,16 @@ export default function FitnessChatPreviewPage() {
           onChange={(event) => setInput(event.target.value)}
           rows={5}
           placeholder="What are we working on today?"
-          style={{ width: "100%", boxSizing: "border-box", padding: 14, borderRadius: 10, border: "1px solid #9ca3af", font: "inherit" }}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            padding: 14,
+            borderRadius: 10,
+            border: "1px solid rgba(116, 182, 215, 0.34)",
+            background: "#050d18",
+            color: "#f7fbff",
+            font: "inherit",
+          }}
         />
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
           <button type="submit" disabled={running || !input.trim()}>
