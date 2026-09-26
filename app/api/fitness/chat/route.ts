@@ -222,6 +222,20 @@ async function pollForFirstValidatedDelivery(
   return latest;
 }
 
+
+function requiresValidatedWorkoutDelivery(message: string) {
+  const normalized = message.toLowerCase();
+
+  const explicitReadOnly =
+    /\b(?:what|which|show|list|view|see|tell me)\b[^.!?\n]{0,80}\b(?:workouts?|plan|schedule)\b/.test(normalized) ||
+    /\b(?:current|saved|existing)\b[^.!?\n]{0,60}\b(?:workouts?|plan|schedule)\b/.test(normalized);
+
+  if (explicitReadOnly) return false;
+
+  return /\b(?:create|build|make|generate|write|design|replace|change|modify|update|edit|swap|reschedule|schedule|add|remove|delete|revise|adjust)\b[^.!?\n]{0,100}\b(?:workout|plan|schedule|day|exercise|session)\b/.test(normalized) ||
+    /\b(?:new|next)\b[^.!?\n]{0,60}\b(?:workout|plan|schedule)\b/.test(normalized);
+}
+
 function getPositiveClause(message: string) {
   const pieces = message
     .split(/\bbut\b|[.!?]/i)
@@ -499,7 +513,8 @@ export async function POST(request: Request) {
   pollAbort.abort();
 
   const actionRunsPresent = relay.runCount > 0;
-  if (actionRunsPresent && !relay.finalDelivery) {
+  const mustUseValidatedDelivery = requiresValidatedWorkoutDelivery(message);
+  if (actionRunsPresent && !relay.finalDelivery && mustUseValidatedDelivery) {
     return Response.json(
       {
         ok: false,
@@ -521,7 +536,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const relaySource = relay.finalDelivery ? "action-final-delivery" : "assistant-response";
+  const relaySource = relay.finalDelivery
+    ? "action-final-delivery"
+    : actionRunsPresent
+      ? "assistant-response-read-only-action"
+      : "assistant-response";
 
   const violations = dedupeViolations([
     ...validateMovementAllowlist(message, finalResponseText),
