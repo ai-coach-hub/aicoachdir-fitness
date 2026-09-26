@@ -160,7 +160,7 @@ export default function WorkoutResponseValidatorPage() {
 
         <button
           type="submit"
-          disabled={running || !message.trim() || !token.trim()}
+          disabled={running || !message.trim()}
           style={{
             marginTop: 8,
             padding: "12px 18px",
