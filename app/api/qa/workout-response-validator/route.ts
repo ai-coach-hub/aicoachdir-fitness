@@ -4,6 +4,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PICKAXE_COMPLETIONS_URL = "https://api.pickaxe.co/v1/completions";
+const PICKAXE_STUDIO_BASE_URL = "https://api.pickaxe.co/v1";
+const GET_WORKOUT_PLAN_ACTION_ID = "ACTION7YYK7T0TVOGSV4AZIV45";
 
 type MovementRule = {
   id: string;
@@ -81,6 +83,93 @@ function getDeploymentKey() {
     process.env.PICKAXE_DEPLOYMENT_API_KEY ||
     ""
   ).trim();
+}
+
+function getStudioToken() {
+  return (process.env.PICKAXE_WORKSPACE_API_TOKEN || "").trim();
+}
+
+type ActionRun = {
+  id?: string;
+  sessionId?: string;
+  content?: string;
+  createdAt?: string;
+};
+
+function extractFinalDelivery(content: string) {
+  const startMarker = "FINAL_DELIVERY_START";
+  const endMarker = "FINAL_DELIVERY_END";
+  const start = content.indexOf(startMarker);
+  const end = content.indexOf(endMarker);
+
+  if (start < 0 || end < 0 || end <= start) return "";
+
+  return content.slice(start + startMarker.length, end).trim();
+}
+
+async function fetchActionRunsForSession(sessionId: string, studioToken: string) {
+  const url = new URL("/v1/studio/action/runs", "https://api.pickaxe.co");
+  url.searchParams.set("actionId", GET_WORKOUT_PLAN_ACTION_ID);
+  url.searchParams.set("sessionId", sessionId);
+  url.searchParams.set("limit", "20");
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${studioToken}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Action-run lookup failed with status ${response.status}.`);
+  }
+
+  const payload = (await response.json()) as {
+    data?: { runs?: ActionRun[] };
+  };
+
+  return Array.isArray(payload.data?.runs) ? payload.data.runs : [];
+}
+
+async function resolveValidatedFinalDelivery(sessionId: string, studioToken: string) {
+  let runs: ActionRun[] = [];
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    runs = await fetchActionRunsForSession(sessionId, studioToken);
+
+    const successes = runs
+      .map((run) => ({
+        run,
+        finalDelivery: extractFinalDelivery(typeof run.content === "string" ? run.content : ""),
+      }))
+      .filter((item) => item.finalDelivery)
+      .sort((a, b) => {
+        const left = a.run.createdAt ? Date.parse(a.run.createdAt) : 0;
+        const right = b.run.createdAt ? Date.parse(b.run.createdAt) : 0;
+        return right - left;
+      });
+
+    if (successes.length > 0) {
+      return {
+        finalDelivery: successes[0].finalDelivery,
+        runId: successes[0].run.id || null,
+        runCount: runs.length,
+      };
+    }
+
+    if (attempt < 5) {
+      await new Promise((resolve) => setTimeout(resolve, 750));
+    }
+  }
+
+  return {
+    finalDelivery: "",
+    runId: null,
+    runCount: runs.length,
+  };
 }
 
 function getPositiveClause(message: string) {
@@ -210,13 +299,14 @@ export async function POST(request: Request) {
   const qaUserId = (process.env.QA_WORKOUT_VALIDATOR_USER_ID || "").trim();
   const suppliedToken = (request.headers.get("x-qa-validator-token") || "").trim();
   const deploymentKey = getDeploymentKey();
+  const studioToken = getStudioToken();
 
-  if (!expectedToken || !qaUserId || !deploymentKey) {
+  if (!expectedToken || !qaUserId || !deploymentKey || !studioToken) {
     return Response.json(
       {
         ok: false,
         error:
-          "Preview validator is not configured. Required: QA_WORKOUT_VALIDATOR_TOKEN, QA_WORKOUT_VALIDATOR_USER_ID, and the existing Pickaxe Fitness Coach deployment credential.",
+          "Preview validator is not configured. Required: QA_WORKOUT_VALIDATOR_TOKEN, QA_WORKOUT_VALIDATOR_USER_ID, the existing Pickaxe Fitness Coach deployment credential, and PICKAXE_WORKSPACE_API_TOKEN.",
       },
       { status: 503 },
     );
@@ -303,9 +393,41 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "Pickaxe returned no response text." }, { status: 502 });
   }
 
+  let relay;
+  try {
+    relay = await resolveValidatedFinalDelivery(conversationId, studioToken);
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error: "The validated Action result could not be retrieved for this exact conversation session.",
+        conversationId,
+      },
+      { status: 502 },
+    );
+  }
+
+  const actionRunsPresent = relay.runCount > 0;
+  if (actionRunsPresent && !relay.finalDelivery) {
+    return Response.json(
+      {
+        ok: false,
+        blocked: true,
+        error: "The coach invoked workout feasibility validation, but no successful FINAL_DELIVERY was available for this exact session.",
+        conversationId,
+        relaySource: "action-session-fail-closed",
+        actionRunCount: relay.runCount,
+      },
+      { status: 422 },
+    );
+  }
+
+  const finalResponseText = relay.finalDelivery || responseText;
+  const relaySource = relay.finalDelivery ? "action-final-delivery" : "assistant-response";
+
   const violations = dedupeViolations([
-    ...validateMovementAllowlist(message, responseText),
-    ...validateInventedJointTargets(message, responseText),
+    ...validateMovementAllowlist(message, finalResponseText),
+    ...validateInventedJointTargets(message, finalResponseText),
   ]);
 
   if (violations.length) {
@@ -330,6 +452,9 @@ export async function POST(request: Request) {
     ok: true,
     blocked: false,
     conversationId,
-    response: responseText,
+    response: finalResponseText,
+    relaySource,
+    actionRunCount: relay.runCount,
+    actionRunId: relay.runId,
   });
 }
