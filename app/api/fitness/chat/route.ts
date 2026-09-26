@@ -1,4 +1,5 @@
 import { currentUser } from "@clerk/nextjs/server";
+import { createHmac } from "node:crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -7,6 +8,7 @@ export const maxDuration = 120;
 const PICKAXE_COMPLETIONS_URL = "https://api.pickaxe.co/v1/completions";
 const PICKAXE_STUDIO_BASE_URL = "https://api.pickaxe.co/v1";
 const GET_WORKOUT_PLAN_ACTION_ID = "ACTION7YYK7T0TVOGSV4AZIV45";
+const SAVE_WORKOUT_PLAN_ACTION_ID = "ACTIONNYM6UU9XWNX8PQTF79PV";
 
 type MovementRule = {
   id: string;
@@ -195,6 +197,318 @@ function looksLikeFormalWorkoutPlan(value: unknown) {
     !Array.isArray(record.workouts) &&
     (Array.isArray(record.weekSchedule) || Array.isArray(record.flexibleSequence))
   );
+}
+
+type SavedPlanRun = {
+  id?: string;
+  sessionId?: string;
+  status?: string;
+  content?: string;
+  createdAt?: string;
+  parsedArgs?: { plan_json?: unknown };
+  args?: string;
+};
+
+function parsePlanFromSavedRun(run: SavedPlanRun) {
+  let raw = run.parsedArgs?.plan_json;
+  if (raw == null && typeof run.args === "string") {
+    try {
+      const parsed = JSON.parse(run.args) as { plan_json?: unknown };
+      raw = parsed.plan_json;
+    } catch {}
+  }
+
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  try {
+    const plan = JSON.parse(raw) as Record<string, unknown>;
+    return plan && typeof plan === "object" && !Array.isArray(plan) ? plan : null;
+  } catch {
+    return null;
+  }
+}
+
+function dateKeyInTimezone(timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  return year && month && day ? `${year}-${month}-${day}` : "";
+}
+
+function addDays(dateKey: string, days: number) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function sundayForDate(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return addDays(dateKey, -date.getUTCDay());
+}
+
+function fixedWeekStart(plan: Record<string, unknown>) {
+  if (plan.scheduleMode !== "fixed_weekdays" || !Array.isArray(plan.weekSchedule)) return "";
+  const dates = plan.weekSchedule
+    .map((entry) =>
+      entry && typeof entry === "object" && !Array.isArray(entry)
+        ? String((entry as Record<string, unknown>).date || "")
+        : "",
+    )
+    .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value))
+    .sort();
+  return dates.length === 7 ? dates[0] : "";
+}
+
+function clonePlan(value: Record<string, unknown>) {
+  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+}
+
+function attachHistoryBridge(
+  plan: Record<string, unknown>,
+  email: string,
+  token: string,
+) {
+  const planId = String(plan.planId || "").trim();
+  const updatedAt = String(plan.updatedAt || "").trim();
+  if (!planId || !updatedAt) return;
+
+  const signature = createHmac("sha256", token)
+    .update(`${email}\n${planId}\n${updatedAt}`, "utf8")
+    .digest("hex");
+
+  plan._historyBridge = {
+    email,
+    planId,
+    planUpdatedAt: updatedAt,
+    signature,
+  };
+
+  const nextPlan = plan.nextPlan;
+  if (nextPlan && typeof nextPlan === "object" && !Array.isArray(nextPlan)) {
+    const nested = (nextPlan as Record<string, unknown>).plan;
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      attachHistoryBridge(nested as Record<string, unknown>, email, token);
+    }
+  }
+}
+
+async function findMemberSessionIds(email: string, studioToken: string) {
+  const response = await fetch(
+    `${PICKAXE_STUDIO_BASE_URL}/studio/workspace/history`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${studioToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        users: [email],
+        skip: 0,
+        limit: 200,
+        lastDays: 60,
+        format: "raw",
+        sortBy: "created-asc",
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(20_000),
+    },
+  );
+
+  if (!response.ok) return new Set<string>();
+  const payload = (await response.json()) as { data?: unknown[] };
+  const sessions = new Set<string>();
+
+  for (const item of Array.isArray(payload.data) ? payload.data : []) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const record = item as Record<string, unknown>;
+    const userId = String(record.userId || "").trim().toLowerCase();
+    const responseId = String(record.responseId || "").trim();
+    if (userId === email && responseId) sessions.add(responseId);
+  }
+
+  return sessions;
+}
+
+async function fetchSuccessfulMemberSaveRuns(email: string, studioToken: string) {
+  const sessions = await findMemberSessionIds(email, studioToken);
+  if (!sessions.size) return [] as SavedPlanRun[];
+
+  const url = new URL("/v1/studio/action/runs", "https://api.pickaxe.co");
+  url.searchParams.set("actionId", SAVE_WORKOUT_PLAN_ACTION_ID);
+  url.searchParams.set("limit", "100");
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${studioToken}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+    signal: AbortSignal.timeout(20_000),
+  });
+
+  if (!response.ok) return [] as SavedPlanRun[];
+  const payload = (await response.json()) as { data?: { runs?: SavedPlanRun[] } };
+  const runs = Array.isArray(payload.data?.runs) ? payload.data.runs : [];
+
+  return runs.filter(
+    (run) =>
+      !!run.sessionId &&
+      sessions.has(run.sessionId) &&
+      run.status === "success" &&
+      typeof run.content === "string" &&
+      run.content.includes("SUCCESS: Workout plan saved and verified"),
+  );
+}
+
+function newestPlanForWeek(runs: SavedPlanRun[], weekStart: string) {
+  return runs
+    .map((run) => ({ run, plan: parsePlanFromSavedRun(run) }))
+    .filter(
+      (item): item is { run: SavedPlanRun; plan: Record<string, unknown> } =>
+        !!item.plan && fixedWeekStart(item.plan) === weekStart,
+    )
+    .sort(
+      (left, right) =>
+        Date.parse(right.run.createdAt || "") - Date.parse(left.run.createdAt || ""),
+    )[0] || null;
+}
+
+async function writePlanMemory(
+  email: string,
+  studioToken: string,
+  plan: Record<string, unknown>,
+) {
+  const headers = {
+    Authorization: `Bearer ${studioToken}`,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+
+  const definitionsResponse = await fetch(
+    `${PICKAXE_STUDIO_BASE_URL}/studio/memory/list?skip=0&take=100`,
+    { headers, cache: "no-store", signal: AbortSignal.timeout(15_000) },
+  );
+  if (!definitionsResponse.ok) return false;
+
+  const definitions = memoryPayloadItems(await definitionsResponse.json());
+  const planNames = new Set(
+    ["fitness workout plan v1", "fitness-workout-plan-v1", "fitness_workout_plan_v1"].map(
+      normalizeMemoryName,
+    ),
+  );
+  const definition = definitions.find((item) => planNames.has(memoryDefinitionName(item)));
+  const memoryId = memoryDefinitionId(definition);
+  if (!memoryId) return false;
+
+  const readUrl =
+    `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(memoryId)}&skip=0&take=100`;
+  const existingResponse = await fetch(readUrl, {
+    headers,
+    cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+  });
+  const hasExisting =
+    existingResponse.ok && collectMemoryValues(await existingResponse.json()).length > 0;
+
+  const storedValue = JSON.stringify(plan);
+  const writeResponse = hasExisting
+    ? await fetch(
+        `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}/${encodeURIComponent(memoryId)}`,
+        {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ data: { value: storedValue } }),
+          cache: "no-store",
+          signal: AbortSignal.timeout(20_000),
+        },
+      )
+    : await fetch(`${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/create`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ userId: email, memoryId, value: storedValue }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(20_000),
+      });
+
+  if (!writeResponse.ok) return false;
+
+  for (const delay of [0, 400, 900]) {
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    const verifyResponse = await fetch(readUrl, {
+      headers,
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!verifyResponse.ok) continue;
+    const values = collectMemoryValues(await verifyResponse.json());
+    if (values.some((value) => looksLikeFormalWorkoutPlan(value))) return true;
+  }
+
+  return false;
+}
+
+async function recoverStructuredPlanForMember(email: string, studioToken: string) {
+  const runs = await fetchSuccessfulMemberSaveRuns(email, studioToken);
+  if (!runs.length) return { attempted: true, restored: false, reason: "no-member-save-runs" };
+
+  const timeZones = runs
+    .map((run) => parsePlanFromSavedRun(run)?.userTimezone)
+    .filter((value): value is string => typeof value === "string" && !!value.trim());
+  const timeZone = timeZones.at(-1) || "UTC";
+  const today = dateKeyInTimezone(timeZone);
+  if (!today) return { attempted: true, restored: false, reason: "date-resolution" };
+
+  const currentWeekStart = sundayForDate(today);
+  const nextWeekStart = addDays(currentWeekStart, 7);
+  const current = newestPlanForWeek(runs, currentWeekStart);
+  const next = newestPlanForWeek(runs, nextWeekStart);
+
+  if (!current) {
+    return { attempted: true, restored: false, reason: "no-current-week-save" };
+  }
+
+  const now = new Date().toISOString();
+  const restored = clonePlan(current.plan);
+  delete restored._saveScope;
+  delete restored.nextPlan;
+  restored.updatedAt = now;
+
+  if (next) {
+    const future = clonePlan(next.plan);
+    delete future._saveScope;
+    delete future.nextPlan;
+    future.updatedAt = now;
+    restored.nextPlan = {
+      effectiveFrom: nextWeekStart,
+      plan: future,
+    };
+  }
+
+  attachHistoryBridge(restored, email, studioToken);
+  const verified = await writePlanMemory(email, studioToken, restored);
+
+  console.info("[fitness-chat-relay] plan-recovery", {
+    attempted: true,
+    restored: verified,
+    currentWeekStart,
+    nextWeekPresent: !!next,
+    memberSaveRunCount: runs.length,
+  });
+
+  return {
+    attempted: true,
+    restored: verified,
+    reason: verified ? "verified" : "write-verification-failed",
+  };
 }
 
 async function checkFormalPlanForMember(email: string, studioToken: string) {
@@ -680,8 +994,19 @@ export async function POST(request: Request) {
     ? requestedConversationId
     : `fitness-chat-${crypto.randomUUID()}`;
 
-  const directPlanCheck = await checkFormalPlanForMember(memberEmail, studioToken);
+  let directPlanCheck = await checkFormalPlanForMember(memberEmail, studioToken);
   console.info("[fitness-chat-relay] direct-plan-check", directPlanCheck);
+
+  if (
+    !directPlanCheck.formalPlanPresent &&
+    requiresValidatedWorkoutDelivery(message) === false
+  ) {
+    const recovery = await recoverStructuredPlanForMember(memberEmail, studioToken);
+    if (recovery.restored) {
+      directPlanCheck = await checkFormalPlanForMember(memberEmail, studioToken);
+      console.info("[fitness-chat-relay] direct-plan-check-after-recovery", directPlanCheck);
+    }
+  }
 
   const requestStartedAt = Date.now();
   const completionAbort = new AbortController();
