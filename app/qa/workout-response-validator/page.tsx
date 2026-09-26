@@ -18,6 +18,7 @@ type ValidatorResult = {
   relaySource?: string;
   actionRunCount?: number;
   actionRunId?: string | null;
+  missingConfiguration?: string[];
 };
 
 export default function WorkoutResponseValidatorPage() {
@@ -231,6 +232,16 @@ export default function WorkoutResponseValidatorPage() {
             >
               <h2 style={{ marginTop: 0 }}>Preview request did not complete</h2>
               <p>{result.error || "Unknown error."}</p>
+              {result.missingConfiguration?.length ? (
+                <div>
+                  <p><strong>Missing configuration:</strong></p>
+                  <ul>
+                    {result.missingConfiguration.map((item) => (
+                      <li key={item}><code>{item}</code></li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           )}
         </section>
