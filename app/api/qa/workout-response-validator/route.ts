@@ -302,9 +302,14 @@ export async function POST(request: Request) {
   const deploymentKey = getDeploymentKey();
   const studioToken = getStudioToken();
 
-  if (!expectedToken || !qaUserId || !deploymentKey || !studioToken) {
+  const requestOrigin = new URL(request.url).origin;
+  const browserOrigin = (request.headers.get("origin") || "").trim();
+  const fetchSite = (request.headers.get("sec-fetch-site") || "").trim().toLowerCase();
+  const isSameOriginBrowserRequest =
+    browserOrigin === requestOrigin && fetchSite === "same-origin";
+
+  if (!qaUserId || !deploymentKey || !studioToken) {
     const missingConfiguration = [
-      !expectedToken ? "QA_WORKOUT_VALIDATOR_TOKEN" : null,
       !qaUserId ? "QA_WORKOUT_VALIDATOR_USER_ID" : null,
       !deploymentKey
         ? "Pickaxe Fitness Coach deployment credential (PICKAXE_FITNESS_COACH_DEPLOYMENT_ID / PICKAXE_FITNESS_COACH_DEPLOYMENT_TOKEN / PICKAXE_FITNESS_DEPLOYMENT_TOKEN / PICKAXE_DEPLOYMENT_API_KEY)"
@@ -322,8 +327,10 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!suppliedToken || !safeEqual(suppliedToken, expectedToken)) {
-    return Response.json({ ok: false, error: "Unauthorized." }, { status: 401 });
+  if (!isSameOriginBrowserRequest) {
+    if (!expectedToken || !suppliedToken || !safeEqual(suppliedToken, expectedToken)) {
+      return Response.json({ ok: false, error: "Unauthorized." }, { status: 401 });
+    }
   }
 
   let body: unknown;
