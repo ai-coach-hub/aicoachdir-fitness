@@ -221,50 +221,85 @@ async function checkFormalPlanForMember(email: string, studioToken: string) {
         memoryStatus: 0,
         storedValueCount: 0,
         formalPlanPresent: false,
+        historyDefinitionPresent: false,
+        historyMemoryStatus: 0,
+        historyStoredValueCount: 0,
+        recoveryPlanPresent: false,
       };
     }
 
     const definitions = memoryPayloadItems(await definitionsResponse.json());
-    const acceptedNames = new Set([
+    const planNames = new Set([
       "fitness workout plan v1",
       "fitness-workout-plan-v1",
       "fitness_workout_plan_v1",
     ].map(normalizeMemoryName));
-    const definition = definitions.find((item) => acceptedNames.has(memoryDefinitionName(item)));
-    const memoryId = memoryDefinitionId(definition);
+    const historyNames = new Set([
+      "fitness workout history v1",
+      "fitness-workout-history-v1",
+      "fitness_workout_history_v1",
+      "fitness workout history for ai coach",
+      "fitness workout history (for ai coach)",
+    ].map(normalizeMemoryName));
 
-    if (!memoryId) {
-      return {
-        userLookupStatus: userResponse.status,
-        planDefinitionPresent: false,
-        memoryStatus: 0,
-        storedValueCount: 0,
-        formalPlanPresent: false,
-      };
+    const planDefinition = definitions.find((item) => planNames.has(memoryDefinitionName(item)));
+    const historyDefinition = definitions.find((item) => historyNames.has(memoryDefinitionName(item)));
+    const planMemoryId = memoryDefinitionId(planDefinition);
+    const historyMemoryId = memoryDefinitionId(historyDefinition);
+
+    let memoryStatus = 0;
+    let storedValueCount = 0;
+    let formalPlanPresent = false;
+
+    if (planMemoryId) {
+      const memoryResponse = await fetch(
+        `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(planMemoryId)}&skip=0&take=100`,
+        { headers, cache: "no-store", signal: AbortSignal.timeout(10_000) },
+      );
+      memoryStatus = memoryResponse.status;
+      if (memoryResponse.ok) {
+        const values = collectMemoryValues(await memoryResponse.json());
+        storedValueCount = values.length;
+        formalPlanPresent = values.some((value) => looksLikeFormalWorkoutPlan(value));
+      }
     }
 
-    const memoryResponse = await fetch(
-      `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(memoryId)}&skip=0&take=100`,
-      { headers, cache: "no-store", signal: AbortSignal.timeout(10_000) },
-    );
+    let historyMemoryStatus = 0;
+    let historyStoredValueCount = 0;
+    let recoveryPlanPresent = false;
 
-    if (!memoryResponse.ok) {
-      return {
-        userLookupStatus: userResponse.status,
-        planDefinitionPresent: true,
-        memoryStatus: memoryResponse.status,
-        storedValueCount: 0,
-        formalPlanPresent: false,
-      };
+    if (historyMemoryId) {
+      const historyResponse = await fetch(
+        `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(historyMemoryId)}&skip=0&take=100`,
+        { headers, cache: "no-store", signal: AbortSignal.timeout(10_000) },
+      );
+      historyMemoryStatus = historyResponse.status;
+      if (historyResponse.ok) {
+        const historyValues = collectMemoryValues(await historyResponse.json());
+        historyStoredValueCount = historyValues.length;
+        recoveryPlanPresent = historyValues.some((value) => {
+          const unwrapped = unwrapMemoryValue(value);
+          if (!unwrapped || typeof unwrapped !== "object" || Array.isArray(unwrapped)) return false;
+          const record = unwrapped as Record<string, unknown>;
+          return (
+            looksLikeFormalWorkoutPlan(record.plan) ||
+            looksLikeFormalWorkoutPlan(record.currentPlan) ||
+            looksLikeFormalWorkoutPlan(record.workoutPlan)
+          );
+        });
+      }
     }
 
-    const values = collectMemoryValues(await memoryResponse.json());
     return {
       userLookupStatus: userResponse.status,
-      planDefinitionPresent: true,
-      memoryStatus: memoryResponse.status,
-      storedValueCount: values.length,
-      formalPlanPresent: values.some((value) => looksLikeFormalWorkoutPlan(value)),
+      planDefinitionPresent: !!planMemoryId,
+      memoryStatus,
+      storedValueCount,
+      formalPlanPresent,
+      historyDefinitionPresent: !!historyMemoryId,
+      historyMemoryStatus,
+      historyStoredValueCount,
+      recoveryPlanPresent,
     };
   } catch {
     return {
