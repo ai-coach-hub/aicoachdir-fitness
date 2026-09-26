@@ -302,11 +302,20 @@ export async function POST(request: Request) {
   const studioToken = getStudioToken();
 
   if (!expectedToken || !qaUserId || !deploymentKey || !studioToken) {
+    const missingConfiguration = [
+      !expectedToken ? "QA_WORKOUT_VALIDATOR_TOKEN" : null,
+      !qaUserId ? "QA_WORKOUT_VALIDATOR_USER_ID" : null,
+      !deploymentKey
+        ? "Pickaxe Fitness Coach deployment credential (PICKAXE_FITNESS_COACH_DEPLOYMENT_ID / PICKAXE_FITNESS_COACH_DEPLOYMENT_TOKEN / PICKAXE_FITNESS_DEPLOYMENT_TOKEN / PICKAXE_DEPLOYMENT_API_KEY)"
+        : null,
+      !studioToken ? "PICKAXE_WORKSPACE_API_TOKEN" : null,
+    ].filter(Boolean);
+
     return Response.json(
       {
         ok: false,
-        error:
-          "Preview validator is not configured. Required: QA_WORKOUT_VALIDATOR_TOKEN, QA_WORKOUT_VALIDATOR_USER_ID, the existing Pickaxe Fitness Coach deployment credential, and PICKAXE_WORKSPACE_API_TOKEN.",
+        error: "Preview validator is not configured.",
+        missingConfiguration,
       },
       { status: 503 },
     );
