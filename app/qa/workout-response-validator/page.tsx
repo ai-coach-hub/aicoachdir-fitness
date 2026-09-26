@@ -15,6 +15,9 @@ type ValidatorResult = {
   error?: string;
   conversationId?: string;
   violations?: Array<{ code: string; label: string; excerpt: string }>;
+  relaySource?: string;
+  actionRunCount?: number;
+  actionRunId?: string | null;
 };
 
 export default function WorkoutResponseValidatorPage() {
@@ -207,6 +210,12 @@ export default function WorkoutResponseValidatorPage() {
               }}
             >
               <h2 style={{ marginTop: 0 }}>PASS — response cleared validation</h2>
+              <p style={{ fontSize: 13, color: "#166534" }}>
+                Relay source: <code>{result.relaySource || "unknown"}</code>
+                {typeof result.actionRunCount === "number"
+                  ? <> · Action runs in session: <code>{result.actionRunCount}</code></>
+                  : null}
+              </p>
               <pre style={{ whiteSpace: "pre-wrap", font: "inherit", lineHeight: 1.6 }}>
                 {result.response}
               </pre>
