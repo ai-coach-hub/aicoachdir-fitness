@@ -1,8 +1,10 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 type Message = { role: "user" | "assistant"; text: string };
+type JsonRecord = Record<string, unknown>;
 
 type ChatResult = {
   ok?: boolean;
@@ -12,12 +14,83 @@ type ChatResult = {
   relaySource?: string;
 };
 
+type PlanResult = {
+  ok?: boolean;
+  plan?: JsonRecord | null;
+  historyEntries?: unknown[];
+  error?: string;
+};
+
+function asRecord(value: unknown): JsonRecord | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as JsonRecord)
+    : null;
+}
+
+function workoutMap(plan: JsonRecord | null) {
+  const workouts = asRecord(plan?.workouts);
+  return workouts || {};
+}
+
+function scheduleRows(plan: JsonRecord | null) {
+  if (!plan) return [];
+  const fixed = Array.isArray(plan.weekSchedule) ? plan.weekSchedule : [];
+  const flexible = Array.isArray(plan.flexibleSequence) ? plan.flexibleSequence : [];
+  return (fixed.length ? fixed : flexible)
+    .map(asRecord)
+    .filter((row): row is JsonRecord => !!row);
+}
+
+function workoutTitle(workout: JsonRecord | null, fallback: string) {
+  return String(workout?.title || workout?.name || fallback || "Workout");
+}
+
+function formatDate(value: unknown) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
+  const date = new Date(`${value}T12:00:00Z`);
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
+}
+
+function exerciseLabel(value: unknown) {
+  const exercise = asRecord(value);
+  if (!exercise) return "";
+  return String(exercise.name || exercise.title || exercise.exercise || "").trim();
+}
+
 export default function FitnessChatPage() {
+  const [tab, setTab] = useState<"coach" | "workouts">("coach");
   const [conversationId, setConversationId] = useState(() => `fitness-chat-${crypto.randomUUID()}`);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState("");
+  const [plan, setPlan] = useState<JsonRecord | null>(null);
+  const [history, setHistory] = useState<unknown[]>([]);
+  const [planLoading, setPlanLoading] = useState(true);
+  const [planError, setPlanError] = useState("");
+
+  async function loadPlan() {
+    setPlanLoading(true);
+    setPlanError("");
+    try {
+      const response = await fetch("/api/fitness/chat", { method: "GET", cache: "no-store" });
+      const data = (await response.json()) as PlanResult;
+      if (!response.ok || !data.ok) {
+        setPlanError(data.error || "Saved workouts could not be loaded.");
+        return;
+      }
+      setPlan(data.plan || null);
+      setHistory(Array.isArray(data.historyEntries) ? data.historyEntries : []);
+    } catch {
+      setPlanError("Saved workouts could not be loaded.");
+    } finally {
+      setPlanLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadPlan();
+  }, []);
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -45,7 +118,10 @@ export default function FitnessChatPage() {
       }
 
       setMessages((items) => [...items, { role: "assistant", text: data.response! }]);
-      setStatus(data.relaySource === "action-final-delivery" ? "Validated workout response" : "");
+      setStatus(data.relaySource === "action-final-delivery" ? "Workout updated and validated." : "");
+      if (data.relaySource === "action-final-delivery") {
+        await loadPlan();
+      }
     } catch {
       setStatus("The Fitness Coach request failed.");
     } finally {
@@ -59,89 +135,222 @@ export default function FitnessChatPage() {
     setStatus("");
   }
 
-  function memberLogin() {
-    const search = typeof window !== "undefined" ? window.location.search : "";
-    window.location.assign(`/fitness/login${search}`);
-  }
+  const workouts = useMemo(() => workoutMap(plan), [plan]);
+  const rows = useMemo(() => scheduleRows(plan), [plan]);
+  const workoutList = useMemo(
+    () =>
+      Object.entries(workouts)
+        .map(([id, raw]) => ({ id, workout: asRecord(raw) }))
+        .filter((item): item is { id: string; workout: JsonRecord } => !!item.workout),
+    [workouts],
+  );
+
+  const completedCount = history.filter((entry) => !!asRecord(entry)?.completedAt).length;
+  const scheduleMode =
+    plan?.scheduleMode === "fixed_weekdays"
+      ? "Scheduled by day"
+      : plan?.scheduleMode === "flexible_sequence"
+        ? "Flexible plan"
+        : "Saved plan";
 
   return (
-    <main style={{ maxWidth: 860, margin: "0 auto", padding: "32px 20px 80px", fontFamily: "Arial, Helvetica, sans-serif" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", marginBottom: 24 }}>
+    <main className="member-hub-shell">
+      <header className="member-hub-header">
         <div>
-          <p style={{ fontWeight: 800, letterSpacing: "0.08em", fontSize: 12, margin: 0 }}>MEMBER FITNESS COACH</p>
-          <h1 style={{ margin: "6px 0 0" }}>AI Fitness Coach</h1>
+          <p className="eyebrow compact-eyebrow">AI FITNESS COACH 2.0</p>
+          <h1>Welcome back.</h1>
+          <p>Your coach and saved workouts are connected in one place.</p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button type="button" onClick={newChat}>New chat</button>
-          <button type="button" onClick={memberLogin}>Member login</button>
+        <div className="member-hub-actions">
+          <Link href="/" className="secondary-button">Home</Link>
+          <button type="button" className="secondary-button" onClick={newChat}>New chat</button>
         </div>
-      </div>
+      </header>
 
-      <p style={{ lineHeight: 1.6 }}>
-        Chat with your Fitness Coach, review your saved workouts, and make changes to your plan.
-      </p>
+      <nav className="member-hub-tabs" aria-label="Member tools">
+        <button
+          type="button"
+          className={tab === "coach" ? "member-tab active" : "member-tab"}
+          onClick={() => setTab("coach")}
+        >
+          Coach
+          <span>Chat, adjust, plan</span>
+        </button>
+        <button
+          type="button"
+          className={tab === "workouts" ? "member-tab active" : "member-tab"}
+          onClick={() => setTab("workouts")}
+        >
+          My Workouts
+          <span>View your saved plan</span>
+        </button>
+      </nav>
 
-      <section style={{ display: "grid", gap: 14, margin: "28px 0" }}>
-        {messages.length === 0 ? (
-          <div
-            style={{
-              padding: 20,
-              border: "1px solid rgba(116, 182, 215, 0.26)",
-              borderRadius: 12,
-              background: "rgba(7, 16, 27, 0.96)",
-              color: "#f7fbff",
-            }}
-          >
-            Ask the Fitness Coach anything, or request a workout plan.
+      {tab === "coach" ? (
+        <section className="member-coach-layout">
+          <div className="member-chat-panel">
+            <div className="member-panel-heading">
+              <div>
+                <p className="eyebrow compact-eyebrow">YOUR COACH</p>
+                <h2>What are we working on today?</h2>
+              </div>
+              <button type="button" className="text-button" onClick={() => setTab("workouts")}>
+                View My Workouts
+              </button>
+            </div>
+
+            <div className="member-chat-messages">
+              {messages.length === 0 ? (
+                <div className="coach-welcome-card">
+                  <strong>Start wherever you are.</strong>
+                  <p>Ask for today’s workout, change your plan, talk through recovery, nutrition, equipment, schedule, or progress.</p>
+                  <div className="quick-prompts">
+                    {[
+                      "What should I do today?",
+                      "Show me my current plan.",
+                      "I need to adjust this week.",
+                    ].map((prompt) => (
+                      <button key={prompt} type="button" onClick={() => setInput(prompt)}>
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {messages.map((message, index) => (
+                <article key={index} className={message.role === "assistant" ? "chat-bubble coach" : "chat-bubble user"}>
+                  <strong>{message.role === "assistant" ? "Coach" : "You"}</strong>
+                  <div>{message.text}</div>
+                </article>
+              ))}
+            </div>
+
+            <form className="member-chat-form" onSubmit={send}>
+              <textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                rows={4}
+                placeholder="Message your coach..."
+              />
+              <div>
+                <button type="submit" className="primary-button" disabled={running || !input.trim()}>
+                  {running ? "Working..." : "Send"}
+                </button>
+                {status ? <span className="member-status">{status}</span> : null}
+              </div>
+            </form>
           </div>
-        ) : null}
 
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            style={{
-              padding: 16,
-              borderRadius: 12,
-              border: "1px solid rgba(116, 182, 215, 0.26)",
-              whiteSpace: "pre-wrap",
-              lineHeight: 1.55,
-              color: "#f7fbff",
-              background:
-                message.role === "assistant"
-                  ? "rgba(13, 26, 43, 0.96)"
-                  : "rgba(7, 16, 27, 0.96)",
-            }}
-          >
-            <strong>{message.role === "assistant" ? "Coach" : "You"}</strong>
-            <div style={{ marginTop: 8 }}>{message.text}</div>
+          <aside className="member-plan-glance">
+            <p className="eyebrow compact-eyebrow">AT A GLANCE</p>
+            <h2>My Workouts</h2>
+            {planLoading ? <p>Loading your saved plan...</p> : null}
+            {planError ? <p className="member-error">{planError}</p> : null}
+            {!planLoading && !planError ? (
+              <>
+                <div className="plan-glance-stat">
+                  <strong>{workoutList.length}</strong>
+                  <span>saved workout{workoutList.length === 1 ? "" : "s"}</span>
+                </div>
+                <div className="plan-glance-stat">
+                  <strong>{completedCount}</strong>
+                  <span>recent completion{completedCount === 1 ? "" : "s"} logged</span>
+                </div>
+                <p>{scheduleMode}</p>
+                <button type="button" className="secondary-button" onClick={() => setTab("workouts")}>
+                  Open My Workouts
+                </button>
+              </>
+            ) : null}
+          </aside>
+        </section>
+      ) : (
+        <section className="member-workouts-panel">
+          <div className="member-panel-heading">
+            <div>
+              <p className="eyebrow compact-eyebrow">MY WORKOUTS</p>
+              <h2>Your saved plan</h2>
+              <p>Changes you make with your coach will appear here after they are saved.</p>
+            </div>
+            <button type="button" className="secondary-button" onClick={() => void loadPlan()}>
+              Refresh plan
+            </button>
           </div>
-        ))}
-      </section>
 
-      <form onSubmit={send}>
-        <textarea
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          rows={5}
-          placeholder="What are we working on today?"
-          style={{
-            width: "100%",
-            boxSizing: "border-box",
-            padding: 14,
-            borderRadius: 10,
-            border: "1px solid rgba(116, 182, 215, 0.34)",
-            background: "#050d18",
-            color: "#f7fbff",
-            font: "inherit",
-          }}
-        />
-        <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
-          <button type="submit" disabled={running || !input.trim()}>
-            {running ? "Working..." : "Send"}
-          </button>
-          {status ? <span style={{ fontSize: 13 }}>{status}</span> : null}
-        </div>
-      </form>
+          {planLoading ? <div className="workout-empty">Loading your workouts...</div> : null}
+          {planError ? <div className="workout-empty member-error">{planError}</div> : null}
+          {!planLoading && !planError && !plan ? (
+            <div className="workout-empty">
+              <strong>No saved workout plan yet.</strong>
+              <p>Go to Coach and ask for a plan that fits your goals, schedule, and equipment.</p>
+            </div>
+          ) : null}
+
+          {!planLoading && !planError && plan ? (
+            <>
+              <div className="workout-summary-strip">
+                <div><span>Plan style</span><strong>{scheduleMode}</strong></div>
+                <div><span>Workouts</span><strong>{workoutList.length}</strong></div>
+                <div><span>Recent completions</span><strong>{completedCount}</strong></div>
+              </div>
+
+              {rows.length ? (
+                <div className="schedule-grid">
+                  {rows.map((row, index) => {
+                    const id = String(row.workoutId || "");
+                    const workout = asRecord(workouts[id]);
+                    const rest = row.isRestDay === true || !id;
+                    return (
+                      <article key={index} className={rest ? "schedule-card rest" : "schedule-card"}>
+                        <span>{String(row.day || `Workout ${index + 1}`)}</span>
+                        {row.date ? <small>{formatDate(row.date)}</small> : null}
+                        <strong>{rest ? "Rest" : workoutTitle(workout, id)}</strong>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              <div className="workout-card-grid">
+                {workoutList.map(({ id, workout }) => {
+                  const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+                  const names = exercises.map(exerciseLabel).filter(Boolean);
+                  return (
+                    <article key={id} className="workout-card">
+                      <div className="workout-card-topline">
+                        <span>Saved workout</span>
+                        {typeof workout.durationMinutes === "number" ? (
+                          <strong>{workout.durationMinutes} min</strong>
+                        ) : null}
+                      </div>
+                      <h3>{workoutTitle(workout, id)}</h3>
+                      {workout.description ? <p>{String(workout.description)}</p> : null}
+                      {names.length ? (
+                        <ul>
+                          {names.slice(0, 8).map((name, index) => <li key={index}>{name}</li>)}
+                        </ul>
+                      ) : (
+                        <p className="muted-copy">Open Coach to ask about the details or make a change.</p>
+                      )}
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => {
+                          setTab("coach");
+                          setInput(`I want to adjust my "${workoutTitle(workout, id)}" workout.`);
+                        }}
+                      >
+                        Adjust with Coach
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </>
+          ) : null}
+        </section>
+      )}
     </main>
   );
 }
