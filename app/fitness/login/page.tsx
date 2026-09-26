@@ -23,26 +23,25 @@ export default function FitnessMemberLoginPage() {
         <h1 id="fitness-member-login-heading">AI Fitness Coach 2.0 Member Login</h1>
         <p>
           Sign in here with your AI Coach Directory member account. After sign-in, you will
-          return directly to the member Fitness Coach preview.
+          return directly to your AI Fitness Coach.
         </p>
 
         <div style={{ display: "flex", justifyContent: "center", margin: "28px 0" }}>
           <SignIn
             routing="hash"
-            forceRedirectUrl="/fitness/chat-preview"
+            forceRedirectUrl="/fitness/chat"
             signUpUrl="/fitness/signup"
           />
         </div>
 
         <div className="cta-row">
-          <Link href="/fitness/chat-preview" className="secondary-button">
+          <Link href="/fitness/chat" className="secondary-button">
             Back to Fitness Coach
           </Link>
         </div>
 
         <p className="microcopy">
-          This preview uses the signed-in member identity on AI Coach Directory instead of
-          sending you to a separate Pickaxe login.
+          Your AI Coach Directory sign-in connects you directly to your Fitness Coach and saved workouts.
         </p>
       </section>
     </main>
