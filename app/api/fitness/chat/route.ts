@@ -89,6 +89,9 @@ function getStudioToken() {
 type ActionRun = {
   id?: string;
   sessionId?: string;
+  status?: string;
+  args?: string;
+  parsedArgs?: Record<string, unknown>;
   content?: string;
   createdAt?: string;
 };
@@ -98,6 +101,10 @@ type RelayResult = {
   runId: string | null;
   runCount: number;
   planPayloadPresent: boolean;
+  nullPlanPresent: boolean;
+  actionErrorPresent: boolean;
+  actionStatus: string | null;
+  actionMode: string | null;
 };
 
 function cleanFinalDelivery(text: string) {
@@ -120,6 +127,20 @@ function cleanFinalDelivery(text: string) {
   }
 
   return cleaned;
+}
+
+function parseActionMode(run: ActionRun) {
+  const parsedMode = run.parsedArgs?.mode;
+  if (typeof parsedMode === "string" && parsedMode.trim()) return parsedMode.trim();
+
+  if (typeof run.args === "string" && run.args.trim()) {
+    try {
+      const parsed = JSON.parse(run.args) as { mode?: unknown };
+      if (typeof parsed.mode === "string" && parsed.mode.trim()) return parsed.mode.trim();
+    } catch {}
+  }
+
+  return null;
 }
 
 function hasPlanPayload(content: string) {
@@ -181,6 +202,9 @@ function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number):
       run,
       finalDelivery: extractFinalDelivery(content),
       planPayloadPresent: hasPlanPayload(content),
+      nullPlanPresent: content.includes("PLAN_START::null::PLAN_END"),
+      actionErrorPresent: /(?:^|\n)ERROR:/i.test(content),
+      actionMode: parseActionMode(run),
     };
   });
 
@@ -198,6 +222,10 @@ function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number):
       runId: successes[0].run.id || null,
       runCount: currentTurnRuns.length,
       planPayloadPresent: analyzedRuns.some((item) => item.planPayloadPresent),
+      nullPlanPresent: analyzedRuns.some((item) => item.nullPlanPresent),
+      actionErrorPresent: analyzedRuns.some((item) => item.actionErrorPresent),
+      actionStatus: successes[0].run.status || null,
+      actionMode: successes[0].actionMode,
     };
   }
 
@@ -206,6 +234,10 @@ function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number):
     runId: null,
     runCount: currentTurnRuns.length,
     planPayloadPresent: analyzedRuns.some((item) => item.planPayloadPresent),
+    nullPlanPresent: analyzedRuns.some((item) => item.nullPlanPresent),
+    actionErrorPresent: analyzedRuns.some((item) => item.actionErrorPresent),
+    actionStatus: analyzedRuns[0]?.run.status || null,
+    actionMode: analyzedRuns[0]?.actionMode || null,
   };
 }
 
@@ -215,7 +247,16 @@ async function pollForFirstValidatedDelivery(
   requestStartedAt: number,
   signal: AbortSignal,
 ): Promise<RelayResult> {
-  let latest: RelayResult = { finalDelivery: "", runId: null, runCount: 0, planPayloadPresent: false };
+  let latest: RelayResult = {
+    finalDelivery: "",
+    runId: null,
+    runCount: 0,
+    planPayloadPresent: false,
+    nullPlanPresent: false,
+    actionErrorPresent: false,
+    actionStatus: null,
+    actionMode: null,
+  };
 
   while (!signal.aborted) {
     const runs = await fetchActionRunsForSession(sessionId, studioToken);
@@ -494,7 +535,16 @@ export async function POST(request: Request) {
 
   const first = await Promise.race([completionPromise, relayPromise]);
 
-  let relay: RelayResult = { finalDelivery: "", runId: null, runCount: 0, planPayloadPresent: false };
+  let relay: RelayResult = {
+    finalDelivery: "",
+    runId: null,
+    runCount: 0,
+    planPayloadPresent: false,
+    nullPlanPresent: false,
+    actionErrorPresent: false,
+    actionStatus: null,
+    actionMode: null,
+  };
   let responseText = "";
 
   if (first.kind === "relay" && first.relay.finalDelivery) {
@@ -587,6 +637,10 @@ export async function POST(request: Request) {
     actionRunCount: relay.runCount,
     actionRunId: relay.runId,
     planPayloadPresent: relay.planPayloadPresent,
+    nullPlanPresent: relay.nullPlanPresent,
+    actionErrorPresent: relay.actionErrorPresent,
+    actionStatus: relay.actionStatus,
+    actionMode: relay.actionMode,
   });
 
   return Response.json({
@@ -598,6 +652,10 @@ export async function POST(request: Request) {
     actionRunCount: relay.runCount,
     actionRunId: relay.runId,
     planPayloadPresent: relay.planPayloadPresent,
+    nullPlanPresent: relay.nullPlanPresent,
+    actionErrorPresent: relay.actionErrorPresent,
+    actionStatus: relay.actionStatus,
+    actionMode: relay.actionMode,
     memberAuthenticated: true,
   });
 }
