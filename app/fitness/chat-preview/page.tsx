@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import Link from "next/link";
+import { SignIn, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 
 type Message = { role: "user" | "assistant"; text: string };
 
@@ -67,10 +67,13 @@ export default function FitnessChatPreviewPage() {
           <p style={{ fontWeight: 800, letterSpacing: "0.08em", fontSize: 12, margin: 0 }}>MEMBER RELAY PREVIEW</p>
           <h1 style={{ margin: "6px 0 0" }}>AI Fitness Coach</h1>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button type="button" onClick={newChat}>New chat</button>
-          <Link href="/fitness/login">Member login</Link>
-        </div>
+
+        <SignedIn>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button type="button" onClick={newChat}>New chat</button>
+            <UserButton />
+          </div>
+        </SignedIn>
       </div>
 
       <p style={{ lineHeight: 1.6 }}>
@@ -78,58 +81,89 @@ export default function FitnessChatPreviewPage() {
         delivered from the validated Action result; normal coaching responses continue through the assistant.
       </p>
 
-      <section style={{ display: "grid", gap: 14, margin: "28px 0" }}>
-        {messages.length === 0 ? (
-          <div style={{ padding: 20, border: "1px solid #d1d5db", borderRadius: 12 }}>
-            Ask the Fitness Coach anything, or request a workout plan.
-          </div>
-        ) : null}
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            style={{
-              padding: 16,
-              borderRadius: 12,
-              border: "1px solid rgba(116, 182, 215, 0.26)",
-              whiteSpace: "pre-wrap",
-              lineHeight: 1.55,
-              color: "#f7fbff",
-              background:
-                message.role === "assistant"
-                  ? "rgba(13, 26, 43, 0.96)"
-                  : "rgba(7, 16, 27, 0.96)",
-            }}
-          >
-            <strong>{message.role === "assistant" ? "Coach" : "You"}</strong>
-            <div style={{ marginTop: 8 }}>{message.text}</div>
-          </div>
-        ))}
-      </section>
-
-      <form onSubmit={send}>
-        <textarea
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          rows={5}
-          placeholder="What are we working on today?"
+      <SignedOut>
+        <section
           style={{
-            width: "100%",
-            boxSizing: "border-box",
-            padding: 14,
-            borderRadius: 10,
-            border: "1px solid rgba(116, 182, 215, 0.34)",
-            background: "#050d18",
-            color: "#f7fbff",
-            font: "inherit",
+            margin: "28px 0",
+            padding: 24,
+            borderRadius: 16,
+            border: "1px solid rgba(116, 182, 215, 0.26)",
+            background: "rgba(7, 16, 27, 0.96)",
           }}
-        />
-        <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
-          <button type="submit" disabled={running || !input.trim()}>
-            {running ? "Working..." : "Send"}
-          </button>
-          {status ? <span style={{ fontSize: 13 }}>{status}</span> : null}
-        </div>
-      </form>
+        >
+          <h2 style={{ marginTop: 0 }}>Member sign in</h2>
+          <p style={{ lineHeight: 1.6, color: "#aeb9c9" }}>
+            Sign in here with the QA/test member account. You will stay on this page after sign-in.
+          </p>
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 20 }}>
+            <SignIn routing="hash" forceRedirectUrl="/fitness/chat-preview" />
+          </div>
+        </section>
+      </SignedOut>
+
+      <SignedIn>
+        <section style={{ display: "grid", gap: 14, margin: "28px 0" }}>
+          {messages.length === 0 ? (
+            <div
+              style={{
+                padding: 20,
+                border: "1px solid rgba(116, 182, 215, 0.26)",
+                borderRadius: 12,
+                background: "rgba(7, 16, 27, 0.96)",
+                color: "#f7fbff",
+              }}
+            >
+              Ask the Fitness Coach anything, or request a workout plan.
+            </div>
+          ) : null}
+
+          {messages.map((message, index) => (
+            <div
+              key={index}
+              style={{
+                padding: 16,
+                borderRadius: 12,
+                border: "1px solid rgba(116, 182, 215, 0.26)",
+                whiteSpace: "pre-wrap",
+                lineHeight: 1.55,
+                color: "#f7fbff",
+                background:
+                  message.role === "assistant"
+                    ? "rgba(13, 26, 43, 0.96)"
+                    : "rgba(7, 16, 27, 0.96)",
+              }}
+            >
+              <strong>{message.role === "assistant" ? "Coach" : "You"}</strong>
+              <div style={{ marginTop: 8 }}>{message.text}</div>
+            </div>
+          ))}
+        </section>
+
+        <form onSubmit={send}>
+          <textarea
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            rows={5}
+            placeholder="What are we working on today?"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: 14,
+              borderRadius: 10,
+              border: "1px solid rgba(116, 182, 215, 0.34)",
+              background: "#050d18",
+              color: "#f7fbff",
+              font: "inherit",
+            }}
+          />
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
+            <button type="submit" disabled={running || !input.trim()}>
+              {running ? "Working..." : "Send"}
+            </button>
+            {status ? <span style={{ fontSize: 13 }}>{status}</span> : null}
+          </div>
+        </form>
+      </SignedIn>
     </main>
   );
 }
