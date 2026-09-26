@@ -338,9 +338,18 @@ async function findMemberSessionIds(email: string, studioToken: string) {
   return sessions;
 }
 
+function maskMemberEmail(email: string) {
+  const [local, domain] = email.split("@", 2);
+  if (!local || !domain) return "";
+  const maskedLocal =
+    local.length <= 2
+      ? `${local.slice(0, 1)}*`
+      : `${local[0]}${"*".repeat(local.length - 2)}${local[local.length - 1]}`;
+  return `${maskedLocal}@${domain}`;
+}
+
 async function fetchSuccessfulMemberSaveRuns(email: string, studioToken: string) {
   const sessions = await findMemberSessionIds(email, studioToken);
-  if (!sessions.size) return [] as SavedPlanRun[];
 
   const url = new URL("/v1/studio/action/runs", "https://api.pickaxe.co");
   url.searchParams.set("actionId", SAVE_WORKOUT_PLAN_ACTION_ID);
@@ -355,18 +364,51 @@ async function fetchSuccessfulMemberSaveRuns(email: string, studioToken: string)
     signal: AbortSignal.timeout(20_000),
   });
 
-  if (!response.ok) return [] as SavedPlanRun[];
+  if (!response.ok) {
+    console.info("[fitness-chat-relay] recovery-run-scan", {
+      historySessionCount: sessions.size,
+      actionRunsStatus: response.status,
+      successfulRunCount: 0,
+      sessionMatchedRunCount: 0,
+      legacyMaskedRunCount: 0,
+    });
+    return [] as SavedPlanRun[];
+  }
+
   const payload = (await response.json()) as { data?: { runs?: SavedPlanRun[] } };
   const runs = Array.isArray(payload.data?.runs) ? payload.data.runs : [];
-
-  return runs.filter(
+  const successfulRuns = runs.filter(
     (run) =>
-      !!run.sessionId &&
-      sessions.has(run.sessionId) &&
       run.status === "success" &&
       typeof run.content === "string" &&
-      run.content.includes("SUCCESS: Workout plan saved and verified"),
+      run.content.includes("SUCCESS: Workout plan saved and verified") &&
+      !!parsePlanFromSavedRun(run),
   );
+
+  const sessionMatched = successfulRuns.filter(
+    (run) => !!run.sessionId && sessions.has(run.sessionId),
+  );
+
+  const maskedEmail = maskMemberEmail(email);
+  const legacyMasked = maskedEmail
+    ? successfulRuns.filter((run) => {
+        const content = typeof run.content === "string" ? run.content : "";
+        return (
+          content.includes(`[save_workout_plan] signed-in member: ${maskedEmail}`) &&
+          content.includes(`[save_workout_plan] verified for ${maskedEmail}`)
+        );
+      })
+    : [];
+
+  console.info("[fitness-chat-relay] recovery-run-scan", {
+    historySessionCount: sessions.size,
+    actionRunsStatus: response.status,
+    successfulRunCount: successfulRuns.length,
+    sessionMatchedRunCount: sessionMatched.length,
+    legacyMaskedRunCount: legacyMasked.length,
+  });
+
+  return sessionMatched.length ? sessionMatched : legacyMasked;
 }
 
 function newestPlanForWeek(runs: SavedPlanRun[], weekStart: string) {
@@ -1002,6 +1044,7 @@ export async function POST(request: Request) {
     requiresValidatedWorkoutDelivery(message) === false
   ) {
     const recovery = await recoverStructuredPlanForMember(memberEmail, studioToken);
+    console.info("[fitness-chat-relay] recovery-result", recovery);
     if (recovery.restored) {
       directPlanCheck = await checkFormalPlanForMember(memberEmail, studioToken);
       console.info("[fitness-chat-relay] direct-plan-check-after-recovery", directPlanCheck);
