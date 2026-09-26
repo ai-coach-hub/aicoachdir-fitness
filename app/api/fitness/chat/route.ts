@@ -86,6 +86,197 @@ function getStudioToken() {
   return (process.env.PICKAXE_WORKSPACE_API_TOKEN || "").trim();
 }
 
+function normalizeMemoryName(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function memoryPayloadItems(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object") return [];
+  const root = payload as Record<string, unknown>;
+  const data = root.data;
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    const record = data as Record<string, unknown>;
+    for (const key of ["memories", "items", "results"]) {
+      if (Array.isArray(record[key])) return record[key] as unknown[];
+    }
+  }
+  for (const key of ["memories", "items", "results"]) {
+    if (Array.isArray(root[key])) return root[key] as unknown[];
+  }
+  return [];
+}
+
+function memoryDefinitionContainers(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const item = value as Record<string, unknown>;
+  return [item, item.definition, item.memoryDefinition, item.memory].filter(
+    (entry): entry is Record<string, unknown> =>
+      !!entry && typeof entry === "object" && !Array.isArray(entry),
+  );
+}
+
+function memoryDefinitionName(value: unknown) {
+  for (const container of memoryDefinitionContainers(value)) {
+    for (const key of ["memory", "slug", "name", "tag", "goal", "title"]) {
+      const normalized = normalizeMemoryName(container[key]);
+      if (normalized) return normalized;
+    }
+  }
+  return "";
+}
+
+function memoryDefinitionId(value: unknown) {
+  for (const container of memoryDefinitionContainers(value)) {
+    for (const key of ["memoryId", "id", "_id"]) {
+      if (typeof container[key] === "string" && container[key]) return String(container[key]);
+    }
+  }
+  return "";
+}
+
+function collectMemoryValues(value: unknown, result: unknown[] = []) {
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectMemoryValues(entry, result));
+    return result;
+  }
+  if (!value || typeof value !== "object") return result;
+  const record = value as Record<string, unknown>;
+  const deleted =
+    record.isDeleted === true ||
+    record.deleted === true ||
+    !!record.deletedAt ||
+    String(record.status || "").toLowerCase() === "deleted";
+  if (!deleted) {
+    for (const key of ["value", "memoryValue", "memory_value"]) {
+      if (key in record) result.push(record[key]);
+    }
+  }
+  Object.values(record).forEach((entry) => collectMemoryValues(entry, result));
+  return result;
+}
+
+function unwrapMemoryValue(value: unknown) {
+  let current = value;
+  for (let index = 0; index < 5; index += 1) {
+    if (typeof current === "string") {
+      try {
+        current = JSON.parse(current);
+        continue;
+      } catch {
+        return current;
+      }
+    }
+    if (!current || typeof current !== "object" || Array.isArray(current)) return current;
+    const record = current as Record<string, unknown>;
+    for (const key of ["value", "memoryValue", "memory_value"]) {
+      if (key in record) {
+        current = record[key];
+        continue;
+      }
+    }
+    return current;
+  }
+  return current;
+}
+
+function looksLikeFormalWorkoutPlan(value: unknown) {
+  const unwrapped = unwrapMemoryValue(value);
+  if (!unwrapped || typeof unwrapped !== "object" || Array.isArray(unwrapped)) return false;
+  const record = unwrapped as Record<string, unknown>;
+  return (
+    !!record.workouts &&
+    typeof record.workouts === "object" &&
+    !Array.isArray(record.workouts) &&
+    (Array.isArray(record.weekSchedule) || Array.isArray(record.flexibleSequence))
+  );
+}
+
+async function checkFormalPlanForMember(email: string, studioToken: string) {
+  try {
+    const headers = {
+      Authorization: `Bearer ${studioToken}`,
+      Accept: "application/json",
+    };
+
+    const userResponse = await fetch(
+      `${PICKAXE_STUDIO_BASE_URL}/studio/user/${encodeURIComponent(email)}`,
+      { headers, cache: "no-store", signal: AbortSignal.timeout(10_000) },
+    );
+
+    const definitionsResponse = await fetch(
+      `${PICKAXE_STUDIO_BASE_URL}/studio/memory/list?skip=0&take=100`,
+      { headers, cache: "no-store", signal: AbortSignal.timeout(10_000) },
+    );
+
+    if (!definitionsResponse.ok) {
+      return {
+        userLookupStatus: userResponse.status,
+        planDefinitionPresent: false,
+        memoryStatus: 0,
+        storedValueCount: 0,
+        formalPlanPresent: false,
+      };
+    }
+
+    const definitions = memoryPayloadItems(await definitionsResponse.json());
+    const acceptedNames = new Set([
+      "fitness workout plan v1",
+      "fitness-workout-plan-v1",
+      "fitness_workout_plan_v1",
+    ].map(normalizeMemoryName));
+    const definition = definitions.find((item) => acceptedNames.has(memoryDefinitionName(item)));
+    const memoryId = memoryDefinitionId(definition);
+
+    if (!memoryId) {
+      return {
+        userLookupStatus: userResponse.status,
+        planDefinitionPresent: false,
+        memoryStatus: 0,
+        storedValueCount: 0,
+        formalPlanPresent: false,
+      };
+    }
+
+    const memoryResponse = await fetch(
+      `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(memoryId)}&skip=0&take=100`,
+      { headers, cache: "no-store", signal: AbortSignal.timeout(10_000) },
+    );
+
+    if (!memoryResponse.ok) {
+      return {
+        userLookupStatus: userResponse.status,
+        planDefinitionPresent: true,
+        memoryStatus: memoryResponse.status,
+        storedValueCount: 0,
+        formalPlanPresent: false,
+      };
+    }
+
+    const values = collectMemoryValues(await memoryResponse.json());
+    return {
+      userLookupStatus: userResponse.status,
+      planDefinitionPresent: true,
+      memoryStatus: memoryResponse.status,
+      storedValueCount: values.length,
+      formalPlanPresent: values.some((value) => looksLikeFormalWorkoutPlan(value)),
+    };
+  } catch {
+    return {
+      userLookupStatus: 0,
+      planDefinitionPresent: false,
+      memoryStatus: 0,
+      storedValueCount: 0,
+      formalPlanPresent: false,
+    };
+  }
+}
+
 type ActionRun = {
   id?: string;
   sessionId?: string;
@@ -453,6 +644,9 @@ export async function POST(request: Request) {
   const conversationId = /^fitness-chat-[A-Za-z0-9_-]{8,120}$/.test(requestedConversationId)
     ? requestedConversationId
     : `fitness-chat-${crypto.randomUUID()}`;
+
+  const directPlanCheck = await checkFormalPlanForMember(memberEmail, studioToken);
+  console.info("[fitness-chat-relay] direct-plan-check", directPlanCheck);
 
   const requestStartedAt = Date.now();
   const completionAbort = new AbortController();
