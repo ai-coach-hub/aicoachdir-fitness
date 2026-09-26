@@ -465,6 +465,13 @@ export async function POST(request: Request) {
     );
   }
 
+  console.info("[qa-workout-validator] relay-result", {
+    conversationId,
+    relaySource,
+    actionRunCount: relay.runCount,
+    actionRunId: relay.runId,
+  });
+
   return Response.json({
     ok: true,
     blocked: false,
