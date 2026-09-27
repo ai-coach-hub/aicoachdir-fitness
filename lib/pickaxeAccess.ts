@@ -54,6 +54,41 @@ function objectContainsValue(value: unknown, target: string): boolean {
   );
 }
 
+function previewMembershipHints(value: unknown) {
+  const hints: Array<{ path: string; value: string }> = [];
+  const keyPattern = /access|group|product|membership|plan|subscription|role|tier/i;
+
+  function walk(current: unknown, path: string, depth: number) {
+    if (depth > 5 || current == null) return;
+
+    if (Array.isArray(current)) {
+      current.slice(0, 20).forEach((item, index) =>
+        walk(item, `${path}[${index}]`, depth + 1),
+      );
+      return;
+    }
+
+    if (typeof current !== "object") return;
+
+    for (const [key, child] of Object.entries(current as Record<string, unknown>)) {
+      const nextPath = path ? `${path}.${key}` : key;
+      if (
+        keyPattern.test(key) &&
+        (typeof child === "string" ||
+          typeof child === "number" ||
+          typeof child === "boolean" ||
+          child == null)
+      ) {
+        hints.push({ path: nextPath, value: String(child) });
+      }
+      walk(child, nextPath, depth + 1);
+    }
+  }
+
+  walk(value, "", 0);
+  return hints.slice(0, 60);
+}
+
 export async function getPickaxeUser(email: string) {
   const { response, payload } = await pickaxeRequest(
     `/studio/user/${encodeURIComponent(email)}`,
@@ -94,9 +129,20 @@ export async function pickaxeUserHasFitnessAccess(email: string) {
   // that were migrated into the current access group. The current API exposes
   // those IDs through derivedFromProductIds on the access group.
   const legacyProductIds = await fitnessLegacyProductIds();
-  return legacyProductIds.some((productId) =>
+  const legacyMatch = legacyProductIds.some((productId) =>
     objectContainsValue(user, productId),
   );
+
+  if (process.env.VERCEL_ENV === "preview") {
+    console.info("[pickaxe-access-qa] legacy-member-check", {
+      hasCurrentAccessGroup: false,
+      legacyProductIds,
+      legacyMatch,
+      hints: previewMembershipHints(user),
+    });
+  }
+
+  return legacyMatch;
 }
 
 export async function grantFitnessAccess(email: string, name?: string) {
