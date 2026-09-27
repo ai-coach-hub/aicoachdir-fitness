@@ -56,7 +56,12 @@ export async function POST(request: Request) {
 
   if (!UUID_PATTERN.test(acceptanceId)) {
     return NextResponse.json(
-      { ok: false, error: "Please review and accept the Terms before subscribing." },
+      {
+        ok: false,
+        error: "Please review and accept the Terms before subscribing.",
+        actionUrl: "/fitness/signup",
+        actionLabel: "Review & Accept Terms",
+      },
       { status: 409 },
     );
   }
@@ -77,6 +82,8 @@ export async function POST(request: Request) {
         ok: false,
         error:
           "Your signed-in email must match the email used for Terms acceptance.",
+        actionUrl: "/fitness/signup",
+        actionLabel: "Review Terms with This Account",
       },
       { status: 409 },
     );
