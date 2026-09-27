@@ -49,6 +49,8 @@ export default async function FitnessCheckoutSuccessPage({
     redirect("/fitness/subscribe");
   }
 
+  let accessConfirmed = false;
+
   try {
     const session = await stripeRequest(
       `/checkout/sessions/${encodeURIComponent(sessionId)}?expand[]=subscription`,
@@ -93,11 +95,15 @@ export default async function FitnessCheckoutSuccessPage({
       eventId: sessionId,
     });
 
-    redirect("/fitness/chat");
+    accessConfirmed = true;
   } catch (error) {
     console.error("[fitness-checkout-success] verification-failed", {
       message: error instanceof Error ? error.message : String(error),
     });
+  }
+
+  if (accessConfirmed) {
+    redirect("/fitness/chat");
   }
 
   return (
