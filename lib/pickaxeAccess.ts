@@ -54,6 +54,19 @@ function objectContainsValue(value: unknown, target: string): boolean {
   );
 }
 
+function hasLegacyPickaxeEntitlement(user: unknown) {
+  if (!user || typeof user !== "object" || Array.isArray(user)) return false;
+  const record = user as Record<string, unknown>;
+
+  const hasValues = (value: unknown) => {
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === "string") return value.trim().length > 0;
+    return !!value;
+  };
+
+  return hasValues(record.boughtProducts) || hasValues(record.giftedProducts);
+}
+
 function previewMembershipHints(value: unknown) {
   const hints: Array<{ path: string; value: string }> = [];
   const keyPattern = /access|group|product|membership|plan|subscription|role|tier/i;
@@ -199,18 +212,21 @@ export async function pickaxeUserHasFitnessAccess(email: string) {
     objectContainsValue(user, productId),
   );
 
+  const legacyEntitlementMatch = hasLegacyPickaxeEntitlement(user);
+
   if (process.env.VERCEL_ENV === "preview") {
     console.warn(
       `[pickaxe-access-qa] ${JSON.stringify({
         hasCurrentAccessGroup: false,
         legacyProductIds,
         legacyMatch,
+        legacyEntitlementMatch,
         hints: previewMembershipHints(user),
       })}`,
     );
   }
 
-  return legacyMatch;
+  return legacyMatch || legacyEntitlementMatch;
 }
 
 export async function grantFitnessAccess(email: string, name?: string) {
