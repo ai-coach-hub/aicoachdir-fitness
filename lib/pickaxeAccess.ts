@@ -58,54 +58,6 @@ function objectContainsValue(value: unknown, target: string): boolean {
   );
 }
 
-function hasLegacyPickaxeEntitlement(user: unknown) {
-  if (!user || typeof user !== "object" || Array.isArray(user)) return false;
-  const record = user as Record<string, unknown>;
-
-  const hasValues = (value: unknown) => {
-    if (Array.isArray(value)) return value.length > 0;
-    if (typeof value === "string") return value.trim().length > 0;
-    return !!value;
-  };
-
-  return hasValues(record.boughtProducts) || hasValues(record.giftedProducts);
-}
-
-function previewMembershipHints(value: unknown) {
-  const hints: Array<{ path: string; value: string }> = [];
-  const keyPattern = /access|group|product|membership|plan|subscription|role|tier/i;
-
-  function walk(current: unknown, path: string, depth: number) {
-    if (depth > 5 || current == null) return;
-
-    if (Array.isArray(current)) {
-      current.slice(0, 20).forEach((item, index) =>
-        walk(item, `${path}[${index}]`, depth + 1),
-      );
-      return;
-    }
-
-    if (typeof current !== "object") return;
-
-    for (const [key, child] of Object.entries(current as Record<string, unknown>)) {
-      const nextPath = path ? `${path}.${key}` : key;
-      if (
-        keyPattern.test(key) &&
-        (typeof child === "string" ||
-          typeof child === "number" ||
-          typeof child === "boolean" ||
-          child == null)
-      ) {
-        hints.push({ path: nextPath, value: String(child) });
-      }
-      walk(child, nextPath, depth + 1);
-    }
-  }
-
-  walk(value, "", 0);
-  return hints.slice(0, 60);
-}
-
 function normalizedEmail(value: unknown) {
   return String(value || "").trim().toLowerCase();
 }
@@ -219,22 +171,8 @@ export async function pickaxeUserHasFitnessAccess(email: string) {
   const knownLegacyAccessMatch = LEGACY_FITNESS_ACCESS_IDS.some((accessId) =>
     objectContainsValue(user, accessId),
   );
-  const legacyEntitlementMatch = hasLegacyPickaxeEntitlement(user);
 
-  if (process.env.VERCEL_ENV === "preview") {
-    console.warn(
-      `[pickaxe-access-qa] ${JSON.stringify({
-        hasCurrentAccessGroup: false,
-        legacyProductIds,
-        legacyMatch,
-        knownLegacyAccessMatch,
-        legacyEntitlementMatch,
-        hints: previewMembershipHints(user),
-      })}`,
-    );
-  }
-
-  return knownLegacyAccessMatch || legacyMatch || legacyEntitlementMatch;
+  return knownLegacyAccessMatch || legacyMatch;
 }
 
 export async function grantFitnessAccess(email: string, name?: string) {
@@ -318,23 +256,4 @@ export async function revokeFitnessAccess(email: string) {
   if (!response.ok) {
     throw new Error(`Pickaxe access revoke failed with ${response.status}`);
   }
-}
-
-export async function previewPickaxeAccessDiagnostic(email: string) {
-  if (process.env.VERCEL_ENV !== "preview") {
-    throw new Error("Preview diagnostic is unavailable outside Preview.");
-  }
-
-  const user = await getPickaxeUser(email);
-  const legacyProductIds = await fitnessLegacyProductIds();
-
-  return {
-    userFound: !!user,
-    hasCurrentAccessGroup: !!user && objectContainsValue(user, FITNESS_ACCESS_GROUP_ID),
-    legacyProductIds,
-    legacyMatch:
-      !!user &&
-      legacyProductIds.some((productId) => objectContainsValue(user, productId)),
-    hints: user ? previewMembershipHints(user) : [],
-  };
 }
