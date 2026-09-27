@@ -18,9 +18,37 @@ function primaryEmail(user: Awaited<ReturnType<typeof currentUser>>) {
     .toLowerCase();
 }
 
+function safeProductShape(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 20).map((item) => {
+    if (typeof item === "string" || typeof item === "number") {
+      return { value: String(item) };
+    }
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return { value: String(item ?? "") };
+    }
+    const record = item as Record<string, unknown>;
+    return {
+      keys: Object.keys(record).sort(),
+      id: String(record.id ?? record.productId ?? record._id ?? ""),
+      name: String(record.name ?? record.title ?? ""),
+      status: String(record.status ?? ""),
+    };
+  });
+}
+
 function safeUserShape(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { keys: [], accessGroupId: null, products: [], productIds: [] };
+    return {
+      keys: [],
+      accessGroupId: null,
+      products: [],
+      productIds: [],
+      boughtProducts: [],
+      giftedProducts: [],
+      type: "",
+      signupPortalId: "",
+    };
   }
 
   const record = value as Record<string, unknown>;
@@ -28,12 +56,14 @@ function safeUserShape(value: unknown) {
     keys: Object.keys(record).sort(),
     accessGroupId:
       typeof record.accessGroupId === "string" ? record.accessGroupId : null,
-    products: Array.isArray(record.products)
-      ? record.products.map((item) => String(item || "")).filter(Boolean)
-      : [],
+    products: safeProductShape(record.products),
     productIds: Array.isArray(record.productIds)
       ? record.productIds.map((item) => String(item || "")).filter(Boolean)
       : [],
+    boughtProducts: safeProductShape(record.boughtProducts),
+    giftedProducts: safeProductShape(record.giftedProducts),
+    type: String(record.type ?? ""),
+    signupPortalId: String(record.signupPortalId ?? ""),
   };
 }
 
