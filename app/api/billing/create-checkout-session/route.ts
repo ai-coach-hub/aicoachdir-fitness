@@ -3,7 +3,11 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { ensureTermsAcceptanceSchema } from "@/lib/termsAcceptanceDb";
 import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
-import { fitnessPriceId, stripeConfigured, stripeRequest } from "@/lib/stripeServer";
+import {
+  ensureStripeBillingResources,
+  stripeConfigured,
+  stripeRequest,
+} from "@/lib/stripeServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +45,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         error:
-          "Checkout is not configured yet. No charge was attempted.",
+          "Secure checkout is waiting for the server-side Stripe key. No charge was attempted.",
       },
       { status: 503 },
     );
@@ -59,7 +63,7 @@ export async function POST(request: Request) {
 
   const sql = await ensureTermsAcceptanceSchema();
   const rows = await sql`
-    SELECT email, accepted_at
+    SELECT email
     FROM terms_acceptances
     WHERE id = ${acceptanceId}::uuid
       AND accepted_at >= NOW() - INTERVAL '1 hour'
@@ -79,22 +83,25 @@ export async function POST(request: Request) {
   }
 
   const origin = new URL(request.url).origin;
-  const body = new URLSearchParams();
-  body.set("mode", "subscription");
-  body.set("line_items[0][price]", fitnessPriceId());
-  body.set("line_items[0][quantity]", "1");
-  body.set("customer_email", email);
-  body.set("client_reference_id", user.id);
-  body.set("success_url", `${origin}/fitness/checkout/success?session_id={CHECKOUT_SESSION_ID}`);
-  body.set("cancel_url", `${origin}/fitness/subscribe`);
-  body.set("metadata[member_email]", email);
-  body.set("metadata[clerk_user_id]", user.id);
-  body.set("metadata[terms_acceptance_id]", acceptanceId);
-  body.set("subscription_data[metadata][member_email]", email);
-  body.set("subscription_data[metadata][clerk_user_id]", user.id);
-  body.set("subscription_data[metadata][terms_acceptance_id]", acceptanceId);
 
   try {
+    const { priceId } = await ensureStripeBillingResources(origin);
+
+    const body = new URLSearchParams();
+    body.set("mode", "subscription");
+    body.set("line_items[0][price]", priceId);
+    body.set("line_items[0][quantity]", "1");
+    body.set("customer_email", email);
+    body.set("client_reference_id", user.id);
+    body.set("success_url", `${origin}/fitness/checkout/success?session_id={CHECKOUT_SESSION_ID}`);
+    body.set("cancel_url", `${origin}/fitness/subscribe`);
+    body.set("metadata[member_email]", email);
+    body.set("metadata[clerk_user_id]", user.id);
+    body.set("metadata[terms_acceptance_id]", acceptanceId);
+    body.set("subscription_data[metadata][member_email]", email);
+    body.set("subscription_data[metadata][clerk_user_id]", user.id);
+    body.set("subscription_data[metadata][terms_acceptance_id]", acceptanceId);
+
     const session = await stripeRequest("/checkout/sessions", {
       method: "POST",
       body,

@@ -25,8 +25,7 @@ function string(value: unknown) {
 }
 
 function metadataEmail(object: StripeRecord) {
-  const metadata = record(object.metadata);
-  return string(metadata.member_email).trim().toLowerCase();
+  return string(record(object.metadata).member_email).trim().toLowerCase();
 }
 
 async function setAccess(args: {
@@ -60,8 +59,9 @@ async function setAccess(args: {
 export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get("stripe-signature") || "";
+  const origin = new URL(request.url).origin;
 
-  if (!verifyStripeWebhook(rawBody, signature)) {
+  if (!(await verifyStripeWebhook(rawBody, signature, origin))) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
