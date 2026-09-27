@@ -101,11 +101,7 @@ export async function getPickaxeUser(email: string) {
   );
 
   if (response.status === 404) {
-    const listed = await findPickaxeUserInList(email);
-    if (process.env.VERCEL_ENV === "preview" && !listed) {
-      console.warn("[pickaxe-access-qa] user-not-found-in-direct-or-list");
-    }
-    return listed;
+    const listed = await findPickaxeUserInList(email);    return listed;
   }
 
   if (!response.ok) {
