@@ -2,7 +2,9 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import FitnessSubscriptionEmbed from "@/components/FitnessSubscriptionEmbed";
 import SiteHeader from "@/components/SiteHeader";
+import { getFitnessMembership } from "@/lib/pickaxeMembership";
 import { TERMS_VERSION } from "@/lib/termsAcceptance";
 import { ensureTermsAcceptanceSchema } from "@/lib/termsAcceptanceDb";
 
@@ -46,10 +48,30 @@ export default async function FitnessSubscribePage() {
   }
 
   const memberEmail = primaryEmailForUser(user);
+  if (!memberEmail) {
+    redirect("/fitness/login?subscribe=1");
+  }
+
+  try {
+    const membership = await getFitnessMembership(memberEmail);
+    if (!membership.configured) {
+      return (
+        <HandoffError message="Membership verification is not configured right now. You have not been charged." />
+      );
+    }
+    if (membership.active) {
+      redirect("/fitness/chat");
+    }
+  } catch {
+    return (
+      <HandoffError message="We could not verify your Fitness Coach membership right now. You have not been charged." />
+    );
+  }
+
   const cookieStore = await cookies();
   const acceptanceId = cookieStore.get(FITNESS_TERMS_COOKIE)?.value || "";
 
-  if (!memberEmail || !UUID_PATTERN.test(acceptanceId)) {
+  if (!UUID_PATTERN.test(acceptanceId)) {
     redirect("/fitness/signup");
   }
 
@@ -85,12 +107,10 @@ export default async function FitnessSubscribePage() {
     );
   }
 
-  const signupUrl = (process.env.NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL || "").trim();
-  if (!signupUrl) {
-    return (
-      <HandoffError message="The secure subscription destination is not configured. You have not been charged." />
-    );
-  }
-
-  redirect(signupUrl);
+  return (
+    <main className="signup-shell">
+      <SiteHeader compact />
+      <FitnessSubscriptionEmbed />
+    </main>
+  );
 }
