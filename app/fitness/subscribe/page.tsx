@@ -50,18 +50,19 @@ export default async function FitnessSubscribePage() {
   const email = primaryEmail(user);
   if (!email) redirect("/fitness/login");
 
+  let alreadyActive = false;
   try {
-    if (
-      await memberHasFitnessAccess(email, user.id, {
-        fallbackToPickaxeList: false,
-      })
-    ) {
-      redirect("/fitness/chat");
-    }
+    alreadyActive = await memberHasFitnessAccess(email, user.id, {
+      fallbackToPickaxeList: false,
+    });
   } catch {
     return (
       <SetupProblem message="We could not verify your current Fitness Coach access. No charge was attempted." />
     );
+  }
+
+  if (alreadyActive) {
+    redirect("/fitness/chat");
   }
 
   const cookieStore = await cookies();
