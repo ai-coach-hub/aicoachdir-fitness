@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent, ReactNode } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   FITNESS_INCLUDED_USES,
   FITNESS_PLAN,
@@ -21,10 +21,6 @@ export default function TermsGate({ children }: { children: ReactNode }) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const signupUrl = useMemo(
-    () => process.env.NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL || "",
-    []
-  );
 
   const normalizedEmail = email.trim().toLowerCase();
   const emailIsValid =
@@ -42,7 +38,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
   }
 
   async function continueToSignup() {
-    if (!reachedBottom || !agreed || !emailIsValid || !signupUrl || isSaving) return;
+    if (!reachedBottom || !agreed || !emailIsValid || isSaving) return;
 
     setIsSaving(true);
     setSaveError("");
@@ -90,7 +86,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
         // Browser storage is only a secondary convenience. The server record already exists.
       }
 
-      window.location.assign(signupUrl);
+      window.location.assign("/fitness/create-account");
     } catch {
       setSaveError("We couldn't record your agreement. Please try again. You have not been charged.");
       setIsSaving(false);
@@ -100,7 +96,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
   return (
     <section className="terms-card">
       <div className="terms-heading">
-        <p className="eyebrow">NEW SUBSCRIBER · STEP 1 OF 2</p>
+        <p className="eyebrow">NEW SUBSCRIBER · STEP 1 OF 3</p>
         <h1>Review the Terms & Conditions</h1>
         <p>
           Read the complete terms below. The agreement checkbox unlocks only after you scroll to the end.
@@ -132,7 +128,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
         <div className="acceptance-email-field">
           <label htmlFor="terms-acceptance-email">Email address</label>
           <p>
-            Enter the email you will use to create your account in the next step. This allows us to maintain a record of your Terms acceptance.
+            Enter the email you will use for your AI Coach Directory account. This allows us to maintain a durable record of your Terms acceptance.
           </p>
           <input
             id="terms-acceptance-email"
@@ -155,7 +151,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
           <span id="terms-email-help" className={emailTouched && !emailIsValid ? "email-help error" : "email-help"}>
             {emailTouched && !emailIsValid
               ? "Please enter a valid email address."
-              : "Use the same email address when you create your Pickaxe account."}
+              : "Use the same email address when you create or sign in to your AI Coach Directory account."}
           </span>
         </div>
 
@@ -190,20 +186,15 @@ export default function TermsGate({ children }: { children: ReactNode }) {
 
         <button
           className="primary-button full-button"
-          disabled={!reachedBottom || !agreed || !emailIsValid || !signupUrl || isSaving}
+          disabled={!reachedBottom || !agreed || !emailIsValid || isSaving}
           onClick={continueToSignup}
         >
-          {isSaving ? "Recording Your Agreement…" : "Continue to Secure Subscription"}
+          {isSaving ? "Recording Your Agreement…" : "Continue to Create Your Account"}
         </button>
 
-        {!signupUrl && (
-          <p className="config-warning">
-            Setup required: add NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL in Vercel Environment Variables.
-          </p>
-        )}
 
         <p className="microcopy center">
-          Step 2 opens the Pickaxe-hosted membership and subscription flow connected to Stripe.
+          Step 2 creates your AI Coach Directory sign-in. Step 3 completes the secure Fitness Coach subscription.
         </p>
       </div>
     </section>

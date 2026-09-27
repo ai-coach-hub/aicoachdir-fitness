@@ -1,2 +1,154 @@
+const PICKAXE_API_BASE = "https://api.pickaxe.co/v1";
+
 export const FITNESS_ACCESS_GROUP_ID =
   "access-b232b0a3-4713-45b4-a7ab-3daba2faa4d9";
+
+function token() {
+  const value = process.env.PICKAXE_WORKSPACE_API_TOKEN?.trim();
+  if (!value) throw new Error("Pickaxe workspace token is not configured.");
+  return value;
+}
+
+async function pickaxeRequest(
+  path: string,
+  init: { method?: "GET" | "POST" | "PATCH"; body?: unknown } = {},
+) {
+  const method = init.method || "GET";
+  const response = await fetch(`${PICKAXE_API_BASE}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token()}`,
+      Accept: "application/json",
+      ...(method !== "GET" ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(method !== "GET" && init.body !== undefined
+      ? { body: JSON.stringify(init.body) }
+      : {}),
+    cache: "no-store",
+    signal: AbortSignal.timeout(20_000),
+  });
+
+  const text = await response.text();
+  let payload: unknown = null;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch {
+    payload = text;
+  }
+
+  return { response, payload };
+}
+
+function unwrapData(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  const record = payload as Record<string, unknown>;
+  return record.data ?? payload;
+}
+
+function objectContainsValue(value: unknown, target: string): boolean {
+  if (value === target) return true;
+  if (Array.isArray(value)) return value.some((entry) => objectContainsValue(entry, target));
+  if (!value || typeof value !== "object") return false;
+  return Object.values(value as Record<string, unknown>).some((entry) =>
+    objectContainsValue(entry, target),
+  );
+}
+
+export async function getPickaxeUser(email: string) {
+  const { response, payload } = await pickaxeRequest(
+    `/studio/user/${encodeURIComponent(email)}`,
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`Pickaxe user lookup failed with ${response.status}`);
+  }
+  return unwrapData(payload);
+}
+
+export async function pickaxeUserHasFitnessAccess(email: string) {
+  const user = await getPickaxeUser(email);
+  return !!user && objectContainsValue(user, FITNESS_ACCESS_GROUP_ID);
+}
+
+export async function grantFitnessAccess(email: string, name?: string) {
+  const existing = await getPickaxeUser(email);
+
+  if (existing) {
+    const { response } = await pickaxeRequest(
+      `/studio/user/${encodeURIComponent(email)}`,
+      {
+        method: "PATCH",
+        body: {
+          data: {
+            accessGroupId: FITNESS_ACCESS_GROUP_ID,
+            isEmailVerified: true,
+            ...(name ? { name } : {}),
+          },
+        },
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`Pickaxe access grant failed with ${response.status}`);
+    }
+    return;
+  }
+
+  const { response } = await pickaxeRequest("/studio/user/create", {
+    method: "POST",
+    body: {
+      email,
+      accessGroupId: FITNESS_ACCESS_GROUP_ID,
+      isEmailVerified: true,
+      ...(name ? { name } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Pickaxe user creation failed with ${response.status}`);
+  }
+}
+
+async function publicFallbackAccessGroupId() {
+  const { response, payload } = await pickaxeRequest("/studio/access-group/list");
+  if (!response.ok) {
+    throw new Error(`Pickaxe access-group lookup failed with ${response.status}`);
+  }
+
+  const unwrapped = unwrapData(payload);
+  const groups = Array.isArray(unwrapped) ? unwrapped : [];
+  const publicGroups = groups.filter((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+    return String((item as Record<string, unknown>).type || "") === "public";
+  }) as Record<string, unknown>[];
+
+  const preferred =
+    publicGroups.find((item) => Number(item.limit) === -1337) ||
+    publicGroups.find((item) => item.limit == null) ||
+    publicGroups[0];
+
+  return String(
+    preferred?.id || preferred?.accessGroupId || preferred?._id || "",
+  ).trim();
+}
+
+export async function revokeFitnessAccess(email: string) {
+  const existing = await getPickaxeUser(email);
+  if (!existing) return;
+
+  const fallbackId = await publicFallbackAccessGroupId();
+  if (!fallbackId) {
+    throw new Error("No Pickaxe public fallback access group was found.");
+  }
+
+  const { response } = await pickaxeRequest(
+    `/studio/user/${encodeURIComponent(email)}`,
+    {
+      method: "PATCH",
+      body: { data: { accessGroupId: fallbackId } },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Pickaxe access revoke failed with ${response.status}`);
+  }
+}
