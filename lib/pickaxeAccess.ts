@@ -89,24 +89,90 @@ function previewMembershipHints(value: unknown) {
   return hints.slice(0, 60);
 }
 
+function normalizedEmail(value: unknown) {
+  return String(value || "").trim().toLowerCase();
+}
+
+async function findPickaxeUserInList(email: string) {
+  const target = normalizedEmail(email);
+
+  for (let skip = 0; skip < 1000; skip += 100) {
+    const { response, payload } = await pickaxeRequest(
+      `/studio/user/list?skip=${skip}&take=100`,
+    );
+    if (!response.ok) {
+      throw new Error(`Pickaxe user list lookup failed with ${response.status}`);
+    }
+
+    const unwrapped = unwrapData(payload);
+    const users = Array.isArray(unwrapped)
+      ? unwrapped
+      : unwrapped &&
+          typeof unwrapped === "object" &&
+          Array.isArray((unwrapped as Record<string, unknown>).items)
+        ? ((unwrapped as Record<string, unknown>).items as unknown[])
+        : [];
+
+    const match = users.find((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const record = item as Record<string, unknown>;
+      return normalizedEmail(record.email) === target;
+    });
+
+    if (match) return match;
+    if (users.length < 100) break;
+  }
+
+  return null;
+}
+
 export async function getPickaxeUser(email: string) {
   const { response, payload } = await pickaxeRequest(
     `/studio/user/${encodeURIComponent(email)}`,
   );
-  if (response.status === 404) return null;
+
+  if (response.status === 404) {
+    const listed = await findPickaxeUserInList(email);
+    if (process.env.VERCEL_ENV === "preview" && !listed) {
+      console.warn("[pickaxe-access-qa] user-not-found-in-direct-or-list");
+    }
+    return listed;
+  }
+
   if (!response.ok) {
     throw new Error(`Pickaxe user lookup failed with ${response.status}`);
   }
+
   return unwrapData(payload);
 }
 
 function derivedProductIds(payload: unknown) {
-  const value = unwrapData(payload);
-  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-  const ids = (value as Record<string, unknown>).derivedFromProductIds;
-  return Array.isArray(ids)
-    ? ids.map((item) => String(item || "").trim()).filter(Boolean)
-    : [];
+  const found = new Set<string>();
+
+  function walk(value: unknown, depth: number) {
+    if (depth > 6 || value == null) return;
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => walk(item, depth + 1));
+      return;
+    }
+
+    if (typeof value !== "object") return;
+
+    const record = value as Record<string, unknown>;
+    const ids = record.derivedFromProductIds;
+    if (Array.isArray(ids)) {
+      ids.forEach((item) => {
+        const id = String(item || "").trim();
+        if (id) found.add(id);
+      });
+    }
+
+    Object.values(record).forEach((item) => walk(item, depth + 1));
+  }
+
+  walk(payload, 0);
+  return Array.from(found);
 }
 
 async function fitnessLegacyProductIds() {
@@ -134,12 +200,14 @@ export async function pickaxeUserHasFitnessAccess(email: string) {
   );
 
   if (process.env.VERCEL_ENV === "preview") {
-    console.info("[pickaxe-access-qa] legacy-member-check", {
-      hasCurrentAccessGroup: false,
-      legacyProductIds,
-      legacyMatch,
-      hints: previewMembershipHints(user),
-    });
+    console.warn(
+      `[pickaxe-access-qa] ${JSON.stringify({
+        hasCurrentAccessGroup: false,
+        legacyProductIds,
+        legacyMatch,
+        hints: previewMembershipHints(user),
+      })}`,
+    );
   }
 
   return legacyMatch;
