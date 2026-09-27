@@ -1,22 +1,38 @@
 import { NextResponse } from "next/server";
-import { ensureStripeBillingResources, stripeConfigured } from "@/lib/stripeServer";
+import {
+  ensureFitnessPriceId,
+  ensureWebhookSecret,
+  stripeConfigured,
+} from "@/lib/stripeServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  if (!stripeConfigured()) {
-    return NextResponse.json({ stripeConfigured: false, billingReady: false });
+  const result = {
+    stripeConfigured: stripeConfigured(),
+    priceReady: false,
+    webhookReady: false,
+  };
+
+  if (!result.stripeConfigured) {
+    return NextResponse.json(result, { status: 503 });
+  }
+
+  try {
+    await ensureFitnessPriceId();
+    result.priceReady = true;
+  } catch {
+    return NextResponse.json(result, { status: 500 });
   }
 
   try {
     const origin = new URL(request.url).origin;
-    await ensureStripeBillingResources(origin);
-    return NextResponse.json({ stripeConfigured: true, billingReady: true });
+    await ensureWebhookSecret(origin);
+    result.webhookReady = true;
   } catch {
-    return NextResponse.json(
-      { stripeConfigured: true, billingReady: false },
-      { status: 500 },
-    );
+    return NextResponse.json(result, { status: 500 });
   }
+
+  return NextResponse.json(result);
 }
