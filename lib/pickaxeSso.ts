@@ -55,7 +55,7 @@ function deriveSigningKey() {
     d: scalar.toString("base64url"),
   };
 
-  const privateKey = createPrivateKey({ key: jwk as JsonWebKey, format: "jwk" });
+  const privateKey = createPrivateKey({ key: jwk, format: "jwk" } as Parameters<typeof createPrivateKey>[0]);
   const publicKeyPem = createPublicKey(privateKey).export({
     type: "spki",
     format: "pem",
