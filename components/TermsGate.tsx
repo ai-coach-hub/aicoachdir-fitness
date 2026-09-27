@@ -177,7 +177,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
 
         <div className="verification-reminder" role="note" aria-label="Verification email reminder">
           <strong>First-time signup reminder</strong>
-          <span>After you continue to Pickaxe and create your account, look for the verification email. If you do not see it within a few minutes, please check your Spam or Junk folder.</span>
+          <span>After you create your AI Coach Directory account, look for the verification email. If you do not see it within a few minutes, please check your Spam or Junk folder.</span>
         </div>
 
         {saveError && (
