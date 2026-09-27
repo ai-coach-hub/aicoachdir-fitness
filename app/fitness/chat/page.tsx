@@ -41,6 +41,14 @@ function scheduleRows(plan: JsonRecord | null) {
     .filter((row): row is JsonRecord => !!row);
 }
 
+function nextSavedPlan(plan: JsonRecord | null) {
+  const wrapper = asRecord(plan?.nextPlan);
+  if (!wrapper) return null;
+  const nested = asRecord(wrapper.plan);
+  const candidate = nested || wrapper;
+  return scheduleRows(candidate).length ? candidate : null;
+}
+
 function workoutTitle(workout: JsonRecord | null, fallback: string) {
   return String(workout?.title || workout?.name || fallback || "Workout");
 }
@@ -49,6 +57,16 @@ function formatDate(value: unknown) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
   const date = new Date(`${value}T12:00:00Z`);
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
+}
+
+function scheduleRange(rows: JsonRecord[]) {
+  const dates = rows
+    .map((row) => String(row.date || ""))
+    .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value));
+  if (!dates.length) return "";
+  const first = formatDate(dates[0]);
+  const last = formatDate(dates[dates.length - 1]);
+  return first && last ? `${first}–${last}` : first || last;
 }
 
 function exerciseLabel(value: unknown) {
@@ -135,8 +153,15 @@ export default function FitnessChatPage() {
     setStatus("");
   }
 
-  const workouts = useMemo(() => workoutMap(plan), [plan]);
+  const currentWorkouts = useMemo(() => workoutMap(plan), [plan]);
   const rows = useMemo(() => scheduleRows(plan), [plan]);
+  const upcomingPlan = useMemo(() => nextSavedPlan(plan), [plan]);
+  const upcomingWorkouts = useMemo(() => workoutMap(upcomingPlan), [upcomingPlan]);
+  const upcomingRows = useMemo(() => scheduleRows(upcomingPlan), [upcomingPlan]);
+  const workouts = useMemo(
+    () => ({ ...upcomingWorkouts, ...currentWorkouts }),
+    [currentWorkouts, upcomingWorkouts],
+  );
   const workoutList = useMemo(
     () =>
       Object.entries(workouts)
@@ -296,20 +321,53 @@ export default function FitnessChatPage() {
               </div>
 
               {rows.length ? (
-                <div className="schedule-grid">
-                  {rows.map((row, index) => {
-                    const id = String(row.workoutId || "");
-                    const workout = asRecord(workouts[id]);
-                    const rest = row.isRestDay === true || !id;
-                    return (
-                      <article key={index} className={rest ? "schedule-card rest" : "schedule-card"}>
-                        <span>{String(row.day || `Workout ${index + 1}`)}</span>
-                        {row.date ? <small>{formatDate(row.date)}</small> : null}
-                        <strong>{rest ? "Rest" : workoutTitle(workout, id)}</strong>
-                      </article>
-                    );
-                  })}
-                </div>
+                <section aria-labelledby="current-saved-week">
+                  <div className="member-panel-heading">
+                    <div>
+                      <p className="eyebrow compact-eyebrow">CURRENT SAVED WEEK</p>
+                      <h3 id="current-saved-week">{scheduleRange(rows)}</h3>
+                    </div>
+                  </div>
+                  <div className="schedule-grid">
+                    {rows.map((row, index) => {
+                      const id = String(row.workoutId || "");
+                      const workout = asRecord(currentWorkouts[id]) || asRecord(workouts[id]);
+                      const rest = row.isRestDay === true || !id;
+                      return (
+                        <article key={index} className={rest ? "schedule-card rest" : "schedule-card"}>
+                          <span>{String(row.day || `Workout ${index + 1}`)}</span>
+                          {row.date ? <small>{formatDate(row.date)}</small> : null}
+                          <strong>{rest ? "Rest" : workoutTitle(workout, id)}</strong>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null}
+
+              {upcomingRows.length ? (
+                <section aria-labelledby="next-saved-week">
+                  <div className="member-panel-heading">
+                    <div>
+                      <p className="eyebrow compact-eyebrow">NEXT SAVED WEEK</p>
+                      <h3 id="next-saved-week">{scheduleRange(upcomingRows)}</h3>
+                    </div>
+                  </div>
+                  <div className="schedule-grid">
+                    {upcomingRows.map((row, index) => {
+                      const id = String(row.workoutId || "");
+                      const workout = asRecord(upcomingWorkouts[id]) || asRecord(workouts[id]);
+                      const rest = row.isRestDay === true || !id;
+                      return (
+                        <article key={index} className={rest ? "schedule-card rest" : "schedule-card"}>
+                          <span>{String(row.day || `Workout ${index + 1}`)}</span>
+                          {row.date ? <small>{formatDate(row.date)}</small> : null}
+                          <strong>{rest ? "Rest" : workoutTitle(workout, id)}</strong>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
               ) : null}
 
               <div className="workout-card-grid">
