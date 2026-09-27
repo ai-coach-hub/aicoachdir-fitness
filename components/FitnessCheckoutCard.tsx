@@ -12,7 +12,7 @@ export default function FitnessCheckoutCard() {
     setError("");
 
     try {
-      const response = await fetch("/api/billing/create-checkout-session", {
+      const response = await fetch("/fitness/api/billing/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
