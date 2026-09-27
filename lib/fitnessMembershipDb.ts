@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { canonicalMemberEmail } from "@/lib/memberIdentity";
 import {
   FITNESS_ACCESS_GROUP_ID,
   pickaxeUserHasFitnessAccess,
@@ -45,11 +46,12 @@ export async function ensureFitnessMembershipSchema() {
 }
 
 export async function getFitnessMembership(email: string) {
+  const memberEmail = canonicalMemberEmail(email);
   const sql = await ensureFitnessMembershipSchema();
   const rows = await sql`
     SELECT *
     FROM fitness_memberships
-    WHERE email = ${email}
+    WHERE email = ${memberEmail}
     LIMIT 1
   `;
   return rows[0] || null;
@@ -65,6 +67,7 @@ export async function saveFitnessMembership(args: {
   eventType?: string | null;
   eventId?: string | null;
 }) {
+  const memberEmail = canonicalMemberEmail(args.email);
   const sql = await ensureFitnessMembershipSchema();
   const rows = await sql`
     INSERT INTO fitness_memberships (
@@ -79,7 +82,7 @@ export async function saveFitnessMembership(args: {
       last_event_id,
       updated_at
     ) VALUES (
-      ${args.email},
+      ${memberEmail},
       ${args.clerkUserId || null},
       ${args.customerId || null},
       ${args.subscriptionId || null},
@@ -109,7 +112,8 @@ export async function memberHasFitnessAccess(
   email: string,
   clerkUserId?: string,
 ) {
-  const existing = await getFitnessMembership(email);
+  const memberEmail = canonicalMemberEmail(email);
+  const existing = await getFitnessMembership(memberEmail);
 
   if (existing?.access_active === true) {
     return true;
@@ -136,7 +140,7 @@ export async function memberHasFitnessAccess(
     return false;
   }
 
-  const legacyActive = await pickaxeUserHasFitnessAccess(email);
+  const legacyActive = await pickaxeUserHasFitnessAccess(memberEmail);
 
   if (process.env.VERCEL_ENV === "preview") {
     console.warn(
@@ -156,7 +160,7 @@ export async function memberHasFitnessAccess(
   }
 
   await saveFitnessMembership({
-    email,
+    email: memberEmail,
     clerkUserId: clerkUserId || null,
     stripeStatus: "legacy_pickaxe_member",
     active: true,
