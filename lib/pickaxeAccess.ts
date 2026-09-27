@@ -116,7 +116,25 @@ export async function getPickaxeUser(
     throw new Error(`Pickaxe user lookup failed with ${response.status}`);
   }
 
-  return unwrapData(payload);
+  const user = unwrapData(payload);
+
+  // The direct Pickaxe endpoint can resolve an email alias to a different
+  // underlying member record. Membership access must only carry over when the
+  // returned user email exactly matches the signed-in email after normalizing
+  // case/whitespace.
+  if (user && typeof user === "object" && !Array.isArray(user)) {
+    const returnedEmail = normalizedEmail(
+      (user as Record<string, unknown>).email,
+    );
+    const requestedEmail = normalizedEmail(email);
+
+    if (returnedEmail && returnedEmail !== requestedEmail) {
+      if (options.fallbackToList === false) return null;
+      return findPickaxeUserInList(email);
+    }
+  }
+
+  return user;
 }
 
 function derivedProductIds(payload: unknown) {
