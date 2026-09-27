@@ -60,7 +60,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
-        <ClerkProvider>
+        <ClerkProvider
+          signInUrl="/fitness/login"
+          signUpUrl="/fitness/signup"
+          signInFallbackRedirectUrl="/fitness/chat"
+          signUpFallbackRedirectUrl="/fitness/signup"
+        >
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{

@@ -2,6 +2,7 @@
   "name": "aicoachdir-fitness-vercel",
   "version": "2.6.0",
   "scripts": {
+    "prebuild": "node scripts/check-preview-stripe-key.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

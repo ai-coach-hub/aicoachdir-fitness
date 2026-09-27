@@ -627,6 +627,23 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   font-size: 13px;
   line-height: 1.5;
 }
+.checkout-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.checkout-error a {
+  color: #b8ff8d;
+  font-weight: 850;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+.checkout-error a:hover {
+  color: #e4ffd2;
+}
 
 
 /* Member Fitness Coach hub */

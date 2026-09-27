@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LENGTH = 254;
 const MAX_USER_AGENT_LENGTH = 1024;
+const FITNESS_TERMS_COOKIE = "fitness_terms_acceptance";
 
 function normalizeEmail(value: unknown) {
   if (typeof value !== "string") return null;
@@ -163,7 +164,7 @@ export async function POST(request: Request) {
       return jsonError("We couldn't record your agreement. Please try again. You have not been charged.", 500);
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         ok: true,
         acceptanceId: String(stored.id),
@@ -174,6 +175,18 @@ export async function POST(request: Request) {
         headers: { "Cache-Control": "no-store" },
       }
     );
+
+    response.cookies.set({
+      name: FITNESS_TERMS_COOKIE,
+      value: String(stored.id),
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/fitness",
+      maxAge: 60 * 60,
+    });
+
+    return response;
   } catch {
     // Intentionally avoid logging request data, database errors, credentials, or stack traces.
     console.error("Terms acceptance storage failed.");

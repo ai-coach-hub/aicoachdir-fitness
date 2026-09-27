@@ -1,5 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { createHmac } from "node:crypto";
+import { canonicalMemberEmail } from "@/lib/memberIdentity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,7 +72,9 @@ function primaryEmailForUser(user: Awaited<ReturnType<typeof currentUser>>) {
   if (!user) return "";
   const primaryId = user.primaryEmailAddressId;
   const primary = user.emailAddresses.find((item) => item.id === primaryId);
-  return (primary?.emailAddress || user.emailAddresses[0]?.emailAddress || "").trim().toLowerCase();
+  return canonicalMemberEmail(
+    primary?.emailAddress || user.emailAddresses[0]?.emailAddress || "",
+  );
 }
 
 function getDeploymentKey() {
