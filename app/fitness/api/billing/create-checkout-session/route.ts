@@ -1,4 +1,4 @@
-// Keep this endpoint under /fitness so the Terms-acceptance cookie is sent.
+// Keep checkout under /fitness so the Terms-acceptance cookie is available.
 export {
   dynamic,
   POST,
