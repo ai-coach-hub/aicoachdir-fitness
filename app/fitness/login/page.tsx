@@ -30,11 +30,14 @@ export default function FitnessMemberLoginPage() {
           <SignIn
             routing="hash"
             forceRedirectUrl="/fitness/chat"
-            signUpUrl="/fitness/signup"
+            signUpUrl="/fitness/legacy-account"
           />
         </div>
 
         <div className="cta-row">
+          <Link href="/fitness/legacy-account" className="secondary-button">
+            First time using this member login?
+          </Link>
           <Link href="/fitness/chat" className="secondary-button">
             Back to Fitness Coach
           </Link>
