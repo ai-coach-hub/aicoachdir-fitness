@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent, ReactNode } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   FITNESS_INCLUDED_USES,
   FITNESS_PLAN,
@@ -21,11 +21,6 @@ export default function TermsGate({ children }: { children: ReactNode }) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const signupUrl = useMemo(
-    () => process.env.NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL || "",
-    []
-  );
-
   const normalizedEmail = email.trim().toLowerCase();
   const emailIsValid =
     normalizedEmail.length > 0 &&
@@ -42,7 +37,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
   }
 
   async function continueToSignup() {
-    if (!reachedBottom || !agreed || !emailIsValid || !signupUrl || isSaving) return;
+    if (!reachedBottom || !agreed || !emailIsValid || isSaving) return;
 
     setIsSaving(true);
     setSaveError("");
@@ -87,10 +82,11 @@ export default function TermsGate({ children }: { children: ReactNode }) {
       try {
         sessionStorage.setItem("fitnessTermsAcceptance", JSON.stringify(acceptance));
       } catch {
-        // Browser storage is only a secondary convenience. The server record already exists.
+        // Browser storage is only a convenience for prefilling the account step.
+        // The durable server record and secure acceptance cookie are authoritative.
       }
 
-      window.location.assign(signupUrl);
+      window.location.assign("/fitness/create-account");
     } catch {
       setSaveError("We couldn't record your agreement. Please try again. You have not been charged.");
       setIsSaving(false);
@@ -100,7 +96,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
   return (
     <section className="terms-card">
       <div className="terms-heading">
-        <p className="eyebrow">NEW SUBSCRIBER · STEP 1 OF 2</p>
+        <p className="eyebrow">NEW SUBSCRIBER · STEP 1 OF 3</p>
         <h1>Review the Terms & Conditions</h1>
         <p>
           Read the complete terms below. The agreement checkbox unlocks only after you scroll to the end.
@@ -132,7 +128,8 @@ export default function TermsGate({ children }: { children: ReactNode }) {
         <div className="acceptance-email-field">
           <label htmlFor="terms-acceptance-email">Email address</label>
           <p>
-            Enter the email you will use to create your account in the next step. This allows us to maintain a record of your Terms acceptance.
+            Use the email you want tied to your AI Coach Directory account and Fitness Coach membership.
+            Keeping the same email across both systems is what keeps your coach identity and saved workouts connected.
           </p>
           <input
             id="terms-acceptance-email"
@@ -155,7 +152,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
           <span id="terms-email-help" className={emailTouched && !emailIsValid ? "email-help error" : "email-help"}>
             {emailTouched && !emailIsValid
               ? "Please enter a valid email address."
-              : "Use the same email address when you create your Pickaxe account."}
+              : "You will use this same email for your AI Coach Directory sign-in and Pickaxe membership."}
           </span>
         </div>
 
@@ -181,7 +178,10 @@ export default function TermsGate({ children }: { children: ReactNode }) {
 
         <div className="verification-reminder" role="note" aria-label="Verification email reminder">
           <strong>First-time signup reminder</strong>
-          <span>After you continue to Pickaxe and create your account, look for the verification email. If you do not see it within a few minutes, please check your Spam or Junk folder.</span>
+          <span>
+            The next step creates your AI Coach Directory sign-in. Look for the verification email and,
+            if it does not arrive within a few minutes, check your Spam or Junk folder.
+          </span>
         </div>
 
         {saveError && (
@@ -190,20 +190,14 @@ export default function TermsGate({ children }: { children: ReactNode }) {
 
         <button
           className="primary-button full-button"
-          disabled={!reachedBottom || !agreed || !emailIsValid || !signupUrl || isSaving}
+          disabled={!reachedBottom || !agreed || !emailIsValid || isSaving}
           onClick={continueToSignup}
         >
-          {isSaving ? "Recording Your Agreement…" : "Continue to Secure Subscription"}
+          {isSaving ? "Recording Your Agreement…" : "Continue to Create Your Account"}
         </button>
 
-        {!signupUrl && (
-          <p className="config-warning">
-            Setup required: add NEXT_PUBLIC_PICKAXE_FITNESS_SIGNUP_URL in Vercel Environment Variables.
-          </p>
-        )}
-
         <p className="microcopy center">
-          Step 2 opens the Pickaxe-hosted membership and subscription flow connected to Stripe.
+          Step 2 creates your AI Coach Directory sign-in. Step 3 opens the secure Pickaxe membership and Stripe subscription flow.
         </p>
       </div>
     </section>
