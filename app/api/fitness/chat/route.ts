@@ -1227,6 +1227,136 @@ function extractResult(payload: unknown) {
   return JSON.stringify(result, null, 2);
 }
 
+
+function extractFormalPlanFromValues(values: unknown[]) {
+  for (const value of values) {
+    const unwrapped = unwrapMemoryValue(value);
+    if (looksLikeFormalWorkoutPlan(unwrapped)) {
+      return unwrapped as Record<string, unknown>;
+    }
+  }
+  return null;
+}
+
+async function readMemberWorkoutData(email: string, studioToken: string) {
+  const headers = {
+    Authorization: `Bearer ${studioToken}`,
+    Accept: "application/json",
+  };
+
+  const definitionsResponse = await fetch(
+    `${PICKAXE_STUDIO_BASE_URL}/studio/memory/list?skip=0&take=100`,
+    { headers, cache: "no-store", signal: AbortSignal.timeout(12_000) },
+  );
+  if (!definitionsResponse.ok) throw new Error("memory-definition-list");
+
+  const definitions = memoryPayloadItems(await definitionsResponse.json());
+  const planNames = new Set([
+    "fitness workout plan v1",
+    "fitness-workout-plan-v1",
+    "fitness_workout_plan_v1",
+  ].map(normalizeMemoryName));
+  const historyNames = new Set([
+    "fitness workout history v1",
+    "fitness-workout-history-v1",
+    "fitness_workout_history_v1",
+    "fitness workout history for ai coach",
+    "fitness workout history (for ai coach)",
+  ].map(normalizeMemoryName));
+
+  const planMemoryId = memoryDefinitionId(
+    definitions.find((item) => planNames.has(memoryDefinitionName(item))),
+  );
+  const historyMemoryId = memoryDefinitionId(
+    definitions.find((item) => historyNames.has(memoryDefinitionName(item))),
+  );
+
+  let plan: Record<string, unknown> | null = null;
+  let historyEntries: unknown[] = [];
+
+  if (planMemoryId) {
+    const planResponse = await fetch(
+      `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(planMemoryId)}&skip=0&take=100`,
+      { headers, cache: "no-store", signal: AbortSignal.timeout(12_000) },
+    );
+    if (planResponse.ok) {
+      const values = collectMemoryValues(await planResponse.json());
+      plan = extractFormalPlanFromValues(values);
+    }
+  }
+
+  if (historyMemoryId) {
+    const historyResponse = await fetch(
+      `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(historyMemoryId)}&skip=0&take=100`,
+      { headers, cache: "no-store", signal: AbortSignal.timeout(12_000) },
+    );
+    if (historyResponse.ok) {
+      const values = collectMemoryValues(await historyResponse.json());
+      for (const value of values) {
+        const unwrapped = unwrapMemoryValue(value);
+        if (!unwrapped || typeof unwrapped !== "object" || Array.isArray(unwrapped)) continue;
+        const record = unwrapped as Record<string, unknown>;
+        if (!plan) {
+          const candidate = [record.plan, record.currentPlan, record.workoutPlan]
+            .map((item) => unwrapMemoryValue(item))
+            .find((item) => looksLikeFormalWorkoutPlan(item));
+          if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+            plan = candidate as Record<string, unknown>;
+          }
+        }
+        if (Array.isArray(record.entries)) {
+          historyEntries = record.entries;
+          break;
+        }
+      }
+    }
+  }
+
+  return { plan, historyEntries };
+}
+
+export async function GET() {
+  const user = await currentUser();
+  const memberEmail = primaryEmailForUser(user);
+  if (!user || !memberEmail) {
+    return Response.json({ ok: false, error: "Sign in is required." }, { status: 401 });
+  }
+
+  const studioToken = getStudioToken();
+  if (!studioToken) {
+    return Response.json(
+      { ok: false, error: "Workout data is not configured." },
+      { status: 503 },
+    );
+  }
+
+  try {
+    let data = await readMemberWorkoutData(memberEmail, studioToken);
+
+    if (!data.plan) {
+      const recovery = await recoverStructuredPlanForMember(memberEmail, studioToken);
+      if (recovery.restored) {
+        data = await readMemberWorkoutData(memberEmail, studioToken);
+      }
+    }
+
+    return Response.json({
+      ok: true,
+      plan: data.plan,
+      historyEntries: data.historyEntries,
+      memberAuthenticated: true,
+    });
+  } catch (error) {
+    console.error("[fitness-member-hub] plan-read-failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return Response.json(
+      { ok: false, error: "Saved workouts could not be loaded." },
+      { status: 502 },
+    );
+  }
+}
+
 export async function POST(request: Request) {
   const user = await currentUser();
   const memberEmail = primaryEmailForUser(user);
