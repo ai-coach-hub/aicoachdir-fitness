@@ -3,6 +3,10 @@ const PICKAXE_API_BASE = "https://api.pickaxe.co/v1";
 export const FITNESS_ACCESS_GROUP_ID =
   "access-b232b0a3-4713-45b4-a7ab-3daba2faa4d9";
 
+const LEGACY_FITNESS_ACCESS_IDS = [
+  "access-4f1af5ce-afca-4977-8047-1c1c6868d70c",
+];
+
 function token() {
   const value = process.env.PICKAXE_WORKSPACE_API_TOKEN?.trim();
   if (!value) throw new Error("Pickaxe workspace token is not configured.");
@@ -212,6 +216,9 @@ export async function pickaxeUserHasFitnessAccess(email: string) {
     objectContainsValue(user, productId),
   );
 
+  const knownLegacyAccessMatch = LEGACY_FITNESS_ACCESS_IDS.some((accessId) =>
+    objectContainsValue(user, accessId),
+  );
   const legacyEntitlementMatch = hasLegacyPickaxeEntitlement(user);
 
   if (process.env.VERCEL_ENV === "preview") {
@@ -220,13 +227,14 @@ export async function pickaxeUserHasFitnessAccess(email: string) {
         hasCurrentAccessGroup: false,
         legacyProductIds,
         legacyMatch,
+        knownLegacyAccessMatch,
         legacyEntitlementMatch,
         hints: previewMembershipHints(user),
       })}`,
     );
   }
 
-  return legacyMatch || legacyEntitlementMatch;
+  return knownLegacyAccessMatch || legacyMatch || legacyEntitlementMatch;
 }
 
 export async function grantFitnessAccess(email: string, name?: string) {
