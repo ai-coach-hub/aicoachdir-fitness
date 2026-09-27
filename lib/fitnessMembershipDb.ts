@@ -110,10 +110,32 @@ export async function memberHasFitnessAccess(
   clerkUserId?: string,
 ) {
   const existing = await getFitnessMembership(email);
-  if (existing) return existing.access_active === true;
 
-  // Preserve existing paid Pickaxe members during the migration only when
-  // this email has never been tracked by the new billing system.
+  if (existing?.access_active === true) {
+    return true;
+  }
+
+  // Never resurrect a member whose access was explicitly disabled by the
+  // new Stripe billing flow. A real Stripe-tracked cancellation or inactive
+  // subscription remains authoritative over any older Pickaxe entitlement.
+  const hasStripeBillingHistory =
+    !!existing &&
+    !!(
+      existing.stripe_customer_id ||
+      existing.stripe_subscription_id ||
+      existing.stripe_status === "canceled" ||
+      existing.stripe_status === "past_due" ||
+      existing.stripe_status === "unpaid" ||
+      existing.stripe_status === "incomplete_expired" ||
+      existing.last_event_type === "customer.subscription.deleted"
+    );
+
+  if (hasStripeBillingHistory) {
+    return false;
+  }
+
+  // Otherwise allow a legacy Pickaxe entitlement to migrate forward, even if
+  // an older/stale local row exists without Stripe billing history.
   const legacyActive = await pickaxeUserHasFitnessAccess(email);
   if (!legacyActive) return false;
 
