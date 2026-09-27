@@ -1,11 +1,11 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { createPickaxeEmbedJwt } from "@/lib/pickaxeSso";
 import {
-  createPickaxeEmbedJwt,
   PICKAXE_FITNESS_FORM_ID,
   PICKAXE_FITNESS_SSO_DEPLOYMENT_ID,
   PICKAXE_STUDIO_ID,
-} from "@/lib/pickaxeSso";
+} from "@/lib/pickaxeConstants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
