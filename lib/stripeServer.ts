@@ -17,12 +17,21 @@ export const FITNESS_PRICE_DOLLARS = 15;
 export const FITNESS_INCLUDED_USES = 400;
 
 export function stripeConfigured() {
-  return Boolean(process.env.STRIPE_SECRET_KEY?.trim());
+  return Boolean(
+    process.env.STRIPE_RESTRICTED_KEY?.trim() ||
+      process.env.STRIPE_SECRET_KEY?.trim()
+  );
 }
 
 function secretKey() {
-  const value = process.env.STRIPE_SECRET_KEY?.trim();
-  if (!value) throw new Error("Stripe secret key is not configured.");
+  const value =
+    process.env.STRIPE_RESTRICTED_KEY?.trim() ||
+    process.env.STRIPE_SECRET_KEY?.trim();
+
+  if (!value) {
+    throw new Error("Stripe server key is not configured.");
+  }
+
   return value;
 }
 
