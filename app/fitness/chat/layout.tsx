@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-// Keep the live member hub behind the AI Coach Directory identity gate.
+// Keep the Fitness Coach member hub behind the AI Coach Directory identity gate.
 export default async function FitnessChatLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
