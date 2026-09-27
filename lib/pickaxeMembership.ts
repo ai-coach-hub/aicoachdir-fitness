@@ -1,8 +1,7 @@
-export const FITNESS_ACCESS_GROUP_ID =
-  "access-b232b0a3-4713-45b4-a7ab-3daba2faa4d9";
+import { PICKAXE_FITNESS_ACCESS_GROUP_ID } from "@/lib/pickaxeConstants";
 
 function containsExactAccessGroupId(value: unknown): boolean {
-  if (value === FITNESS_ACCESS_GROUP_ID) return true;
+  if (value === PICKAXE_FITNESS_ACCESS_GROUP_ID) return true;
   if (Array.isArray(value)) return value.some(containsExactAccessGroupId);
   if (!value || typeof value !== "object") return false;
   return Object.values(value as Record<string, unknown>).some(containsExactAccessGroupId);
