@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
+import { getPickaxeSsoPublicKeyPem } from "@/lib/pickaxeSso";
 import {
-  getPickaxeSsoPublicKeyPem,
   PICKAXE_FITNESS_SSO_DEPLOYMENT_ID,
   PICKAXE_SSO_ISSUER,
   PICKAXE_SSO_KEY_ID,
   PICKAXE_STUDIO_ID,
   PICKAXE_WORKSPACE_ID,
-} from "@/lib/pickaxeSso";
+} from "@/lib/pickaxeConstants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
