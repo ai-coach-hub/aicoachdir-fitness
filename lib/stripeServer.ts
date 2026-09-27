@@ -16,20 +16,45 @@ const WEBHOOK_EVENTS = [
 export const FITNESS_PRICE_DOLLARS = 15;
 export const FITNESS_INCLUDED_USES = 400;
 
-export function stripeConfigured() {
-  return Boolean(
+function configuredStripeKey() {
+  return (
     process.env.STRIPE_RESTRICTED_KEY?.trim() ||
-      process.env.STRIPE_SECRET_KEY?.trim()
+    process.env.STRIPE_SECRET_KEY?.trim() ||
+    ""
   );
 }
 
-function secretKey() {
-  const value =
-    process.env.STRIPE_RESTRICTED_KEY?.trim() ||
-    process.env.STRIPE_SECRET_KEY?.trim();
+export function stripeMode() {
+  const value = configuredStripeKey();
+  if (value.startsWith("sk_test_") || value.startsWith("rk_test_")) return "test";
+  if (value.startsWith("sk_live_") || value.startsWith("rk_live_")) return "live";
+  return "unknown";
+}
 
+export function stripeConfigured() {
+  const value = configuredStripeKey();
+  if (!value) return false;
+
+  const mode = stripeMode();
+  const vercelEnv = process.env.VERCEL_ENV?.trim();
+
+  // Never allow a Preview deployment to create live Stripe sessions.
+  if (vercelEnv === "preview" && mode !== "test") return false;
+
+  return mode === "test" || mode === "live";
+}
+
+function secretKey() {
+  const value = configuredStripeKey();
   if (!value) {
     throw new Error("Stripe server key is not configured.");
+  }
+
+  const mode = stripeMode();
+  const vercelEnv = process.env.VERCEL_ENV?.trim();
+
+  if (vercelEnv === "preview" && mode !== "test") {
+    throw new Error("Preview Stripe configuration must use a test-mode key.");
   }
 
   return value;
@@ -105,7 +130,9 @@ export async function ensureFitnessPriceId() {
   const configured = process.env.STRIPE_FITNESS_PRICE_ID?.trim();
   if (configured) return configured;
 
-  const stored = await getBillingConfig("stripe_fitness_price_id");
+  const mode = stripeMode();
+  const configKey = `stripe_fitness_price_id:${mode}`;
+  const stored = await getBillingConfig(configKey);
   if (stored) return stored;
 
   const productList = await stripeRequest("/products?active=true&limit=100");
@@ -143,12 +170,12 @@ export async function ensureFitnessPriceId() {
   const priceId = String(price.id || "");
   if (!priceId) throw new Error("Stripe Fitness price could not be resolved.");
 
-  await setBillingConfig("stripe_fitness_price_id", priceId);
+  await setBillingConfig(configKey, priceId);
   return priceId;
 }
 
 function webhookConfigKey(origin: string) {
-  return `stripe_webhook_secret:${origin}`;
+  return `stripe_webhook_secret:${stripeMode()}:${origin}`;
 }
 
 export async function ensureWebhookSecret(origin: string) {
