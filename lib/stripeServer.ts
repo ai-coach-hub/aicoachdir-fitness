@@ -215,10 +215,11 @@ export async function ensureWebhookSecret(origin: string) {
 }
 
 export async function ensureStripeBillingResources(origin: string) {
-  const [priceId] = await Promise.all([
-    ensureFitnessPriceId(),
-    ensureWebhookSecret(origin),
-  ]);
+  // Bootstrap billing resources sequentially. Both helpers read/write the same
+  // billing_config table, so running them in parallel on a fresh database can
+  // race while CREATE TABLE IF NOT EXISTS initializes Postgres metadata.
+  const priceId = await ensureFitnessPriceId();
+  await ensureWebhookSecret(origin);
   return { priceId };
 }
 
