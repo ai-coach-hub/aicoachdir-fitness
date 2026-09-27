@@ -52,20 +52,23 @@ export default async function FitnessSubscribePage() {
     redirect("/fitness/login?subscribe=1");
   }
 
+  let membership;
   try {
-    const membership = await getFitnessMembership(memberEmail);
-    if (!membership.configured) {
-      return (
-        <HandoffError message="Membership verification is not configured right now. You have not been charged." />
-      );
-    }
-    if (membership.active) {
-      redirect("/fitness/chat");
-    }
+    membership = await getFitnessMembership(memberEmail);
   } catch {
     return (
       <HandoffError message="We could not verify your Fitness Coach membership right now. You have not been charged." />
     );
+  }
+
+  if (!membership.configured) {
+    return (
+      <HandoffError message="Membership verification is not configured right now. You have not been charged." />
+    );
+  }
+
+  if (membership.active) {
+    redirect("/fitness/chat");
   }
 
   const cookieStore = await cookies();
