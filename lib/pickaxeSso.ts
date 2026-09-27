@@ -25,9 +25,9 @@ function fixedLengthScalar(value: bigint) {
 }
 
 function deriveSigningKey() {
-  const rootSecret = process.env.CLERK_SECRET_KEY?.trim();
+  const rootSecret = process.env.PICKAXE_WORKSPACE_API_TOKEN?.trim();
   if (!rootSecret) {
-    throw new Error("Clerk server key is not configured.");
+    throw new Error("Pickaxe workspace key is not configured.");
   }
 
   const material = Buffer.from(
