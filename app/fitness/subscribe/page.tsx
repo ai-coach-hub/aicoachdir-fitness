@@ -51,7 +51,11 @@ export default async function FitnessSubscribePage() {
   if (!email) redirect("/fitness/login");
 
   try {
-    if (await memberHasFitnessAccess(email, user.id)) {
+    if (
+      await memberHasFitnessAccess(email, user.id, {
+        fallbackToPickaxeList: false,
+      })
+    ) {
       redirect("/fitness/chat");
     }
   } catch {
