@@ -65,9 +65,38 @@ export async function getPickaxeUser(email: string) {
   return unwrapData(payload);
 }
 
+function derivedProductIds(payload: unknown) {
+  const value = unwrapData(payload);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const ids = (value as Record<string, unknown>).derivedFromProductIds;
+  return Array.isArray(ids)
+    ? ids.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+}
+
+async function fitnessLegacyProductIds() {
+  const { response, payload } = await pickaxeRequest(
+    `/studio/access-group/${encodeURIComponent(FITNESS_ACCESS_GROUP_ID)}`,
+  );
+  if (!response.ok) return [];
+  return derivedProductIds(payload);
+}
+
 export async function pickaxeUserHasFitnessAccess(email: string) {
   const user = await getPickaxeUser(email);
-  return !!user && objectContainsValue(user, FITNESS_ACCESS_GROUP_ID);
+  if (!user) return false;
+
+  if (objectContainsValue(user, FITNESS_ACCESS_GROUP_ID)) {
+    return true;
+  }
+
+  // Pickaxe's older member records may still reference the legacy product IDs
+  // that were migrated into the current access group. The current API exposes
+  // those IDs through derivedFromProductIds on the access group.
+  const legacyProductIds = await fitnessLegacyProductIds();
+  return legacyProductIds.some((productId) =>
+    objectContainsValue(user, productId),
+  );
 }
 
 export async function grantFitnessAccess(email: string, name?: string) {
