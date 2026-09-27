@@ -134,26 +134,10 @@ export async function memberHasFitnessAccess(
     );
 
   if (hasRealStripeRecord && stripeInactive) {
-    if (process.env.VERCEL_ENV === "preview") {
-      console.warn("[membership-access-qa] blocked-by-real-stripe-record");
-    }
     return false;
   }
 
   const legacyActive = await pickaxeUserHasFitnessAccess(memberEmail);
-
-  if (process.env.VERCEL_ENV === "preview") {
-    console.warn(
-      `[membership-access-qa] ${JSON.stringify({
-        localRow: !!existing,
-        localActive: existing?.access_active === true,
-        hasRealStripeRecord,
-        stripeStatus: existing?.stripe_status || null,
-        lastEventType: existing?.last_event_type || null,
-        legacyActive,
-      })}`,
-    );
-  }
 
   if (!legacyActive) {
     return false;
