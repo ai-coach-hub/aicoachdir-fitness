@@ -36,7 +36,11 @@ export async function POST(request: Request) {
     );
   }
 
-  if (await memberHasFitnessAccess(email, user.id)) {
+  if (
+    await memberHasFitnessAccess(email, user.id, {
+      fallbackToPickaxeList: false,
+    })
+  ) {
     return NextResponse.json({ ok: true, alreadyActive: true, url: "/fitness/chat" });
   }
 
