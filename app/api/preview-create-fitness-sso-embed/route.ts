@@ -23,7 +23,7 @@ async function callPickaxe(path: string, token: string, init?: RequestInit) {
   return { ok: response.ok, status: response.status, data };
 }
 
-export async function POST() {
+async function runSetup() {
   if (process.env.VERCEL_ENV !== "preview") {
     return new NextResponse(null, { status: 404 });
   }
@@ -80,4 +80,12 @@ export async function POST() {
       "X-Robots-Tag": "noindex",
     },
   });
+}
+
+export async function GET() {
+  return runSetup();
+}
+
+export async function POST() {
+  return runSetup();
 }
