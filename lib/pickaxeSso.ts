@@ -41,7 +41,7 @@ function deriveSigningKey() {
   );
 
   const raw = BigInt(`0x${material.toString("hex")}`);
-  const scalar = fixedLengthScalar((raw % (P256_ORDER - 1n)) + 1n);
+  const scalar = fixedLengthScalar((raw % (P256_ORDER - BigInt(1))) + BigInt(1));
 
   const ecdh = createECDH("prime256v1");
   ecdh.setPrivateKey(scalar);
@@ -55,7 +55,7 @@ function deriveSigningKey() {
     d: scalar.toString("base64url"),
   };
 
-  const privateKey = createPrivateKey({ key: jwk, format: "jwk" });
+  const privateKey = createPrivateKey({ key: jwk as JsonWebKey, format: "jwk" });
   const publicKeyPem = createPublicKey(privateKey).export({
     type: "spki",
     format: "pem",
