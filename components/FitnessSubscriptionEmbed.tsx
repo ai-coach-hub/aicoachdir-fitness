@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PICKAXE_FITNESS_SSO_DEPLOYMENT_ID } from "@/lib/pickaxeSso";
+import { PICKAXE_FITNESS_SSO_DEPLOYMENT_ID } from "@/lib/pickaxeConstants";
 
 declare global {
   interface Window {
