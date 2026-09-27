@@ -95,13 +95,21 @@ async function findPickaxeUserInList(email: string) {
   return null;
 }
 
-export async function getPickaxeUser(email: string) {
+type PickaxeUserLookupOptions = {
+  fallbackToList?: boolean;
+};
+
+export async function getPickaxeUser(
+  email: string,
+  options: PickaxeUserLookupOptions = {},
+) {
   const { response, payload } = await pickaxeRequest(
     `/studio/user/${encodeURIComponent(email)}`,
   );
 
   if (response.status === 404) {
-    const listed = await findPickaxeUserInList(email);    return listed;
+    if (options.fallbackToList === false) return null;
+    return findPickaxeUserInList(email);
   }
 
   if (!response.ok) {
@@ -148,8 +156,11 @@ async function fitnessLegacyProductIds() {
   return derivedProductIds(payload);
 }
 
-export async function pickaxeUserHasFitnessAccess(email: string) {
-  const user = await getPickaxeUser(email);
+export async function pickaxeUserHasFitnessAccess(
+  email: string,
+  options: PickaxeUserLookupOptions = {},
+) {
+  const user = await getPickaxeUser(email, options);
   if (!user) return false;
 
   if (objectContainsValue(user, FITNESS_ACCESS_GROUP_ID)) {
