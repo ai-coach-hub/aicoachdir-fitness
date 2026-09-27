@@ -111,6 +111,7 @@ export async function saveFitnessMembership(args: {
 export async function memberHasFitnessAccess(
   email: string,
   clerkUserId?: string,
+  options: { fallbackToPickaxeList?: boolean } = {},
 ) {
   const memberEmail = canonicalMemberEmail(email);
   const existing = await getFitnessMembership(memberEmail);
@@ -137,7 +138,9 @@ export async function memberHasFitnessAccess(
     return false;
   }
 
-  const legacyActive = await pickaxeUserHasFitnessAccess(memberEmail);
+  const legacyActive = await pickaxeUserHasFitnessAccess(memberEmail, {
+    fallbackToList: options.fallbackToPickaxeList ?? true,
+  });
 
   if (!legacyActive) {
     return false;
