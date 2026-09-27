@@ -3,7 +3,7 @@ import { POST as createCheckoutSession } from "@/app/api/billing/create-checkout
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Keep checkout under /fitness so the Terms-acceptance cookie is available.
+// Keep checkout within /fitness so the scoped Terms-acceptance cookie is sent.
 export async function POST(request: Request) {
   return createCheckoutSession(request);
 }
