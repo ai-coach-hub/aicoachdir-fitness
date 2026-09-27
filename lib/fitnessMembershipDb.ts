@@ -115,14 +115,13 @@ export async function memberHasFitnessAccess(
     return true;
   }
 
-  // Never resurrect a member whose access was explicitly disabled by the
-  // new Stripe billing flow. A real Stripe-tracked cancellation or inactive
-  // subscription remains authoritative over any older Pickaxe entitlement.
-  const hasStripeBillingHistory =
+  const hasRealStripeRecord =
     !!existing &&
-    !!(
-      existing.stripe_customer_id ||
-      existing.stripe_subscription_id ||
+    !!(existing.stripe_customer_id || existing.stripe_subscription_id);
+
+  const stripeInactive =
+    !!existing &&
+    (
       existing.stripe_status === "canceled" ||
       existing.stripe_status === "past_due" ||
       existing.stripe_status === "unpaid" ||
@@ -130,14 +129,31 @@ export async function memberHasFitnessAccess(
       existing.last_event_type === "customer.subscription.deleted"
     );
 
-  if (hasStripeBillingHistory) {
+  if (hasRealStripeRecord && stripeInactive) {
+    if (process.env.VERCEL_ENV === "preview") {
+      console.warn("[membership-access-qa] blocked-by-real-stripe-record");
+    }
     return false;
   }
 
-  // Otherwise allow a legacy Pickaxe entitlement to migrate forward, even if
-  // an older/stale local row exists without Stripe billing history.
   const legacyActive = await pickaxeUserHasFitnessAccess(email);
-  if (!legacyActive) return false;
+
+  if (process.env.VERCEL_ENV === "preview") {
+    console.warn(
+      `[membership-access-qa] ${JSON.stringify({
+        localRow: !!existing,
+        localActive: existing?.access_active === true,
+        hasRealStripeRecord,
+        stripeStatus: existing?.stripe_status || null,
+        lastEventType: existing?.last_event_type || null,
+        legacyActive,
+      })}`,
+    );
+  }
+
+  if (!legacyActive) {
+    return false;
+  }
 
   await saveFitnessMembership({
     email,
@@ -146,5 +162,6 @@ export async function memberHasFitnessAccess(
     active: true,
     eventType: "legacy_sync",
   });
+
   return true;
 }
