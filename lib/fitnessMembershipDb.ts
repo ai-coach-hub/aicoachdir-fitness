@@ -110,9 +110,10 @@ export async function memberHasFitnessAccess(
   clerkUserId?: string,
 ) {
   const existing = await getFitnessMembership(email);
-  if (existing?.access_active === true) return true;
+  if (existing) return existing.access_active === true;
 
-  // Preserve existing paid Pickaxe members during the migration.
+  // Preserve existing paid Pickaxe members during the migration only when
+  // this email has never been tracked by the new billing system.
   const legacyActive = await pickaxeUserHasFitnessAccess(email);
   if (!legacyActive) return false;
 
