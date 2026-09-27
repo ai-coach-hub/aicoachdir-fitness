@@ -1,5 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
 import {
   getPickaxeUser,
   previewPickaxeAccessDiagnostic,
@@ -84,19 +85,20 @@ export async function GET() {
       getPickaxeUser(email),
     ]);
     const userShape = safeUserShape(pickaxeUser);
+    const membershipResult = await memberHasFitnessAccess(email, user.id);
 
     console.warn(
       `[preview-member-access-diagnostic] ${JSON.stringify({
         diagnostic,
         userShape,
+        membershipResult,
       })}`,
     );
 
     return NextResponse.json({
       ok: true,
       signedIn: true,
-      recognized:
-        diagnostic.hasCurrentAccessGroup || diagnostic.legacyMatch,
+      recognized: membershipResult,
     });
   } catch (error) {
     console.error("[preview-member-access-diagnostic] failed", {
