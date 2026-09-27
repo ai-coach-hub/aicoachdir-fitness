@@ -295,3 +295,22 @@ export async function revokeFitnessAccess(email: string) {
     throw new Error(`Pickaxe access revoke failed with ${response.status}`);
   }
 }
+
+export async function previewPickaxeAccessDiagnostic(email: string) {
+  if (process.env.VERCEL_ENV !== "preview") {
+    throw new Error("Preview diagnostic is unavailable outside Preview.");
+  }
+
+  const user = await getPickaxeUser(email);
+  const legacyProductIds = await fitnessLegacyProductIds();
+
+  return {
+    userFound: !!user,
+    hasCurrentAccessGroup: !!user && objectContainsValue(user, FITNESS_ACCESS_GROUP_ID),
+    legacyProductIds,
+    legacyMatch:
+      !!user &&
+      legacyProductIds.some((productId) => objectContainsValue(user, productId)),
+    hints: user ? previewMembershipHints(user) : [],
+  };
+}
