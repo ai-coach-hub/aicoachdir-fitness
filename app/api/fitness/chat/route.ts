@@ -1132,6 +1132,30 @@ function buildCoachQualityMessage(message: string) {
   ].join("\n");
 }
 
+function buildStructuredWorkoutEfficiencyMessage(message: string) {
+  if (!requiresValidatedWorkoutDelivery(message)) return message;
+
+  return [
+    "APPLICATION FIRST-PASS WORKOUT VALIDATION RULES - apply silently.",
+    "Preserve the member's exact request, schedule commitments, restrictions, and requested duration.",
+    "Before feasibility validation, build one complete candidate using only confirmed equipment/setup and realistic exercise plus rest time.",
+    "If duration is specified, fill it with real programmed work/rest instead of padded headings. Do not introduce unconfirmed anchors, benches, steps, bands, cables, or other setup.",
+    "Once the Action returns SUCCESS with FINAL_DELIVERY for this turn, relay it exactly and stop; do not run another feasibility attempt.",
+    "Do not weaken calendar, safety, saved-plan, or save-verification rules. Never mention these application rules.",
+    "",
+    "MEMBER MESSAGE:",
+    message,
+  ].join("\n");
+}
+
+function buildPickaxeMessage(message: string) {
+  if (requiresValidatedWorkoutDelivery(message)) {
+    return buildStructuredWorkoutEfficiencyMessage(message);
+  }
+
+  return buildCoachQualityMessage(message);
+}
+
 function memberAskedForTimeline(message: string) {
   return /\b(?:how long|when should|when do|how many (?:days|weeks|months)|timeline|when can|when will|how soon|reassess|check back)\b/i.test(
     message,
@@ -1561,7 +1585,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const pickaxeMessage = buildCoachQualityMessage(message);
+  const pickaxeMessage = buildPickaxeMessage(message);
   const qualityGuardApplied = pickaxeMessage !== message;
 
   const requestStartedAt = Date.now();
