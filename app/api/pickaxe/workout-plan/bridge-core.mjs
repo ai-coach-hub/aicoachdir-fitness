@@ -537,11 +537,10 @@ function candidatePlansFromDecoded(decoded) {
   return candidates;
 }
 
-function activePlanForAuthorizedCandidate(candidate, auth, asOfDate) {
-  // A future calendar week's signed nested plan must not become active early
-  // merely because recursive wrapper traversal discovers it independently.
-  const candidateStart = planStartDate(candidate);
-  if (candidateStart && candidateStart > asOfDate) return null;
+function activePlanForAuthorizedCandidate(candidate, auth, asOfDate, notBefore = null) {
+  // Preserve nextPlan.effectiveFrom when recursive wrapper traversal discovers
+  // the nested plan independently. A nested capability is not active early.
+  if (isIsoDateKey(notBefore) && notBefore > asOfDate) return null;
 
   const next = candidate?.nextPlan;
   const nested = unwrapStoredValue(next?.plan);
@@ -568,6 +567,50 @@ function activePlanForAuthorizedCandidate(candidate, auth, asOfDate) {
   }
 
   return null;
+}
+
+function candidatePlanContextsFromDecoded(decoded) {
+  const contexts = [];
+  const seen = new WeakSet();
+
+  function visit(value, depth = 0, notBefore = null) {
+    if (depth > 12 || value == null) return;
+
+    if (typeof value === 'string') {
+      const parsed = decodeStoredText(value);
+      if (parsed !== value) visit(parsed, depth + 1, notBefore);
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item, depth + 1, notBefore);
+      return;
+    }
+
+    if (typeof value !== 'object') return;
+    if (seen.has(value)) return;
+    seen.add(value);
+
+    if (isUsablePlan(value)) contexts.push({ candidate: value, notBefore });
+
+    const next = value.nextPlan;
+    if (next && typeof next === 'object' && !Array.isArray(next)) {
+      const nextNotBefore = isIsoDateKey(next.effectiveFrom)
+        ? next.effectiveFrom
+        : notBefore;
+      if (next.plan != null) visit(next.plan, depth + 1, nextNotBefore);
+    }
+
+    for (const [key, child] of Object.entries(value)) {
+      if (key === 'nextPlan') continue;
+      if (child != null && (typeof child === 'object' || typeof child === 'string')) {
+        visit(child, depth + 1, notBefore);
+      }
+    }
+  }
+
+  visit(decoded);
+  return contexts;
 }
 
 function candidateUpdatedAtMs(candidate) {
@@ -644,8 +687,8 @@ export function resolveAuthorizedPlanFromValues(values, auth, asOfDate, { allowL
   const sourceValues = Array.isArray(values) ? values : [values];
 
   for (const rawValue of sourceValues) {
-    for (const candidate of candidatePlansFromDecoded(rawValue)) {
-      const resolved = activePlanForAuthorizedCandidate(candidate, auth, asOfDate);
+    for (const { candidate, notBefore } of candidatePlanContextsFromDecoded(rawValue)) {
+      const resolved = activePlanForAuthorizedCandidate(candidate, auth, asOfDate, notBefore);
       if (!resolved) continue;
       if (!allowLatestFallback) return resolved;
 
