@@ -791,7 +791,8 @@ export function resolveAuthorizedPlanWindowFromValues(
     .filter(({ candidate, start }) => (
       start &&
       start > asOfDate &&
-      !samePlanVersion(candidate, current)
+      !samePlanVersion(candidate, current) &&
+      !samePlanWindow(candidate, current)
     ))
     .sort((a, b) => {
       const byStart = a.start.localeCompare(b.start);
