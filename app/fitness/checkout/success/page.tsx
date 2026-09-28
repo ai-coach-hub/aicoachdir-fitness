@@ -83,7 +83,6 @@ export default async function FitnessCheckoutSuccessPage({
       throw new Error("Subscription is not active.");
     }
 
-    await grantFitnessAccess(email);
     await saveFitnessMembership({
       email,
       clerkUserId: user.id,
@@ -96,6 +95,14 @@ export default async function FitnessCheckoutSuccessPage({
     });
 
     accessConfirmed = true;
+
+    try {
+      await grantFitnessAccess(email);
+    } catch (error) {
+      console.error("[fitness-checkout-success] pickaxe-provisioning-failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   } catch (error) {
     console.error("[fitness-checkout-success] verification-failed", {
       message: error instanceof Error ? error.message : String(error),
