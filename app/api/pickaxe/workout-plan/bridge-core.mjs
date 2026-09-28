@@ -78,7 +78,9 @@ function handoffWorkoutsFromPlan(plan) {
         if (!workout || typeof workout !== 'object' || Array.isArray(workout)) continue;
         const id = String(workout.id || key || '').trim().slice(0, 200);
         const title = String(workout.title || workout.name || '').trim().slice(0, 200);
-        if (id && title) map.set(id, title);
+        // Keep the current plan's workout when a staged plan reuses the same ID.
+        // A staged duplicate must not silently replace the workout visible now.
+        if (id && title && !map.has(id)) map.set(id, title);
       }
     }
     visit(candidate.nextPlan?.plan);
@@ -536,6 +538,11 @@ function candidatePlansFromDecoded(decoded) {
 }
 
 function activePlanForAuthorizedCandidate(candidate, auth, asOfDate) {
+  // A future calendar week's signed nested plan must not become active early
+  // merely because recursive wrapper traversal discovers it independently.
+  const candidateStart = planStartDate(candidate);
+  if (candidateStart && candidateStart > asOfDate) return null;
+
   const next = candidate?.nextPlan;
   const nested = unwrapStoredValue(next?.plan);
   const effectiveFrom = next?.effectiveFrom;
