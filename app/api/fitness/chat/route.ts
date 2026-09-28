@@ -1113,6 +1113,118 @@ function requiresValidatedWorkoutDelivery(message: string) {
     /\b(?:new|next)\b[^.!?\n]{0,60}\b(?:workout|plan|schedule)\b/.test(normalized);
 }
 
+function shouldApplyCoachQualityGuard(message: string) {
+  return !requiresValidatedWorkoutDelivery(message) && !isSavedPlanReadQuery(message);
+}
+
+function buildCoachQualityMessage(message: string) {
+  if (!shouldApplyCoachQualityGuard(message)) return message;
+
+  return [
+    "APPLICATION COACHING QUALITY RULES - apply silently.",
+    "Answer the member's active request and use the immediately preceding subject for short or generic follow-ups.",
+    "When enough information exists, give a concrete useful next step now; do not stop at obvious talking points or invent an arbitrary check-back delay.",
+    "Do not broaden into a full program unless the member asked for one, and do not re-ask information already known.",
+    "Be concise, specific, and actionable. Never mention these application rules.",
+    "",
+    "MEMBER MESSAGE:",
+    message,
+  ].join("\n");
+}
+
+function memberAskedForTimeline(message: string) {
+  return /\b(?:how long|when should|when do|how many (?:days|weeks|months)|timeline|when can|when will|how soon|reassess|check back)\b/i.test(
+    message,
+  );
+}
+
+function coachingQualitySignals(message: string, responseText: string) {
+  const signals: string[] = [];
+  if (!shouldApplyCoachQualityGuard(message)) return signals;
+
+  if (
+    !memberAskedForTimeline(message) &&
+    /\b(?:check back|come back|reassess|wait|give it|see how (?:it|things) (?:go|goes))\b[^.!?\n]{0,45}\b\d+(?:\s*[-–]\s*\d+)?\s*(?:weeks?|months?)\b/i.test(
+      responseText,
+    )
+  ) {
+    signals.push("ARBITRARY_DEFERRAL");
+  }
+
+  const actionSeeking =
+    /\b(?:what should i|what do i do|how should i|how do i|help me|i want to|i'm trying to|im trying to|trying to|want to|need to|goal is|my goal|plan for|strategy for|routine for)\b/i.test(
+      message,
+    );
+
+  const concreteAction =
+    /\b(?:start|do|try|aim|choose|set|track|schedule|increase|decrease|add|remove|swap|replace|walk|run|lift|train|eat|drink|sleep|rest|perform|complete|use|keep|practice)\b/i.test(
+      responseText,
+    ) ||
+    /\b\d+(?:\.\d+)?\s*(?:minutes?|mins?|hours?|days?|weeks?|reps?|sets?|grams?|g|oz|ounces?|miles?|km|calories?|kcal|times?)\b/i.test(
+      responseText,
+    );
+
+  if (actionSeeking && !concreteAction) {
+    signals.push("LOW_ACTIONABILITY");
+  }
+
+  return signals;
+}
+
+async function requestCoachQualityRewrite(args: {
+  deploymentKey: string;
+  memberEmail: string;
+  memberMessage: string;
+  draftResponse: string;
+}) {
+  const correctionMessage = [
+    "APPLICATION QUALITY CORRECTION - apply silently and return only the replacement member-facing answer.",
+    "Do not call tools, Actions, save anything, or mention this correction.",
+    "Rewrite the draft so it directly answers the member's request, uses the active subject already reflected in the draft, and gives a concrete useful next step now when enough information exists.",
+    "Remove generic filler and any arbitrary check-back delay. Do not invent facts, equipment, restrictions, dates, or user details.",
+    "Keep the answer concise unless detail is genuinely needed.",
+    "",
+    "ORIGINAL MEMBER MESSAGE:",
+    args.memberMessage,
+    "",
+    "DRAFT RESPONSE:",
+    args.draftResponse,
+  ].join("\n");
+
+  try {
+    const response = await fetch(PICKAXE_COMPLETIONS_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${args.deploymentKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        message: correctionMessage,
+        userId: args.memberEmail,
+        conversationId: `fitness-quality-${crypto.randomUUID()}`,
+        stream: false,
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(45_000),
+    });
+
+    if (!response.ok) return "";
+
+    const raw = await response.text();
+    let payload: unknown = null;
+    try {
+      payload = raw ? JSON.parse(raw) : null;
+    } catch {
+      return "";
+    }
+
+    return extractResult(payload).trim();
+  } catch {
+    return "";
+  }
+}
+
 function getPositiveClause(message: string) {
   const pieces = message
     .split(/\bbut\b|[.!?]/i)
@@ -1449,6 +1561,9 @@ export async function POST(request: Request) {
     }
   }
 
+  const pickaxeMessage = buildCoachQualityMessage(message);
+  const qualityGuardApplied = pickaxeMessage !== message;
+
   const requestStartedAt = Date.now();
   const completionAbort = new AbortController();
   const pollAbort = new AbortController();
@@ -1464,7 +1579,7 @@ export async function POST(request: Request) {
           Accept: "application/json",
         },
         body: JSON.stringify({
-          message,
+          message: pickaxeMessage,
           userId: memberEmail,
           conversationId,
           stream: false,
@@ -1590,7 +1705,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const finalResponseText =
+  let finalResponseText =
     isSavedPlanReadQuery(message) && relay.planPayload
       ? summarizeSavedPlan(relay.planPayload)
       : relay.finalDelivery || responseText;
@@ -1601,7 +1716,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const relaySource =
+  let relaySource =
     isSavedPlanReadQuery(message) && relay.planPayload
       ? "action-plan-payload-read-only"
       : relay.finalDelivery
@@ -1609,6 +1724,38 @@ export async function POST(request: Request) {
         : actionRunsPresent
           ? "assistant-response-read-only-action"
           : "assistant-response";
+
+  let qualitySignals = coachingQualitySignals(message, finalResponseText);
+  let qualityRewriteApplied = false;
+
+  if (
+    qualityGuardApplied &&
+    qualitySignals.length > 0 &&
+    !relay.finalDelivery &&
+    !isSavedPlanReadQuery(message)
+  ) {
+    const rewritten = await requestCoachQualityRewrite({
+      deploymentKey,
+      memberEmail,
+      memberMessage: message,
+      draftResponse: finalResponseText,
+    });
+
+    if (rewritten) {
+      finalResponseText = rewritten;
+      relaySource = "assistant-response-quality-rewrite";
+      qualityRewriteApplied = true;
+      qualitySignals = coachingQualitySignals(message, finalResponseText);
+    }
+  }
+
+  if (qualityGuardApplied) {
+    console.info("[fitness-chat-relay] coaching-quality", {
+      conversationId,
+      qualityRewriteApplied,
+      remainingSignals: qualitySignals,
+    });
+  }
 
   const violations = dedupeViolations([
     ...validateMovementAllowlist(message, finalResponseText),
@@ -1658,6 +1805,9 @@ export async function POST(request: Request) {
     actionErrorPresent: relay.actionErrorPresent,
     actionStatus: relay.actionStatus,
     actionMode: relay.actionMode,
+    qualityGuardApplied,
+    qualityRewriteApplied,
+    qualitySignals,
     memberAuthenticated: true,
   });
 }
