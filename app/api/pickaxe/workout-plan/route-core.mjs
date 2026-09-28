@@ -646,6 +646,7 @@ async function maybeRepairKnownSep20BetaPlan({
   if (
     !filtered ||
     !plan ||
+    !isExactKnownSep20AlternatingPlan(plan) ||
     asOfDate < '2026-09-19' ||
     asOfDate > '2026-09-26'
   ) {
