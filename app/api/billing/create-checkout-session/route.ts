@@ -36,12 +36,22 @@ export async function POST(request: Request) {
     );
   }
 
-  if (
-    await memberHasFitnessAccess(email, user.id, {
-      fallbackToPickaxeList: false,
-    })
-  ) {
-    return NextResponse.json({ ok: true, alreadyActive: true, url: "/fitness/chat" });
+  try {
+    if (
+      await memberHasFitnessAccess(email, user.id, {
+        fallbackToPickaxeList: false,
+      })
+    ) {
+      return NextResponse.json({ ok: true, alreadyActive: true, url: "/fitness/chat" });
+    }
+  } catch {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "We could not verify your current Fitness Coach access. No charge was attempted.",
+      },
+      { status: 503 },
+    );
   }
 
   if (!stripeConfigured()) {

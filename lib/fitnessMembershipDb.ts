@@ -117,6 +117,18 @@ export async function memberHasFitnessAccess(
   const existing = await getFitnessMembership(memberEmail);
 
   if (existing?.access_active === true) {
+    if (
+      clerkUserId &&
+      String(existing.clerk_user_id || "") !== clerkUserId
+    ) {
+      const sql = await ensureFitnessMembershipSchema();
+      await sql`
+        UPDATE fitness_memberships
+        SET clerk_user_id = ${clerkUserId},
+            updated_at = NOW()
+        WHERE email = ${memberEmail}
+      `;
+    }
     return true;
   }
 
