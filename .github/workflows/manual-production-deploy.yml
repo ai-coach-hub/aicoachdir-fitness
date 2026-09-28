@@ -1,0 +1,41 @@
+name: Manual Production Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_o1AlkW6gIi1uDdHuVEWXGulE
+      VERCEL_PROJECT_ID: prj_eQHqDfnZ6rmMtbtYPsNzEBuM60Uv
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run regression tests
+        run: node --test tests/*.test.mjs
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel
+
+      - name: Pull production settings
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Build on GitHub Actions
+        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Deploy prebuilt output to production
+        run: vercel deploy --prebuilt --prod --yes --archive=tgz --token="${{ secrets.VERCEL_TOKEN }}"
