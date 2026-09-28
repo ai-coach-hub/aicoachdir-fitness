@@ -503,7 +503,7 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   padding: 26px;
   border-radius: 20px;
   border: 1px solid rgba(116, 182, 215, .18);
-  background: rgba(255,255,255,.022);
+  background: rgba(255,255,255,.065);
 }
 .value-icon {
   width: 38px;
@@ -673,6 +673,16 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   gap: 10px;
   flex-wrap: wrap;
 }
+.member-hub-shell .secondary-button {
+  border-color: rgba(255,255,255,.20);
+  background: rgba(255,255,255,.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter: blur(10px);
+}
+.member-hub-shell .secondary-button:hover {
+  border-color: rgba(255,255,255,.30);
+  background: rgba(255,255,255,.14);
+}
 .member-hub-actions button,
 .member-hub-tabs button,
 .member-chat-panel button,
@@ -693,8 +703,10 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   min-height: 72px;
   padding: 15px 18px;
   border-radius: 18px;
-  border: 1px solid rgba(116,182,215,.2);
-  background: rgba(255,255,255,.025);
+  border: 1px solid rgba(255,255,255,.20);
+  background: rgba(255,255,255,.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter: blur(10px);
   color: #eaf3fb;
   text-align: left;
   font-weight: 850;
@@ -705,9 +717,9 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   font-weight: 600;
 }
 .member-tab.active {
-  border-color: rgba(118,216,78,.46);
-  background: linear-gradient(135deg, rgba(104,216,73,.11), rgba(77,226,231,.055));
-  box-shadow: inset 0 1px rgba(255,255,255,.04);
+  border-color: rgba(118,216,78,.52);
+  background: linear-gradient(135deg, rgba(255,255,255,.14), rgba(104,216,73,.11));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 10px 28px rgba(0,0,0,.12);
 }
 .member-tab.active span { color: #b7c7d8; }
 
@@ -720,10 +732,11 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
 .member-chat-panel,
 .member-plan-glance,
 .member-workouts-panel {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,.18);
   border-radius: 24px;
-  background: linear-gradient(145deg, rgba(10,22,38,.98), rgba(4,10,18,.99));
-  box-shadow: inset 0 1px rgba(255,255,255,.03), 0 22px 60px rgba(0,0,0,.18);
+  background: linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.045));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 22px 60px rgba(0,0,0,.18);
+  backdrop-filter: blur(14px);
 }
 .member-chat-panel,
 .member-workouts-panel {
@@ -774,7 +787,7 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
 .coach-welcome-card {
   align-self: start;
   padding: 22px;
-  background: linear-gradient(135deg, rgba(77,226,231,.06), rgba(76,132,255,.045));
+  background: linear-gradient(135deg, rgba(255,255,255,.085), rgba(77,226,231,.06));
 }
 .coach-welcome-card > strong { font-size: 20px; }
 .coach-welcome-card > p {
@@ -826,8 +839,9 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   min-height: 110px;
   padding: 14px 15px;
   border-radius: 14px;
-  border: 1px solid rgba(116,182,215,.32);
-  background: #050d18;
+  border: 1px solid rgba(255,255,255,.20);
+  background: rgba(255,255,255,.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
   color: #f7fbff;
   font: inherit;
   outline: none;
@@ -871,7 +885,7 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
 .workout-summary-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border: 1px solid rgba(116,182,215,.18);
+  border: 1px solid rgba(255,255,255,.18);
   border-radius: 18px;
   overflow: hidden;
   margin-bottom: 20px;
