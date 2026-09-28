@@ -39,10 +39,28 @@ async function setAccess(args: {
   eventId: string;
 }) {
   if (args.active) {
+    // Stripe is the payment source of truth. Persist paid access first so a
+    // temporary Pickaxe provisioning failure cannot send a paid member back
+    // through checkout and risk a duplicate subscription.
+    await saveFitnessMembership({
+      email: args.email,
+      clerkUserId: args.clerkUserId || null,
+      customerId: args.customerId || null,
+      subscriptionId: args.subscriptionId || null,
+      stripeStatus: args.status || null,
+      active: true,
+      eventType: args.eventType,
+      eventId: args.eventId,
+    });
+
     await grantFitnessAccess(args.email);
-  } else {
-    await revokeFitnessAccess(args.email);
+    return;
   }
+
+  // For revocation, remove downstream access first. If Pickaxe is temporarily
+  // unavailable, Stripe will retry the webhook and local access remains
+  // unchanged until downstream revocation succeeds.
+  await revokeFitnessAccess(args.email);
 
   await saveFitnessMembership({
     email: args.email,
@@ -50,7 +68,7 @@ async function setAccess(args: {
     customerId: args.customerId || null,
     subscriptionId: args.subscriptionId || null,
     stripeStatus: args.status || null,
-    active: args.active,
+    active: false,
     eventType: args.eventType,
     eventId: args.eventId,
   });
