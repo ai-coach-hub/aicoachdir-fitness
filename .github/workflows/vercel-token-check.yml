@@ -1,0 +1,15 @@
+name: Vercel Token Check
+
+on:
+  push:
+    branches:
+      - diagnostics/vercel-token-check
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Vercel CLI
+        run: npm install --global vercel
+      - name: Verify Vercel token
+        run: vercel whoami --token="${{ secrets.VERCEL_TOKEN }}"
