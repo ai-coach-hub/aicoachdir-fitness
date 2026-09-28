@@ -611,6 +611,18 @@ async function patchUserMemory(fetchImpl, token, email, memoryId, storedValue) {
   }
 }
 
+function resolvedPlanContainsKnownSep20Target(plan) {
+  let current = plan;
+  for (let depth = 0; depth < 6; depth += 1) {
+    if (!current || typeof current !== 'object' || Array.isArray(current)) return false;
+    if (isExactKnownSep20AlternatingPlan(current)) return true;
+    const next = current.nextPlan;
+    if (!next || typeof next !== 'object' || Array.isArray(next)) return false;
+    current = next.plan;
+  }
+  return false;
+}
+
 function repairResolvedKnownSep20BetaPlan(plan, entries, email, token, now = new Date()) {
   // This repair is already narrowly gated by the exact Sep 20-26 calendar,
   // exact OTF/bodyweight alternating pattern, rest-day positions, workout titles,
@@ -646,6 +658,7 @@ async function maybeRepairKnownSep20BetaPlan({
   if (
     !filtered ||
     !plan ||
+    !resolvedPlanContainsKnownSep20Target(plan) ||
     asOfDate < '2026-09-19' ||
     asOfDate > '2026-09-26'
   ) {
