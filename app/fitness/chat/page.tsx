@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useClerk } from "@clerk/nextjs";
 
 type Message = { role: "user" | "assistant"; text: string };
 type JsonRecord = Record<string, unknown>;
@@ -76,6 +77,7 @@ function exerciseLabel(value: unknown) {
 }
 
 export default function FitnessChatPage() {
+  const { signOut } = useClerk();
   const [tab, setTab] = useState<"coach" | "workouts">("coach");
   const [conversationId, setConversationId] = useState(() => `fitness-chat-${crypto.randomUUID()}`);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -189,6 +191,13 @@ export default function FitnessChatPage() {
         <div className="member-hub-actions">
           <Link href="/" className="secondary-button">Home</Link>
           <button type="button" className="secondary-button" onClick={newChat}>New chat</button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => signOut({ redirectUrl: "/fitness/login" })}
+          >
+            Sign out
+          </button>
         </div>
       </header>
 
