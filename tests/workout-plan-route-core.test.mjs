@@ -704,10 +704,11 @@ test('uses one-pass member-memory read only after the authoritative filtered pat
   assert.equal(body.plan.nextPlan.plan.scheduleMode, 'fixed_weekdays');
   assert.equal(body.plan.nextPlan.plan.weekSchedule.length, 7);
   assert.deepEqual(body.entries, [{ title: 'Earlier' }]);
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
   assert.equal(calls[0].url.includes('/studio/memory/list'), true);
-  assert.equal(calls[1].url.includes('/studio/memory/user/member%40example.com?skip=0&take=100'), true);
-  assert.equal(calls[1].url.includes('memoryId='), false);
+  assert.equal(calls[1].url.includes('/studio/memory/list'), true);
+  assert.equal(calls[2].url.includes('/studio/memory/user/member%40example.com?skip=0&take=100'), true);
+  assert.equal(calls[2].url.includes('memoryId='), false);
 });
 
 
