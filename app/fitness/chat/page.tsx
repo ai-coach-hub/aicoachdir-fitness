@@ -33,6 +33,15 @@ function workoutMap(plan: JsonRecord | null) {
   return workouts || {};
 }
 
+type WorkoutScope = "current" | "next";
+
+function scopedWorkoutEntries(workouts: JsonRecord, scope: WorkoutScope) {
+  return Object.entries(workouts).flatMap(([id, raw]) => {
+    const workout = asRecord(raw);
+    return workout ? [{ key: `${scope}:${id}`, id, workout, scope }] : [];
+  });
+}
+
 function scheduleRows(plan: JsonRecord | null) {
   if (!plan) return [];
   const fixed = Array.isArray(plan.weekSchedule) ? plan.weekSchedule : [];
@@ -160,16 +169,12 @@ export default function FitnessChatPage() {
   const upcomingPlan = useMemo(() => nextSavedPlan(plan), [plan]);
   const upcomingWorkouts = useMemo(() => workoutMap(upcomingPlan), [upcomingPlan]);
   const upcomingRows = useMemo(() => scheduleRows(upcomingPlan), [upcomingPlan]);
-  const workouts = useMemo(
-    () => ({ ...upcomingWorkouts, ...currentWorkouts }),
-    [currentWorkouts, upcomingWorkouts],
-  );
   const workoutList = useMemo(
-    () =>
-      Object.entries(workouts)
-        .map(([id, raw]) => ({ id, workout: asRecord(raw) }))
-        .filter((item): item is { id: string; workout: JsonRecord } => !!item.workout),
-    [workouts],
+    () => [
+      ...scopedWorkoutEntries(currentWorkouts, "current"),
+      ...scopedWorkoutEntries(upcomingWorkouts, "next"),
+    ],
+    [currentWorkouts, upcomingWorkouts],
   );
 
   const completedCount = history.filter((entry) => !!asRecord(entry)?.completedAt).length;
@@ -340,7 +345,7 @@ export default function FitnessChatPage() {
                   <div className="schedule-grid">
                     {rows.map((row, index) => {
                       const id = String(row.workoutId || "");
-                      const workout = asRecord(currentWorkouts[id]) || asRecord(workouts[id]);
+                      const workout = asRecord(currentWorkouts[id]);
                       const rest = row.isRestDay === true || !id;
                       return (
                         <article key={index} className={rest ? "schedule-card rest" : "schedule-card"}>
@@ -365,7 +370,7 @@ export default function FitnessChatPage() {
                   <div className="schedule-grid">
                     {upcomingRows.map((row, index) => {
                       const id = String(row.workoutId || "");
-                      const workout = asRecord(upcomingWorkouts[id]) || asRecord(workouts[id]);
+                      const workout = asRecord(upcomingWorkouts[id]);
                       const rest = row.isRestDay === true || !id;
                       return (
                         <article key={index} className={rest ? "schedule-card rest" : "schedule-card"}>
@@ -380,13 +385,13 @@ export default function FitnessChatPage() {
               ) : null}
 
               <div className="workout-card-grid">
-                {workoutList.map(({ id, workout }) => {
+                {workoutList.map(({ key, id, workout, scope }) => {
                   const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
                   const names = exercises.map(exerciseLabel).filter(Boolean);
                   return (
-                    <article key={id} className="workout-card">
+                    <article key={key} className="workout-card">
                       <div className="workout-card-topline">
-                        <span>Saved workout</span>
+                        <span>{scope === "next" ? "Next saved week" : "Current saved week"}</span>
                         {typeof workout.durationMinutes === "number" ? (
                           <strong>{workout.durationMinutes} min</strong>
                         ) : null}
@@ -405,7 +410,7 @@ export default function FitnessChatPage() {
                         className="secondary-button"
                         onClick={() => {
                           setTab("coach");
-                          setInput(`I want to adjust my "${workoutTitle(workout, id)}" workout.`);
+                          setInput(`I want to adjust my "${workoutTitle(workout, id)}" workout in my ${scope === "next" ? "next" : "current"} saved week.`);
                         }}
                       >
                         Adjust with Coach
