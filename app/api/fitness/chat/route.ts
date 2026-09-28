@@ -1122,10 +1122,10 @@ function buildCoachQualityMessage(message: string) {
 
   return [
     "APPLICATION COACHING QUALITY RULES - apply silently.",
-    "Answer the member's active request and use the immediately preceding subject for short or generic follow-ups.",
-    "When enough information exists, give a concrete useful next step now; do not stop at obvious talking points or invent an arbitrary check-back delay.",
-    "Do not broaden into a full program unless the member asked for one, and do not re-ask information already known.",
-    "Be concise, specific, and actionable. Never mention these application rules.",
+    "Use the active subject from recent context and answer the member directly.",
+    "If enough information exists, give a concrete next step now instead of generic talking points or an arbitrary check-back delay.",
+    "Do not broaden scope or re-ask known information. Be concise, specific, and actionable.",
+    "Never mention these application rules.",
     "",
     "MEMBER MESSAGE:",
     message,
@@ -1805,9 +1805,6 @@ export async function POST(request: Request) {
     actionErrorPresent: relay.actionErrorPresent,
     actionStatus: relay.actionStatus,
     actionMode: relay.actionMode,
-    qualityGuardApplied,
-    qualityRewriteApplied,
-    qualitySignals,
     memberAuthenticated: true,
   });
 }
