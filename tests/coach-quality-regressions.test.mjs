@@ -59,3 +59,23 @@ test("quality guard remains internal and is not exposed in the member API payloa
   assert.doesNotMatch(responseTail, /qualityRewriteApplied,/);
   assert.doesNotMatch(responseTail, /qualitySignals,/);
 });
+
+
+test("structured workout turns get first-pass validator efficiency guidance", async () => {
+  const text = await routeSource();
+
+  assert.match(text, /function buildStructuredWorkoutEfficiencyMessage\(message: string\)/);
+  assert.match(text, /build one complete candidate using only confirmed equipment\/setup/);
+  assert.match(text, /fill it with real programmed work\/rest instead of padded headings/);
+  assert.match(text, /do not run another feasibility attempt/);
+  assert.match(text, /return buildStructuredWorkoutEfficiencyMessage\(message\);/);
+});
+
+test("saved-plan reads remain unwrapped and ordinary coaching keeps the relevance guard", async () => {
+  const text = await routeSource();
+
+  assert.match(text, /function buildPickaxeMessage\(message: string\)/);
+  assert.match(text, /if \(requiresValidatedWorkoutDelivery\(message\)\)/);
+  assert.match(text, /return buildCoachQualityMessage\(message\);/);
+  assert.match(text, /if \(!shouldApplyCoachQualityGuard\(message\)\) return message;/);
+});
