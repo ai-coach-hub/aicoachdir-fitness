@@ -132,9 +132,9 @@ test('returns 404 for unknown workout', async () => {
   assert.equal(response.status, 404);
 });
 
-test('returns 409 when signed plan is stale or unavailable', async () => {
+test('returns 409 when signed plan is stale or unavailable without a valid handoff proof', async () => {
   const response = await handleModifyWorkoutHandoff({
-    request: requestFor(body()),
+    request: requestFor(body({ handoffProof: null })),
     ...adapters({ readPlan: async () => null }),
   });
   assert.equal(response.status, 409);
