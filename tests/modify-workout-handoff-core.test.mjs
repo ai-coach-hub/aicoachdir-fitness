@@ -77,9 +77,9 @@ test('builds trigger message without credentials or member identity', () => {
   for (const required of [
     'Mobility & Recovery',
     'mobility-recovery',
-    'Retrieve the newest saved My Workouts plan using Get Workout Plan before making any changes.',
-    'Ask the member one concise question about what they want to change.',
-    'Do not save or alter the plan until the member provides the requested change.',
+    'Do not call any tools and do not save or alter anything in this turn.',
+    'ask one concise question about what they want to change.',
+    'After the member answers, retrieve the newest saved My Workouts plan using Get Workout Plan before applying or saving any change.',
     'Preserve all unrelated workouts and plan details.',
   ]) assert.ok(message.includes(required));
   assert.doesNotMatch(message, /member@example\.com|signature|workspace|deployment/i);
