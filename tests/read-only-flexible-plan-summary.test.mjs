@@ -32,6 +32,6 @@ test("fixed weekday summaries remain preferred when available", async () => {
   );
   assert.match(
     text,
-    /summarizeWeek\(candidate, "Next saved week"\) \|\|\s*summary/,
+    /summarizeWeek\(candidate, "Next saved week"\) \|\|\s*summarizeFlexibleSequence/,
   );
 });
