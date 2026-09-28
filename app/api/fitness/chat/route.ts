@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { createHmac } from "node:crypto";
 import { canonicalMemberEmail } from "@/lib/memberIdentity";
+import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -1325,6 +1326,21 @@ export async function GET() {
     return Response.json({ ok: false, error: "Sign in is required." }, { status: 401 });
   }
 
+  try {
+    const active = await memberHasFitnessAccess(memberEmail, user.id);
+    if (!active) {
+      return Response.json(
+        { ok: false, error: "An active Fitness Coach membership is required." },
+        { status: 403 },
+      );
+    }
+  } catch {
+    return Response.json(
+      { ok: false, error: "Fitness membership verification is temporarily unavailable." },
+      { status: 503 },
+    );
+  }
+
   const studioToken = getStudioToken();
   if (!studioToken) {
     return Response.json(
@@ -1365,6 +1381,21 @@ export async function POST(request: Request) {
   const memberEmail = primaryEmailForUser(user);
   if (!user || !memberEmail) {
     return Response.json({ ok: false, error: "Sign in is required." }, { status: 401 });
+  }
+
+  try {
+    const active = await memberHasFitnessAccess(memberEmail, user.id);
+    if (!active) {
+      return Response.json(
+        { ok: false, error: "An active Fitness Coach membership is required." },
+        { status: 403 },
+      );
+    }
+  } catch {
+    return Response.json(
+      { ok: false, error: "Fitness membership verification is temporarily unavailable." },
+      { status: 503 },
+    );
   }
 
   const deploymentKey = getDeploymentKey();
