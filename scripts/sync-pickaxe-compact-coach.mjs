@@ -2,7 +2,7 @@ const COACH_ID = "W7S4B963AI9ELAW";
 const API_BASE = "https://api.pickaxe.co/v1";
 const MARKER = "AI FITNESS COACH - COMPACT PRODUCTION PROMPT v1";
 
-const compactPrompt = \`AI FITNESS COACH - COMPACT PRODUCTION PROMPT v1
+const compactPrompt = `AI FITNESS COACH - COMPACT PRODUCTION PROMPT v1
 
 ROLE
 You are an expert, practical, encouraging AI Fitness Coach. Help members build sustainable fitness habits, strength, endurance, mobility, body composition, general fitness, recovery, and practical nutrition habits. Sound like a skilled human coach: clear, concise, supportive, nonjudgmental, and specific. Do not sound like a generic chatbot.
@@ -74,19 +74,19 @@ Provide practical evidence-based nutrition coaching that supports the member's s
 
 COMMUNICATION
 Answer the member's actual question first. Be concise by default but detailed enough to be useful. Ask only the minimum clarification needed. Do not narrate internal reasoning or tool use. Do not add generic invitations or filler after a complete answer. Never claim a tool, save, update, or validation happened unless it actually did.
-\`;
+`;
 
 function requiredEnv(name) {
   const value = String(process.env[name] || "").trim();
-  if (!value) throw new Error(\`Missing required environment variable: \${name}\`);
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
 }
 
 async function pickaxeFetch(path, token, options = {}) {
-  const response = await fetch(\`\${API_BASE}\${path}\`, {
+  const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
-      Authorization: \`Bearer \${token}\`,
+      Authorization: `Bearer ${token}`,
       Accept: "application/json",
       "Content-Type": "application/json",
       ...(options.headers || {}),
@@ -100,7 +100,7 @@ async function pickaxeFetch(path, token, options = {}) {
     payload = text;
   }
   if (!response.ok) {
-    throw new Error(\`Pickaxe \${options.method || "GET"} \${path} failed (\${response.status}): \${String(text).slice(0, 500)}\`);
+    throw new Error(`Pickaxe ${options.method || "GET"} ${path} failed (${response.status}): ${String(text).slice(0, 500)}`);
   }
   return payload;
 }
@@ -117,11 +117,11 @@ function roleFromPayload(payload) {
 
 async function main() {
   const token = requiredEnv("PICKAXE_WORKSPACE_API_TOKEN");
-  const current = await pickaxeFetch(\`/studio/pickaxe/\${COACH_ID}\`, token);
+  const current = await pickaxeFetch(`/studio/pickaxe/${COACH_ID}`, token);
   const currentRole = roleFromPayload(current);
 
-  console.log(\`[pickaxe-compact-coach] current prompt characters: \${currentRole.length}\`);
-  console.log(\`[pickaxe-compact-coach] target prompt characters: \${compactPrompt.length}\`);
+  console.log(`[pickaxe-compact-coach] current prompt characters: ${currentRole.length}`);
+  console.log(`[pickaxe-compact-coach] target prompt characters: ${compactPrompt.length}`);
 
   if (currentRole.includes(MARKER)) {
     console.log("[pickaxe-compact-coach] compact prompt already active; no update needed");
@@ -136,18 +136,18 @@ async function main() {
     "utf8",
   );
 
-  await pickaxeFetch(\`/studio/pickaxe/\${COACH_ID}\`, token, {
+  await pickaxeFetch(`/studio/pickaxe/${COACH_ID}`, token, {
     method: "PATCH",
     body: JSON.stringify({ data: { role: compactPrompt } }),
   });
 
-  const verified = await pickaxeFetch(\`/studio/pickaxe/\${COACH_ID}\`, token);
+  const verified = await pickaxeFetch(`/studio/pickaxe/${COACH_ID}`, token);
   const verifiedRole = roleFromPayload(verified);
   if (!verifiedRole.includes(MARKER)) {
     throw new Error("Compact Pickaxe prompt update could not be verified.");
   }
 
-  console.log(\`[pickaxe-compact-coach] verified prompt characters: \${verifiedRole.length}\`);
+  console.log(`[pickaxe-compact-coach] verified prompt characters: ${verifiedRole.length}`);
   console.log("[pickaxe-compact-coach] compact production prompt verified");
 }
 
