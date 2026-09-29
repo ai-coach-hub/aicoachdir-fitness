@@ -964,7 +964,50 @@ function summarizeFlexibleSequence(plan: Record<string, unknown>, label: string)
   return `**${label}:** ${parts.join("; ")}.`;
 }
 
+function nextPlanCandidate(plan: Record<string, unknown>) {
+  const container = plan.nextPlan;
+  if (!container || typeof container !== "object" || Array.isArray(container)) return null;
+
+  const wrapper = container as Record<string, unknown>;
+  const nested = wrapper.plan;
+  return nested && typeof nested === "object" && !Array.isArray(nested)
+    ? (nested as Record<string, unknown>)
+    : wrapper;
+}
+
+function activeSavedPlan(plan: Record<string, unknown>) {
+  let current = plan;
+
+  for (let depth = 0; depth < 8; depth += 1) {
+    const currentRange = scheduleRange(current);
+    const candidate = nextPlanCandidate(current);
+    if (!candidate) break;
+
+    const nextRange = scheduleRange(candidate);
+    if (!currentRange || !nextRange) break;
+
+    const timeZone =
+      typeof current.userTimezone === "string" && current.userTimezone.trim()
+        ? current.userTimezone.trim()
+        : typeof candidate.userTimezone === "string" && candidate.userTimezone.trim()
+          ? candidate.userTimezone.trim()
+          : "UTC";
+    const today = dateKeyInTimezone(timeZone);
+    if (!today) break;
+
+    if (currentRange.end < today && nextRange.start <= today) {
+      current = candidate;
+      continue;
+    }
+
+    break;
+  }
+
+  return current;
+}
+
 function summarizeSavedPlan(plan: Record<string, unknown>) {
+  plan = activeSavedPlan(plan);
   const workouts =
     plan.workouts && typeof plan.workouts === "object" && !Array.isArray(plan.workouts)
       ? (plan.workouts as Record<string, unknown>)
@@ -993,19 +1036,8 @@ function summarizeSavedPlan(plan: Record<string, unknown>) {
     summarizeFlexibleSequence(plan, "Current flexible sequence");
   if (current) lines.push("", current);
 
-  const nextPlanContainer = plan.nextPlan;
-  if (
-    nextPlanContainer &&
-    typeof nextPlanContainer === "object" &&
-    !Array.isArray(nextPlanContainer)
-  ) {
-    const wrapper = nextPlanContainer as Record<string, unknown>;
-    const nested = wrapper.plan;
-    const candidate =
-      nested && typeof nested === "object" && !Array.isArray(nested)
-        ? (nested as Record<string, unknown>)
-        : wrapper;
-
+  const candidate = nextPlanCandidate(plan);
+  if (candidate) {
     const next =
       summarizeWeek(candidate, "Next saved week") ||
       summarizeFlexibleSequence(candidate, "Next flexible sequence");
@@ -1545,7 +1577,7 @@ export async function GET() {
 
     return Response.json({
       ok: true,
-      plan: data.plan,
+      plan: data.plan ? activeSavedPlan(data.plan) : null,
       historyEntries: data.historyEntries,
       memberAuthenticated: true,
     });

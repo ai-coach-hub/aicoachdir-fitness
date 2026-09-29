@@ -18,9 +18,9 @@ test("read-only plan summaries include flexibleSequence plans", async () => {
 test("nextPlan summary supports nested and direct plan shapes", async () => {
   const text = await routeSource();
 
-  assert.match(text, /const wrapper = nextPlanContainer as Record<string, unknown>;/);
-  assert.match(text, /const candidate =/);
-  assert.match(text, /: wrapper;/);
+  assert.match(text, /function nextPlanCandidate\(plan: Record<string, unknown>\)/);
+  assert.match(text, /const wrapper = container as Record<string, unknown>;/);
+  assert.match(text, /\? \(nested as Record<string, unknown>\)\s*: wrapper;/);
 });
 
 test("fixed weekday summaries remain preferred when available", async () => {
