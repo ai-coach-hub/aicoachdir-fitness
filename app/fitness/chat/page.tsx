@@ -57,6 +57,8 @@ const COACH_INTRO_STORAGE_KEY = "fitness-coach-last-intro-v1";
 
 function cleanCoachText(value: string) {
   return value
+    .replace(/\\(?=#{1,6}\s)/g, "")
+    .replace(/^#{1,6}\s+/gm, "")
     .replace(/\*\*/g, "")
     .replace(/__/g, "");
 }
