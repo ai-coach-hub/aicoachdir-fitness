@@ -41,7 +41,7 @@ test("validated workout requests watch both save and get Action runs", async () 
   );
   assert.match(
     text,
-    /if \(mustUseValidatedDelivery\)[\s\S]*?\[SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID\]/,
+    /if \(mustConfirmSavedPlanMutation\)[\s\S]*?\[SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID\]/,
   );
   assert.match(text, /fetchActionRunsForSession\(sessionId, studioToken, actionIds, signal\)/);
   assert.match(text, /url\.searchParams\.set\("actionId", actionId\)/);

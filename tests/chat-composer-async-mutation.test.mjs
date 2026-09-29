@@ -39,7 +39,7 @@ test("desktop Enter sends while Shift+Enter remains available for a newline", as
 test("validated workout mutations use the reliable completion driver but only trust Action delivery", async () => {
   const text = await routeSource();
 
-  const mutationStart = text.indexOf("if (mustUseValidatedDelivery) {");
+  const mutationStart = text.indexOf("if (mustConfirmSavedPlanMutation) {");
   const nonMutationStart = text.indexOf("} else {", mutationStart);
   assert.ok(mutationStart >= 0 && nonMutationStart > mutationStart);
 

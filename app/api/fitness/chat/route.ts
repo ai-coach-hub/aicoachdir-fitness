@@ -1242,6 +1242,49 @@ function requiresValidatedWorkoutDelivery(message: string) {
   return /\b(?:new|next)\b[^.!?\n]{0,60}\b(?:workout|plan|schedule)\b/.test(normalized);
 }
 
+function explicitlyDeclinesWorkoutSave(message: string) {
+  return /\b(?:do not|don't|dont|do n't)\s+save\b|\b(?:just|only)\s+(?:show|preview)\b/i.test(
+    message,
+  );
+}
+
+function requiresConfirmedSavedPlanMutation(message: string) {
+  if (explicitlyDeclinesWorkoutSave(message)) return false;
+
+  const normalized = message.toLowerCase();
+
+  if (
+    /\b(?:save|reschedule|schedule|move|shift|add|remove|delete)\b[^.!?\n]{0,120}\b(?:workout|plan|schedule|day|session)\b/.test(
+      normalized,
+    ) ||
+    /\b(?:replace|change|modify|update|edit|swap|revise|adjust)\b[^.!?\n]{0,120}\b(?:workout|plan|schedule|day|exercise|session)\b/.test(
+      normalized,
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    /\b(?:create|build|make|generate|write|design)\b[^.!?\n]{0,120}\b(?:plan|schedule)\b/.test(
+      normalized,
+    )
+  ) {
+    return true;
+  }
+
+  const calendarContext =
+    /\b(?:today|tomorrow|this week|next week|monday|tuesday|wednesday|thursday|friday|saturday|sunday|saved|current|existing|my workouts)\b/.test(
+      normalized,
+    );
+
+  return (
+    calendarContext &&
+    /\b(?:create|build|make|generate|replace|change|modify|update|edit|swap|revise|adjust)\b[^.!?\n]{0,120}\b(?:workout|session)\b/.test(
+      normalized,
+    )
+  );
+}
+
 function shouldApplyCoachQualityGuard(message: string) {
   return !requiresValidatedWorkoutDelivery(message) && !isSavedPlanReadQuery(message);
 }
@@ -1717,6 +1760,7 @@ export async function POST(request: Request) {
   const pickaxeMessage = buildPickaxeMessage(message);
   const qualityGuardApplied = pickaxeMessage !== message;
   const mustUseValidatedDelivery = requiresValidatedWorkoutDelivery(message);
+  const mustConfirmSavedPlanMutation = requiresConfirmedSavedPlanMutation(message);
 
   const requestStartedAt = Date.now();
   let relay: RelayResult = {
@@ -1732,7 +1776,7 @@ export async function POST(request: Request) {
   };
   let responseText = "";
 
-  if (mustUseValidatedDelivery) {
+  if (mustConfirmSavedPlanMutation) {
     const mutationCompletionAbort = new AbortController();
     let mutationDriverStatus = "pending";
 
@@ -1944,7 +1988,7 @@ export async function POST(request: Request) {
   }
 
   const actionRunsPresent = relay.runCount > 0;
-  if (actionRunsPresent && !relay.finalDelivery && mustUseValidatedDelivery) {
+  if (actionRunsPresent && !relay.finalDelivery && mustConfirmSavedPlanMutation) {
     return Response.json(
       {
         ok: false,
