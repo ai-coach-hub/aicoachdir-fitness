@@ -22,6 +22,12 @@ type PlanResult = {
   error?: string;
 };
 
+function cleanCoachText(value: string) {
+  return value
+    .replace(/\*\*/g, "")
+    .replace(/__/g, "");
+}
+
 function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as JsonRecord)
@@ -155,7 +161,7 @@ export default function FitnessChatPage() {
         return;
       }
 
-      setMessages((items) => [...items, { role: "assistant", text: data.response! }]);
+      setMessages((items) => [...items, { role: "assistant", text: cleanCoachText(data.response!) }]);
       setStatus(data.relaySource === "action-final-delivery" ? "Workout updated and validated." : "");
       if (data.relaySource === "action-final-delivery") {
         await loadPlan();
