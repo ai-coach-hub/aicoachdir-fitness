@@ -116,7 +116,7 @@ export default function FitnessChatPage() {
   const [history, setHistory] = useState<unknown[]>([]);
   const [planLoading, setPlanLoading] = useState(true);
   const [planError, setPlanError] = useState("");
-  const [introPrompt, setIntroPrompt] = useState(COACH_INTROS[0]);
+  const [introPrompt, setIntroPrompt] = useState<string>(COACH_INTROS[0]);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   async function loadPlan() {
