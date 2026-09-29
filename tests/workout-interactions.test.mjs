@@ -36,3 +36,45 @@ test("fitness member route persists authenticated workout completions", async ()
   assert.match(text, /scheduledDate/);
   assert.match(text, /completedAt/);
 });
+
+
+test("scheduled workouts open a full tracker for current and future days", async () => {
+  const text = await memberHubSource();
+
+  assert.match(text, /openWorkoutTracker/);
+  assert.match(text, /Open workout/);
+  assert.match(text, /activeWorkoutTracker/);
+  assert.match(text, /workout-tracker-panel/);
+  assert.match(text, /upcomingRows\.map/);
+});
+
+test("workout tracker renders editable set fields for reps weight time and distance", async () => {
+  const text = await memberHubSource();
+
+  assert.match(text, /Set \{setIndex \+ 1\}/);
+  assert.match(text, /placeholder="Weight"/);
+  assert.match(text, /placeholder="Reps"/);
+  assert.match(text, /placeholder="Time"/);
+  assert.match(text, /placeholder="Distance"/);
+  assert.match(text, /Skip exercise/);
+});
+
+test("completing from the tracker sends entered exercise sets to the authenticated route", async () => {
+  const text = await memberHubSource();
+
+  assert.match(text, /exercises:\s*trackerExercises/);
+  assert.match(text, /notes:\s*trackerNotes/);
+  assert.match(text, /Complete workout/);
+});
+
+test("fitness member route sanitizes and persists submitted exercise tracking data", async () => {
+  const text = await fitnessRouteSource();
+
+  assert.match(text, /sanitizeTrackedExercises/);
+  assert.match(text, /input\.exercises/);
+  assert.match(text, /weight/);
+  assert.match(text, /reps/);
+  assert.match(text, /time/);
+  assert.match(text, /distance/);
+  assert.match(text, /notes/);
+});
