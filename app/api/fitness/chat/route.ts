@@ -1058,31 +1058,50 @@ function extractFinalDelivery(content: string) {
   return cleanFinalDelivery(content.slice(start + startMarker.length, end));
 }
 
-async function fetchActionRunsForSession(sessionId: string, studioToken: string) {
-  const url = new URL("/v1/studio/action/runs", "https://api.pickaxe.co");
-  url.searchParams.set("actionId", GET_WORKOUT_PLAN_ACTION_ID);
-  url.searchParams.set("sessionId", sessionId);
-  url.searchParams.set("limit", "20");
+async function fetchActionRunsForSession(
+  sessionId: string,
+  studioToken: string,
+  actionIds: string[] = [GET_WORKOUT_PLAN_ACTION_ID],
+) {
+  const uniqueActionIds = [...new Set(actionIds.filter(Boolean))];
+  const results = await Promise.allSettled(
+    uniqueActionIds.map(async (actionId) => {
+      const url = new URL("/v1/studio/action/runs", "https://api.pickaxe.co");
+      url.searchParams.set("actionId", actionId);
+      url.searchParams.set("sessionId", sessionId);
+      url.searchParams.set("limit", "20");
 
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${studioToken}`,
-      Accept: "application/json",
-    },
-    cache: "no-store",
-    signal: AbortSignal.timeout(15_000),
-  });
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${studioToken}`,
+          Accept: "application/json",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(15_000),
+      });
 
-  if (!response.ok) {
-    throw new Error(`Action-run lookup failed with status ${response.status}.`);
+      if (!response.ok) {
+        throw new Error(`Action-run lookup failed for ${actionId} with status ${response.status}.`);
+      }
+
+      const payload = (await response.json()) as {
+        data?: { runs?: ActionRun[] };
+      };
+
+      return Array.isArray(payload.data?.runs) ? payload.data.runs : [];
+    }),
+  );
+
+  const runs = results.flatMap((result) =>
+    result.status === "fulfilled" ? result.value : [],
+  );
+
+  if (results.length > 0 && results.every((result) => result.status === "rejected")) {
+    throw new Error("Action-run lookup failed for every watched Action.");
   }
 
-  const payload = (await response.json()) as {
-    data?: { runs?: ActionRun[] };
-  };
-
-  return Array.isArray(payload.data?.runs) ? payload.data.runs : [];
+  return runs;
 }
 
 function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number): RelayResult {
@@ -1145,6 +1164,7 @@ async function pollForFirstValidatedDelivery(
   studioToken: string,
   requestStartedAt: number,
   signal: AbortSignal,
+  actionIds: string[] = [GET_WORKOUT_PLAN_ACTION_ID],
 ): Promise<RelayResult> {
   let latest: RelayResult = {
     finalDelivery: "",
@@ -1159,7 +1179,7 @@ async function pollForFirstValidatedDelivery(
   };
 
   while (!signal.aborted) {
-    const runs = await fetchActionRunsForSession(sessionId, studioToken);
+    const runs = await fetchActionRunsForSession(sessionId, studioToken, actionIds);
     latest = selectCurrentTurnDelivery(runs, requestStartedAt);
     if (latest.finalDelivery) return latest;
 
@@ -1738,11 +1758,16 @@ export async function POST(request: Request) {
     return { kind: "completion" as const, responseText };
   })();
 
+  const relayActionIds = requiresValidatedWorkoutDelivery(message)
+    ? [SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID]
+    : [GET_WORKOUT_PLAN_ACTION_ID];
+
   const relayPromise = pollForFirstValidatedDelivery(
     conversationId,
     studioToken,
     requestStartedAt,
     pollAbort.signal,
+    relayActionIds,
   )
     .then((relay) => ({ kind: "relay" as const, relay }))
     .catch(() => ({ kind: "relay-error" as const }));
