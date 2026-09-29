@@ -11,7 +11,11 @@ test("standalone workout requests and previous chats stay supported", async () =
   assert.ok(route.includes("explicitlyDeclinesWorkoutSave"));
   assert.ok(route.includes("if (mustConfirmSavedPlanMutation)"));
   assert.ok(page.includes("Previous Chats"));
+  assert.ok(page.includes("chat-history-rail"));
+  assert.ok(page.includes("chat-history-list"));
+  assert.ok(page.includes("openThreadFromRail"));
   assert.ok(page.includes("/api/fitness/chat/history"));
+  assert.ok(page.includes("void loadChatHistory()"));
   assert.ok(history.includes("/studio/workspace/history"));
   assert.ok(history.includes('format: "messages"'));
 });
