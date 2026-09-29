@@ -22,10 +22,12 @@ test("validation polling retries transient Action-history lookup failures", asyn
   );
 });
 
-test("composer stays visible at the bottom of the chat panel", async () => {
+test("composer stays in normal flow and cannot cover chat messages", async () => {
   const text = await cssSource();
 
-  assert.match(text, /\.member-chat-form \{[\s\S]*?position: sticky;/);
-  assert.match(text, /\.member-chat-form \{[\s\S]*?bottom: 0;/);
-  assert.match(text, /\.member-chat-form \{[\s\S]*?z-index: 4;/);
+  assert.match(text, /\.member-chat-messages \{[\s\S]*?min-height: 0;/);
+  assert.match(text, /\.member-chat-form \{[\s\S]*?position: relative;/);
+  assert.match(text, /\.member-chat-form \{[\s\S]*?background: transparent;/);
+  assert.doesNotMatch(text, /\.member-chat-form \{[\s\S]*?position: sticky;/);
+  assert.doesNotMatch(text, /\.member-chat-form \{[\s\S]*?bottom: 0;/);
 });
