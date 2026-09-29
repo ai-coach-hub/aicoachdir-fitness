@@ -503,117 +503,6 @@ async function writePlanMemory(
 }
 
 
-async function mirrorPlanIntoHistoryMemory(
-  email: string,
-  studioToken: string,
-  plan: Record<string, unknown>,
-) {
-  const headers = {
-    Authorization: `Bearer ${studioToken}`,
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  };
-
-  const definitionsResponse = await fetch(
-    `${PICKAXE_STUDIO_BASE_URL}/studio/memory/list?skip=0&take=100`,
-    { headers, cache: "no-store", signal: AbortSignal.timeout(15_000) },
-  );
-  if (!definitionsResponse.ok) return false;
-
-  const definitions = memoryPayloadItems(await definitionsResponse.json());
-  const historyNames = new Set(
-    [
-      "fitness workout history v1",
-      "fitness-workout-history-v1",
-      "fitness_workout_history_v1",
-      "fitness workout history for ai coach",
-      "fitness workout history (for ai coach)",
-    ].map(normalizeMemoryName),
-  );
-  const definition = definitions.find((item) =>
-    historyNames.has(memoryDefinitionName(item)),
-  );
-  const memoryId = memoryDefinitionId(definition);
-  if (!memoryId) return false;
-
-  const readUrl =
-    `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(memoryId)}&skip=0&take=100`;
-  const existingResponse = await fetch(readUrl, {
-    headers,
-    cache: "no-store",
-    signal: AbortSignal.timeout(15_000),
-  });
-
-  let entries: unknown[] = [];
-  let hasExisting = false;
-  if (existingResponse.ok) {
-    const values = collectMemoryValues(await existingResponse.json());
-    hasExisting = values.length > 0;
-    for (const value of values) {
-      const decoded = unwrapMemoryValue(value);
-      if (
-        decoded &&
-        typeof decoded === "object" &&
-        !Array.isArray(decoded) &&
-        Array.isArray((decoded as Record<string, unknown>).entries)
-      ) {
-        entries = (decoded as Record<string, unknown>).entries as unknown[];
-        break;
-      }
-    }
-  }
-
-  const envelope = JSON.stringify({
-    schemaVersion: 2,
-    updatedAt: plan.updatedAt,
-    plan: clonePlan(plan),
-    entries,
-  });
-
-  const writeResponse = hasExisting
-    ? await fetch(
-        `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}/${encodeURIComponent(memoryId)}`,
-        {
-          method: "PATCH",
-          headers,
-          body: JSON.stringify({ data: { value: envelope } }),
-          cache: "no-store",
-          signal: AbortSignal.timeout(20_000),
-        },
-      )
-    : await fetch(`${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/create`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ userId: email, memoryId, value: envelope }),
-        cache: "no-store",
-        signal: AbortSignal.timeout(20_000),
-      });
-
-  if (!writeResponse.ok) return false;
-
-  for (const delay of [0, 400, 900]) {
-    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
-    const verifyResponse = await fetch(readUrl, {
-      headers,
-      cache: "no-store",
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!verifyResponse.ok) continue;
-
-    const values = collectMemoryValues(await verifyResponse.json());
-    const verified = values.some((value) => {
-      const decoded = unwrapMemoryValue(value);
-      if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) return false;
-      return looksLikeFormalWorkoutPlan((decoded as Record<string, unknown>).plan);
-    });
-
-    if (verified) return true;
-  }
-
-  return false;
-}
-
-
 async function saveMemberWorkoutHistory(
   email: string,
   studioToken: string,
@@ -656,14 +545,11 @@ async function saveMemberWorkoutHistory(
   const hasExisting =
     existingResponse.ok && collectMemoryValues(await existingResponse.json()).length > 0;
 
-  const planForHistory = clonePlan(plan);
-  attachHistoryBridge(planForHistory, email, studioToken);
   const updatedAt = new Date().toISOString();
   const storedEntries = entries.slice(0, 15);
   const envelope = JSON.stringify({
     schemaVersion: 2,
     updatedAt,
-    plan: planForHistory,
     entries: storedEntries,
   });
 
@@ -776,16 +662,11 @@ async function recoverStructuredPlanForMember(email: string, studioToken: string
 
   attachHistoryBridge(restored, email, studioToken);
   const planVerified = await writePlanMemory(email, studioToken, restored);
-  const historyVerified = planVerified
-    ? await mirrorPlanIntoHistoryMemory(email, studioToken, restored)
-    : false;
-  const verified = planVerified && historyVerified;
 
   console.info("[fitness-chat-relay] plan-recovery", {
     attempted: true,
-    restored: verified,
+    restored: planVerified,
     planVerified,
-    historyVerified,
     currentWeekStart,
     nextWeekPresent: !!next,
     memberSaveRunCount: runs.length,
@@ -793,10 +674,9 @@ async function recoverStructuredPlanForMember(email: string, studioToken: string
 
   return {
     attempted: true,
-    restored: verified,
+    restored: planVerified,
     planVerified,
-    historyVerified,
-    reason: verified ? "verified" : "write-verification-failed",
+    reason: planVerified ? "verified" : "write-verification-failed",
   };
 }
 
@@ -1732,14 +1612,6 @@ async function readMemberWorkoutData(email: string, studioToken: string) {
         const unwrapped = unwrapMemoryValue(value);
         if (!unwrapped || typeof unwrapped !== "object" || Array.isArray(unwrapped)) continue;
         const record = unwrapped as Record<string, unknown>;
-        if (!plan) {
-          const candidate = [record.plan, record.currentPlan, record.workoutPlan]
-            .map((item) => unwrapMemoryValue(item))
-            .find((item) => looksLikeFormalWorkoutPlan(item));
-          if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
-            plan = candidate as Record<string, unknown>;
-          }
-        }
         if (Array.isArray(record.entries)) {
           historyEntries = record.entries;
           break;
