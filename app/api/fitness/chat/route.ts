@@ -932,7 +932,7 @@ function summarizeWeek(plan: Record<string, unknown>, label: string) {
     return `${day}: ${title}`;
   });
 
-  return `**${label} (${formatDateKey(range.start)}–${formatDateKey(range.end)}):** ${parts.join("; ")}.`;
+  return `${label} (${formatDateKey(range.start)}–${formatDateKey(range.end)}): ${parts.join("; ")}.`;
 }
 
 function summarizeFlexibleSequence(plan: Record<string, unknown>, label: string) {
@@ -961,7 +961,7 @@ function summarizeFlexibleSequence(plan: Record<string, unknown>, label: string)
     return prefix === title ? title : `${prefix}: ${title}`;
   });
 
-  return `**${label}:** ${parts.join("; ")}.`;
+  return `${label}: ${parts.join("; ")}.`;
 }
 
 function nextPlanCandidate(plan: Record<string, unknown>) {
@@ -1028,7 +1028,7 @@ function summarizeSavedPlan(plan: Record<string, unknown>) {
   const lines = [
     `You have ${saved.length} workout${saved.length === 1 ? "" : "s"} saved in My Workouts:`,
     "",
-    ...saved.map((item, index) => `**${index + 1}. ${item.title}**${item.duration}`),
+    ...saved.map((item, index) => `${index + 1}. ${item.title}${item.duration}`),
   ];
 
   const current =
