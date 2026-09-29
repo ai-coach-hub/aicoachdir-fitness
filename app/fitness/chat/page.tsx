@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
 
@@ -97,6 +97,7 @@ export default function FitnessChatPage() {
   const [history, setHistory] = useState<unknown[]>([]);
   const [planLoading, setPlanLoading] = useState(true);
   const [planError, setPlanError] = useState("");
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   async function loadPlan() {
     setPlanLoading(true);
@@ -120,6 +121,14 @@ export default function FitnessChatPage() {
   useEffect(() => {
     void loadPlan();
   }, []);
+
+  useEffect(() => {
+    if (tab !== "coach") return;
+    chatEndRef.current?.scrollIntoView({
+      behavior: running ? "smooth" : "auto",
+      block: "end",
+    });
+  }, [messages, running, tab]);
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -263,6 +272,22 @@ export default function FitnessChatPage() {
                   <div>{message.text}</div>
                 </article>
               ))}
+
+              {running ? (
+                <article className="chat-bubble coach coach-working" aria-live="polite" aria-label="Coach is working">
+                  <strong>Coach</strong>
+                  <div className="coach-working-row">
+                    <span>Working on your response</span>
+                    <span className="coach-working-dots" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  </div>
+                </article>
+              ) : null}
+
+              <div ref={chatEndRef} className="chat-scroll-anchor" aria-hidden="true" />
             </div>
 
             <form className="member-chat-form" onSubmit={send}>

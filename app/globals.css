@@ -828,6 +828,36 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   border-color: rgba(118,216,78,.22);
   margin-left: 12%;
 }
+.coach-working {
+  opacity: .92;
+}
+.coach-working-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.coach-working-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.coach-working-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #9ef27a;
+  animation: coach-working-pulse 1.15s infinite ease-in-out;
+}
+.coach-working-dots i:nth-child(2) { animation-delay: .14s; }
+.coach-working-dots i:nth-child(3) { animation-delay: .28s; }
+.chat-scroll-anchor {
+  width: 1px;
+  height: 1px;
+}
+@keyframes coach-working-pulse {
+  0%, 70%, 100% { opacity: .3; transform: translateY(0); }
+  35% { opacity: 1; transform: translateY(-2px); }
+}
 .member-chat-form {
   border-top: 1px solid rgba(255,255,255,.08);
   padding-top: 18px;
