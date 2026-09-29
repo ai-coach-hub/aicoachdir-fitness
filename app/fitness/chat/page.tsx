@@ -23,6 +23,25 @@ type PlanResult = {
   error?: string;
 };
 
+type HistoryMessage = {
+  role: "user" | "assistant";
+  text: string;
+};
+
+type HistoryThread = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: HistoryMessage[];
+};
+
+type HistoryResult = {
+  ok?: boolean;
+  threads?: HistoryThread[];
+  error?: string;
+};
+
 const COACH_INTROS = [
   "What are we working on today?",
   "Ready to train? Tell me what you want to accomplish.",
@@ -105,9 +124,24 @@ function exerciseLabel(value: unknown) {
   return String(exercise.name || exercise.title || exercise.exercise || "").trim();
 }
 
+function formatHistoryDate(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
+function canResumeThread(id: string) {
+  return /^fitness-chat-[A-Za-z0-9_-]{8,120}$/.test(id);
+}
+
 export default function FitnessChatPage() {
   const { signOut } = useClerk();
-  const [tab, setTab] = useState<"coach" | "workouts">("coach");
+  const [tab, setTab] = useState<"coach" | "workouts" | "history">("coach");
   const [conversationId, setConversationId] = useState(() => `fitness-chat-${crypto.randomUUID()}`);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -118,6 +152,10 @@ export default function FitnessChatPage() {
   const [planLoading, setPlanLoading] = useState(true);
   const [planError, setPlanError] = useState("");
   const [introPrompt, setIntroPrompt] = useState<string>(COACH_INTROS[0]);
+  const [threads, setThreads] = useState<HistoryThread[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [selectedThreadId, setSelectedThreadId] = useState("");
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   async function loadPlan() {
@@ -136,6 +174,27 @@ export default function FitnessChatPage() {
       setPlanError("Saved workouts could not be loaded.");
     } finally {
       setPlanLoading(false);
+    }
+  }
+
+  async function loadChatHistory() {
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const response = await fetch("/api/fitness/chat/history", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const data = (await response.json()) as HistoryResult;
+      if (!response.ok || !data.ok) {
+        setHistoryError(data.error || "Previous chats could not be loaded.");
+        return;
+      }
+      setThreads(Array.isArray(data.threads) ? data.threads : []);
+    } catch {
+      setHistoryError("Previous chats could not be loaded.");
+    } finally {
+      setHistoryLoading(false);
     }
   }
 
@@ -210,7 +269,27 @@ export default function FitnessChatPage() {
     setConversationId(`fitness-chat-${crypto.randomUUID()}`);
     setMessages([]);
     setStatus("");
+    setSelectedThreadId("");
+    setTab("coach");
   }
+
+  function reviewThread(thread: HistoryThread) {
+    setSelectedThreadId(thread.id);
+  }
+
+  function resumeThread(thread: HistoryThread) {
+    if (!canResumeThread(thread.id)) return;
+    setConversationId(thread.id);
+    setMessages(thread.messages);
+    setStatus("");
+    setSelectedThreadId("");
+    setTab("coach");
+  }
+
+  const selectedThread = useMemo(
+    () => threads.find((thread) => thread.id === selectedThreadId) || null,
+    [threads, selectedThreadId],
+  );
 
   const currentWorkouts = useMemo(() => workoutMap(plan), [plan]);
   const rows = useMemo(() => scheduleRows(plan), [plan]);
@@ -270,6 +349,18 @@ export default function FitnessChatPage() {
         >
           My Workouts
           <span>View your saved plan</span>
+        </button>
+        <button
+          type="button"
+          className={tab === "history" ? "member-tab active" : "member-tab"}
+          onClick={() => {
+            setTab("history");
+            setSelectedThreadId("");
+            void loadChatHistory();
+          }}
+        >
+          Previous Chats
+          <span>Review old conversations</span>
         </button>
       </nav>
 
@@ -366,7 +457,7 @@ export default function FitnessChatPage() {
             ) : null}
           </aside>
         </section>
-      ) : (
+      ) : tab === "workouts" ? (
         <section className="member-workouts-panel">
           <div className="member-panel-heading">
             <div>
@@ -480,6 +571,102 @@ export default function FitnessChatPage() {
                     </article>
                   );
                 })}
+              </div>
+            </>
+          ) : null}
+        </section>
+      ) : (
+        <section className="member-workouts-panel">
+          <div className="member-panel-heading">
+            <div>
+              <p className="eyebrow compact-eyebrow">PREVIOUS CHATS</p>
+              <h2>{selectedThread ? "Previous conversation" : "Your chat history"}</h2>
+              <p>
+                {selectedThread
+                  ? "Review this conversation exactly as it was stored."
+                  : "Open an earlier Fitness Coach conversation without losing your current saved workouts."}
+              </p>
+            </div>
+            {selectedThread ? (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setSelectedThreadId("")}
+              >
+                Back to chats
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void loadChatHistory()}
+                disabled={historyLoading}
+              >
+                {historyLoading ? "Loading..." : "Refresh chats"}
+              </button>
+            )}
+          </div>
+
+          {historyError ? <div className="workout-empty member-error">{historyError}</div> : null}
+          {historyLoading && !selectedThread ? (
+            <div className="workout-empty">Loading your previous chats...</div>
+          ) : null}
+
+          {!historyLoading && !historyError && !selectedThread && threads.length === 0 ? (
+            <div className="workout-empty">
+              <strong>No previous chats were found.</strong>
+              <p>New Fitness Coach conversations will appear here after they are stored by Pickaxe.</p>
+            </div>
+          ) : null}
+
+          {!selectedThread && threads.length ? (
+            <div className="workout-card-grid">
+              {threads.map((thread) => (
+                <article key={thread.id} className="workout-card">
+                  <div className="workout-card-topline">
+                    <span>{formatHistoryDate(thread.updatedAt || thread.createdAt) || "Previous chat"}</span>
+                    <strong>{thread.messages.length} messages</strong>
+                  </div>
+                  <h3>{thread.title}</h3>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => reviewThread(thread)}
+                  >
+                    Review chat
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : null}
+
+          {selectedThread ? (
+            <>
+              <div className="member-chat-messages">
+                {selectedThread.messages.map((message, index) => (
+                  <article
+                    key={index}
+                    className={message.role === "assistant" ? "chat-bubble coach" : "chat-bubble user"}
+                  >
+                    <strong>{message.role === "assistant" ? "Coach" : "You"}</strong>
+                    <div>{cleanCoachText(message.text)}</div>
+                  </article>
+                ))}
+              </div>
+              <div className="member-hub-actions">
+                {canResumeThread(selectedThread.id) ? (
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => resumeThread(selectedThread)}
+                  >
+                    Continue this chat
+                  </button>
+                ) : (
+                  <button type="button" className="primary-button" onClick={newChat}>
+                    Start a new chat
+                  </button>
+                )}
               </div>
             </>
           ) : null}
