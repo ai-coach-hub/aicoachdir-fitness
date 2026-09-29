@@ -333,7 +333,6 @@ export default function FitnessChatPage() {
         </div>
         <div className="member-hub-actions">
           <Link href="/" className="secondary-button">Home</Link>
-          <button type="button" className="secondary-button" onClick={newChat}>New chat</button>
           <button
             type="button"
             className="secondary-button"
@@ -360,18 +359,6 @@ export default function FitnessChatPage() {
         >
           My Workouts
           <span>View your saved plan</span>
-        </button>
-        <button
-          type="button"
-          className={tab === "history" ? "member-tab active" : "member-tab"}
-          onClick={() => {
-            setTab("history");
-            setSelectedThreadId("");
-            void loadChatHistory();
-          }}
-        >
-          Previous Chats
-          <span>Review old conversations</span>
         </button>
       </nav>
 
@@ -435,9 +422,6 @@ export default function FitnessChatPage() {
                 <p className="eyebrow compact-eyebrow">YOUR COACH</p>
                 <h2>What are we working on today?</h2>
               </div>
-              <button type="button" className="text-button" onClick={() => setTab("workouts")}>
-                View My Workouts
-              </button>
             </div>
 
             <div className={messages.length === 0 ? "member-chat-messages is-empty" : "member-chat-messages"}>
