@@ -902,6 +902,55 @@ function scheduleRange(plan: Record<string, unknown>) {
   return { start: dates[0], end: dates[dates.length - 1], entries };
 }
 
+function nestedNextPlan(plan: Record<string, unknown>) {
+  const nextPlan = plan.nextPlan;
+  if (!nextPlan || typeof nextPlan !== "object" || Array.isArray(nextPlan)) return null;
+
+  const wrapper = nextPlan as Record<string, unknown>;
+  const nested = wrapper.plan;
+  const candidate =
+    nested && typeof nested === "object" && !Array.isArray(nested)
+      ? (nested as Record<string, unknown>)
+      : wrapper;
+
+  const effectiveFrom =
+    typeof wrapper.effectiveFrom === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(wrapper.effectiveFrom)
+      ? wrapper.effectiveFrom
+      : scheduleRange(candidate)?.start || "";
+
+  return { plan: candidate, effectiveFrom };
+}
+
+function projectPlanForCalendarView(plan: Record<string, unknown>) {
+  const timeZone =
+    typeof plan.userTimezone === "string" && plan.userTimezone.trim()
+      ? plan.userTimezone.trim()
+      : "UTC";
+  const today = dateKeyInTimezone(timeZone);
+  if (!today) return plan;
+
+  let current = plan;
+  const seen = new Set<Record<string, unknown>>();
+
+  while (!seen.has(current)) {
+    seen.add(current);
+    const next = nestedNextPlan(current);
+    if (!next) break;
+
+    const currentRange = scheduleRange(current);
+    const shouldPromoteByEndedWeek =
+      !!currentRange && currentRange.end < today && (!next.effectiveFrom || next.effectiveFrom <= today);
+    const shouldPromoteByEffectiveDate =
+      !currentRange && !!next.effectiveFrom && next.effectiveFrom <= today;
+
+    if (!shouldPromoteByEndedWeek && !shouldPromoteByEffectiveDate) break;
+    current = next.plan;
+  }
+
+  return current;
+}
+
 function formatDateKey(dateKey: string) {
   const [year, month, day] = dateKey.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
@@ -965,9 +1014,12 @@ function summarizeFlexibleSequence(plan: Record<string, unknown>, label: string)
 }
 
 function summarizeSavedPlan(plan: Record<string, unknown>) {
+  const visiblePlan = projectPlanForCalendarView(plan);
   const workouts =
-    plan.workouts && typeof plan.workouts === "object" && !Array.isArray(plan.workouts)
-      ? (plan.workouts as Record<string, unknown>)
+    visiblePlan.workouts &&
+    typeof visiblePlan.workouts === "object" &&
+    !Array.isArray(visiblePlan.workouts)
+      ? (visiblePlan.workouts as Record<string, unknown>)
       : {};
 
   const saved = Object.values(workouts)
@@ -989,11 +1041,11 @@ function summarizeSavedPlan(plan: Record<string, unknown>) {
   ];
 
   const current =
-    summarizeWeek(plan, "Current saved week") ||
-    summarizeFlexibleSequence(plan, "Current flexible sequence");
+    summarizeWeek(visiblePlan, "Current saved week") ||
+    summarizeFlexibleSequence(visiblePlan, "Current flexible sequence");
   if (current) lines.push("", current);
 
-  const nextPlanContainer = plan.nextPlan;
+  const nextPlanContainer = visiblePlan.nextPlan;
   if (
     nextPlanContainer &&
     typeof nextPlanContainer === "object" &&
@@ -1545,7 +1597,7 @@ export async function GET() {
 
     return Response.json({
       ok: true,
-      plan: data.plan,
+      plan: data.plan ? projectPlanForCalendarView(data.plan) : null,
       historyEntries: data.historyEntries,
       memberAuthenticated: true,
     });
