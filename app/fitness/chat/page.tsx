@@ -280,7 +280,7 @@ export default function FitnessChatPage() {
               </button>
             </div>
 
-            <div className="member-chat-messages">
+            <div className={messages.length === 0 ? "member-chat-messages is-empty" : "member-chat-messages"}>
               {messages.length === 0 && !input.trim() ? (
                 <div className="coach-welcome-card">
                   <strong>{introPrompt}</strong>
@@ -315,6 +315,16 @@ export default function FitnessChatPage() {
               <textarea
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    !event.shiftKey &&
+                    !event.nativeEvent.isComposing
+                  ) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
                 rows={4}
                 placeholder="Message your coach..."
               />
