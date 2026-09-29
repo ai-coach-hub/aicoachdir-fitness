@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 test("standalone workout requests and previous chats stay supported", async () => {
   const route = await readFile(new URL("../app/api/fitness/chat/route.ts", import.meta.url), "utf8");
@@ -67,4 +69,12 @@ test("production deploy compacts the Pickaxe system prompt with rollback backup"
   assert.ok(syncScript.includes("AI FITNESS COACH - COMPACT PRODUCTION PROMPT v1"));
   assert.ok(syncScript.includes('body: JSON.stringify({ data: { role: compactPrompt } })'));
   assert.ok(syncScript.includes("ai-fitness-coach-role-before-compact.txt"));
+});
+
+
+test("compact Pickaxe migration script parses as valid Node code", () => {
+  const scriptPath = fileURLToPath(
+    new URL("../scripts/sync-pickaxe-compact-coach.mjs", import.meta.url),
+  );
+  execFileSync(process.execPath, ["--check", scriptPath], { stdio: "pipe" });
 });
