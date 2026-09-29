@@ -506,7 +506,6 @@ async function writePlanMemory(
 async function saveMemberWorkoutHistory(
   email: string,
   studioToken: string,
-  plan: Record<string, unknown>,
   entries: Record<string, unknown>[],
 ) {
   const headers = {
@@ -1825,7 +1824,6 @@ export async function POST(request: Request) {
       const saved = await saveMemberWorkoutHistory(
         memberEmail,
         studioToken,
-        data.plan,
         [entry, ...previousEntries],
       );
       if (!saved) {
@@ -1879,7 +1877,7 @@ export async function POST(request: Request) {
   console.info("[fitness-chat-relay] direct-plan-check", directPlanCheck);
 
   if (
-    (!directPlanCheck.formalPlanPresent || !directPlanCheck.recoveryPlanPresent) &&
+    !directPlanCheck.formalPlanPresent &&
     requiresValidatedWorkoutDelivery(message) === false
   ) {
     const recovery = await recoverStructuredPlanForMember(memberEmail, studioToken);
