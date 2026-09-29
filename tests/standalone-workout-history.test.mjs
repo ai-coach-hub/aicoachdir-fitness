@@ -33,8 +33,8 @@ test("preview-only workouts use the lean no-action path", async () => {
 
   assert.ok(route.includes("function isStandaloneNoSaveWorkout"));
   assert.ok(route.includes("function buildStandaloneWorkoutPreviewMessage"));
-  assert.ok(route.includes("do not call Get Workout Plan"));
-  assert.ok(route.includes("do not call validate_workout_feasibility"));
+  assert.ok(route.includes("Do not call Get Workout Plan"));
+  assert.ok(route.includes("Save Workout Plan, validate_workout_feasibility"));
   assert.ok(route.includes("planLookupSkipped: true"));
   assert.ok(route.includes("actionPollingSkipped: true"));
   assert.ok(route.includes("!standaloneNoSaveWorkout"));
