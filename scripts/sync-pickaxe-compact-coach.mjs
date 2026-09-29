@@ -76,10 +76,37 @@ COMMUNICATION
 Answer the member's actual question first. Be concise by default but detailed enough to be useful. Ask only the minimum clarification needed. Do not narrate internal reasoning or tool use. Do not add generic invitations or filler after a complete answer. Never claim a tool, save, update, or validation happened unless it actually did.
 `;
 
-function requiredEnv(name) {
-  const value = String(process.env[name] || "").trim();
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
+function tokenCandidates() {
+  const names = [
+    "PICKAXE_WORKSPACE_API_TOKEN",
+    "PICKAXE_WORKSPACE_API_KEY",
+    "WORKSPACE_API_TOKEN",
+    "PICKAXE_API_KEY",
+  ];
+  return names
+    .map((name) => ({ name, value: String(process.env[name] || "").trim() }))
+    .filter((item) => item.value);
+}
+
+async function resolveWorkspaceToken() {
+  const candidates = tokenCandidates();
+  if (!candidates.length) {
+    throw new Error("No Pickaxe workspace API credential is configured.");
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const current = await pickaxeFetch(`/studio/pickaxe/${COACH_ID}`, candidate.value);
+      console.log(`[pickaxe-compact-coach] authenticated with ${candidate.name}`);
+      return { token: candidate.value, current };
+    } catch (error) {
+      console.warn(
+        `[pickaxe-compact-coach] ${candidate.name} was rejected; trying the next configured Pickaxe credential.`,
+      );
+    }
+  }
+
+  throw new Error("All configured Pickaxe workspace API credentials were rejected.");
 }
 
 async function pickaxeFetch(path, token, options = {}) {
@@ -116,8 +143,7 @@ function roleFromPayload(payload) {
 }
 
 async function main() {
-  const token = requiredEnv("PICKAXE_WORKSPACE_API_TOKEN");
-  const current = await pickaxeFetch(`/studio/pickaxe/${COACH_ID}`, token);
+  const { token, current } = await resolveWorkspaceToken();
   const currentRole = roleFromPayload(current);
 
   console.log(`[pickaxe-compact-coach] current prompt characters: ${currentRole.length}`);
