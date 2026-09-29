@@ -22,6 +22,19 @@ type PlanResult = {
   error?: string;
 };
 
+const COACH_INTROS = [
+  "What are we working on today?",
+  "Ready to train? Tell me what you want to accomplish.",
+  "What kind of workout are you looking for today?",
+  "Tell me what you need today. I’ll take it from there.",
+  "What would make today’s workout a win?",
+  "Where are you starting from, and where do you want to go?",
+  "Gym, home, outdoors, or somewhere else—what are we working with today?",
+  "Let’s build something that fits you. What are you looking to accomplish?",
+] as const;
+
+const COACH_INTRO_STORAGE_KEY = "fitness-coach-last-intro-v1";
+
 function cleanCoachText(value: string) {
   return value
     .replace(/\*\*/g, "")
@@ -103,6 +116,7 @@ export default function FitnessChatPage() {
   const [history, setHistory] = useState<unknown[]>([]);
   const [planLoading, setPlanLoading] = useState(true);
   const [planError, setPlanError] = useState("");
+  const [introPrompt, setIntroPrompt] = useState(COACH_INTROS[0]);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   async function loadPlan() {
@@ -126,6 +140,19 @@ export default function FitnessChatPage() {
 
   useEffect(() => {
     void loadPlan();
+
+    try {
+      const previous = window.localStorage.getItem(COACH_INTRO_STORAGE_KEY);
+      const choices = COACH_INTROS.filter((prompt) => prompt !== previous);
+      const pool = choices.length ? choices : COACH_INTROS;
+      const random = new Uint32Array(1);
+      window.crypto.getRandomValues(random);
+      const next = pool[random[0] % pool.length];
+      setIntroPrompt(next);
+      window.localStorage.setItem(COACH_INTRO_STORAGE_KEY, next);
+    } catch {
+      setIntroPrompt(COACH_INTROS[0]);
+    }
   }, []);
 
   useEffect(() => {
@@ -254,21 +281,9 @@ export default function FitnessChatPage() {
             </div>
 
             <div className="member-chat-messages">
-              {messages.length === 0 ? (
+              {messages.length === 0 && !input.trim() ? (
                 <div className="coach-welcome-card">
-                  <strong>Start wherever you are.</strong>
-                  <p>Ask for today’s workout, change your plan, talk through recovery, nutrition, equipment, schedule, or progress.</p>
-                  <div className="quick-prompts">
-                    {[
-                      "What should I do today?",
-                      "Show me my current plan.",
-                      "I need to adjust this week.",
-                    ].map((prompt) => (
-                      <button key={prompt} type="button" onClick={() => setInput(prompt)}>
-                        {prompt}
-                      </button>
-                    ))}
-                  </div>
+                  <strong>{introPrompt}</strong>
                 </div>
               ) : null}
 
