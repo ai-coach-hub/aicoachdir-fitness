@@ -92,6 +92,9 @@ test('accepts previous-workout entries from an older plan when current bridge au
       savedAt: '2026-09-15T18:30:00.000Z',
     });
     assert.ok(writtenValue, 'history should be written');
+    const stored = JSON.parse(writtenValue);
+    assert.equal('plan' in stored, false, 'history must not duplicate the current plan');
+    assert.equal(Array.isArray(stored.entries), true);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -153,9 +156,9 @@ test('falls back to dedicated plan memory when history envelope lacks matching p
     });
     assert.ok(writtenValue, 'history should be written');
     const stored = JSON.parse(writtenValue);
-    assert.equal(stored.plan.planId, auth.planId);
-    assert.equal(stored.plan.updatedAt, auth.planUpdatedAt);
-    assert.deepEqual(stored.plan._historyBridge, auth);
+    assert.equal('plan' in stored, false, 'dedicated plan memory must not be copied into history');
+    assert.equal(stored.updatedAt, '2026-09-15T18:30:00.000Z');
+    assert.equal(stored.entries[0].planId, 'older-plan');
   } finally {
     globalThis.fetch = originalFetch;
   }

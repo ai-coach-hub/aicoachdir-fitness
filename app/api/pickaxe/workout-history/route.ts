@@ -33,7 +33,6 @@ type HistoryPayload = {
 type HistoryEnvelope = {
   schemaVersion: 2;
   updatedAt: string;
-  plan: JsonRecord;
   entries: JsonRecord[];
 };
 
@@ -425,26 +424,16 @@ function findExistingPlan(existingValues: unknown[], auth: BridgeAuth) {
 
 function buildStoredEnvelope(
   history: HistoryPayload,
-  existingValues: unknown[],
+  contextValues: unknown[],
   auth: BridgeAuth,
 ): HistoryEnvelope {
-  const existingPlan = findExistingPlan(existingValues, auth);
-  if (!existingPlan) throw new Error("history-plan-context");
-
-  const plan: JsonRecord = {
-    ...existingPlan,
-    _historyBridge: {
-      email: auth.email,
-      planId: auth.planId,
-      planUpdatedAt: auth.planUpdatedAt,
-      signature: auth.signature,
-    },
-  };
+  if (!findExistingPlan(contextValues, auth)) {
+    throw new Error("history-plan-context");
+  }
 
   return {
     schemaVersion: 2,
     updatedAt: history.updatedAt,
-    plan,
     entries: history.entries,
   };
 }
@@ -452,29 +441,18 @@ function buildStoredEnvelope(
 function envelopeMatches(
   value: unknown,
   expected: HistoryEnvelope,
-  auth: BridgeAuth,
 ) {
   const decoded = unwrapStoredValue(value);
   if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) return false;
   const record = decoded as JsonRecord;
-  const plan = unwrapStoredValue(record.plan);
-  if (!looksLikePlanForAuth(plan, auth)) return false;
-  const planRecord = plan as JsonRecord;
-  const bridge =
-    planRecord._historyBridge &&
-    typeof planRecord._historyBridge === "object" &&
-    !Array.isArray(planRecord._historyBridge)
-      ? (planRecord._historyBridge as JsonRecord)
-      : null;
 
   return (
     record.updatedAt === expected.updatedAt &&
     Array.isArray(record.entries) &&
     JSON.stringify(record.entries) === JSON.stringify(expected.entries) &&
-    bridge?.email === auth.email &&
-    bridge?.planId === auth.planId &&
-    bridge?.planUpdatedAt === auth.planUpdatedAt &&
-    bridge?.signature === auth.signature
+    !("plan" in record) &&
+    !("currentPlan" in record) &&
+    !("workoutPlan" in record)
   );
 }
 
@@ -483,10 +461,9 @@ async function historyEnvelopeWasStored(
   email: string,
   memoryId: string,
   envelope: HistoryEnvelope,
-  auth: BridgeAuth,
 ) {
   const readBack = await readHistory(token, email, memoryId);
-  return readBack.some((value) => envelopeMatches(value, envelope, auth));
+  return readBack.some((value) => envelopeMatches(value, envelope));
 }
 
 async function verifyStoredHistory(
@@ -494,12 +471,11 @@ async function verifyStoredHistory(
   email: string,
   memoryId: string,
   envelope: HistoryEnvelope,
-  auth: BridgeAuth,
 ) {
   const delays = [0, 300, 900];
   for (const delay of delays) {
     if (delay) await sleep(delay);
-    if (await historyEnvelopeWasStored(token, email, memoryId, envelope, auth)) {
+    if (await historyEnvelopeWasStored(token, email, memoryId, envelope)) {
       return true;
     }
   }
@@ -550,13 +526,13 @@ async function saveHistory(
   } catch (error) {
     // A write can succeed upstream even when the client times out waiting for
     // Pickaxe's response. Never replay the write blindly; verify by reading it.
-    if (await verifyStoredHistory(token, email, memoryId, envelope, auth)) return;
+    if (await verifyStoredHistory(token, email, memoryId, envelope)) return;
     throw error;
   }
 
   if (!response.ok) throw new Error(`history-memory-write-${response.status}`);
 
-  if (!(await verifyStoredHistory(token, email, memoryId, envelope, auth))) {
+  if (!(await verifyStoredHistory(token, email, memoryId, envelope))) {
     throw new Error("history-memory-verification");
   }
 }

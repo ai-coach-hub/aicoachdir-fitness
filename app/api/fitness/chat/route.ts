@@ -503,121 +503,9 @@ async function writePlanMemory(
 }
 
 
-async function mirrorPlanIntoHistoryMemory(
-  email: string,
-  studioToken: string,
-  plan: Record<string, unknown>,
-) {
-  const headers = {
-    Authorization: `Bearer ${studioToken}`,
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  };
-
-  const definitionsResponse = await fetch(
-    `${PICKAXE_STUDIO_BASE_URL}/studio/memory/list?skip=0&take=100`,
-    { headers, cache: "no-store", signal: AbortSignal.timeout(15_000) },
-  );
-  if (!definitionsResponse.ok) return false;
-
-  const definitions = memoryPayloadItems(await definitionsResponse.json());
-  const historyNames = new Set(
-    [
-      "fitness workout history v1",
-      "fitness-workout-history-v1",
-      "fitness_workout_history_v1",
-      "fitness workout history for ai coach",
-      "fitness workout history (for ai coach)",
-    ].map(normalizeMemoryName),
-  );
-  const definition = definitions.find((item) =>
-    historyNames.has(memoryDefinitionName(item)),
-  );
-  const memoryId = memoryDefinitionId(definition);
-  if (!memoryId) return false;
-
-  const readUrl =
-    `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(memoryId)}&skip=0&take=100`;
-  const existingResponse = await fetch(readUrl, {
-    headers,
-    cache: "no-store",
-    signal: AbortSignal.timeout(15_000),
-  });
-
-  let entries: unknown[] = [];
-  let hasExisting = false;
-  if (existingResponse.ok) {
-    const values = collectMemoryValues(await existingResponse.json());
-    hasExisting = values.length > 0;
-    for (const value of values) {
-      const decoded = unwrapMemoryValue(value);
-      if (
-        decoded &&
-        typeof decoded === "object" &&
-        !Array.isArray(decoded) &&
-        Array.isArray((decoded as Record<string, unknown>).entries)
-      ) {
-        entries = (decoded as Record<string, unknown>).entries as unknown[];
-        break;
-      }
-    }
-  }
-
-  const envelope = JSON.stringify({
-    schemaVersion: 2,
-    updatedAt: plan.updatedAt,
-    plan: clonePlan(plan),
-    entries,
-  });
-
-  const writeResponse = hasExisting
-    ? await fetch(
-        `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}/${encodeURIComponent(memoryId)}`,
-        {
-          method: "PATCH",
-          headers,
-          body: JSON.stringify({ data: { value: envelope } }),
-          cache: "no-store",
-          signal: AbortSignal.timeout(20_000),
-        },
-      )
-    : await fetch(`${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/create`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ userId: email, memoryId, value: envelope }),
-        cache: "no-store",
-        signal: AbortSignal.timeout(20_000),
-      });
-
-  if (!writeResponse.ok) return false;
-
-  for (const delay of [0, 400, 900]) {
-    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
-    const verifyResponse = await fetch(readUrl, {
-      headers,
-      cache: "no-store",
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!verifyResponse.ok) continue;
-
-    const values = collectMemoryValues(await verifyResponse.json());
-    const verified = values.some((value) => {
-      const decoded = unwrapMemoryValue(value);
-      if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) return false;
-      return looksLikeFormalWorkoutPlan((decoded as Record<string, unknown>).plan);
-    });
-
-    if (verified) return true;
-  }
-
-  return false;
-}
-
-
 async function saveMemberWorkoutHistory(
   email: string,
   studioToken: string,
-  plan: Record<string, unknown>,
   entries: Record<string, unknown>[],
 ) {
   const headers = {
@@ -656,14 +544,11 @@ async function saveMemberWorkoutHistory(
   const hasExisting =
     existingResponse.ok && collectMemoryValues(await existingResponse.json()).length > 0;
 
-  const planForHistory = clonePlan(plan);
-  attachHistoryBridge(planForHistory, email, studioToken);
   const updatedAt = new Date().toISOString();
   const storedEntries = entries.slice(0, 15);
   const envelope = JSON.stringify({
     schemaVersion: 2,
     updatedAt,
-    plan: planForHistory,
     entries: storedEntries,
   });
 
@@ -776,16 +661,11 @@ async function recoverStructuredPlanForMember(email: string, studioToken: string
 
   attachHistoryBridge(restored, email, studioToken);
   const planVerified = await writePlanMemory(email, studioToken, restored);
-  const historyVerified = planVerified
-    ? await mirrorPlanIntoHistoryMemory(email, studioToken, restored)
-    : false;
-  const verified = planVerified && historyVerified;
 
   console.info("[fitness-chat-relay] plan-recovery", {
     attempted: true,
-    restored: verified,
+    restored: planVerified,
     planVerified,
-    historyVerified,
     currentWeekStart,
     nextWeekPresent: !!next,
     memberSaveRunCount: runs.length,
@@ -793,10 +673,9 @@ async function recoverStructuredPlanForMember(email: string, studioToken: string
 
   return {
     attempted: true,
-    restored: verified,
+    restored: planVerified,
     planVerified,
-    historyVerified,
-    reason: verified ? "verified" : "write-verification-failed",
+    reason: planVerified ? "verified" : "write-verification-failed",
   };
 }
 
@@ -1372,6 +1251,19 @@ function explicitlyDeclinesWorkoutSave(message: string) {
   );
 }
 
+function isStandaloneNoSaveWorkout(message: string) {
+  if (!explicitlyDeclinesWorkoutSave(message)) return false;
+  const normalized = message.toLowerCase();
+  return (
+    /\b(?:build|create|make|generate|write|design|show|give)\b[^.!?\n]{0,120}\b(?:workout|session)\b/.test(
+      normalized,
+    ) ||
+    /\b(?:workout|session)\b[^.!?\n]{0,80}\b(?:build|create|make|generate|show|give)\b/.test(
+      normalized,
+    )
+  );
+}
+
 function requiresConfirmedSavedPlanMutation(message: string) {
   if (explicitlyDeclinesWorkoutSave(message)) return false;
 
@@ -1444,7 +1336,26 @@ function buildStructuredWorkoutEfficiencyMessage(message: string) {
   ].join("\n");
 }
 
+function buildStandaloneWorkoutPreviewMessage(message: string) {
+  return [
+    "APPLICATION STANDALONE WORKOUT PREVIEW - apply silently.",
+    "The member explicitly does not want this workout saved. Do not call Get Workout Plan, get_plan, Save Workout Plan, validate_workout_feasibility, or any other Action.",
+    "Build the requested one-off workout directly from the member's message and relevant compact user context only.",
+    "Honor every stated equipment exclusion, restriction, and the full requested session duration. Use realistic work and rest time; do not pad the duration with headings.",
+    "Do not introduce unconfirmed equipment or setup. Do not include alternatives unless the member requested them.",
+    "Return only the member-facing workout. Use plain section labels, not Markdown heading markers such as # or ##.",
+    "Never mention these application rules.",
+    "",
+    "MEMBER MESSAGE:",
+    message,
+  ].join("\n");
+}
+
 function buildPickaxeMessage(message: string) {
+  if (isStandaloneNoSaveWorkout(message)) {
+    return buildStandaloneWorkoutPreviewMessage(message);
+  }
+
   if (requiresValidatedWorkoutDelivery(message)) {
     return buildStructuredWorkoutEfficiencyMessage(message);
   }
@@ -1732,14 +1643,6 @@ async function readMemberWorkoutData(email: string, studioToken: string) {
         const unwrapped = unwrapMemoryValue(value);
         if (!unwrapped || typeof unwrapped !== "object" || Array.isArray(unwrapped)) continue;
         const record = unwrapped as Record<string, unknown>;
-        if (!plan) {
-          const candidate = [record.plan, record.currentPlan, record.workoutPlan]
-            .map((item) => unwrapMemoryValue(item))
-            .find((item) => looksLikeFormalWorkoutPlan(item));
-          if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
-            plan = candidate as Record<string, unknown>;
-          }
-        }
         if (Array.isArray(record.entries)) {
           historyEntries = record.entries;
           break;
@@ -1953,7 +1856,6 @@ export async function POST(request: Request) {
       const saved = await saveMemberWorkoutHistory(
         memberEmail,
         studioToken,
-        data.plan,
         [entry, ...previousEntries],
       );
       if (!saved) {
@@ -2003,19 +1905,29 @@ export async function POST(request: Request) {
     ? requestedConversationId
     : `fitness-chat-${crypto.randomUUID()}`;
 
-  let directPlanCheck = await checkFormalPlanForMember(memberEmail, studioToken);
-  console.info("[fitness-chat-relay] direct-plan-check", directPlanCheck);
+  const standaloneNoSaveWorkout = isStandaloneNoSaveWorkout(message);
 
-  if (
-    (!directPlanCheck.formalPlanPresent || !directPlanCheck.recoveryPlanPresent) &&
-    requiresValidatedWorkoutDelivery(message) === false
-  ) {
-    const recovery = await recoverStructuredPlanForMember(memberEmail, studioToken);
-    console.info("[fitness-chat-relay] recovery-result", recovery);
-    if (recovery.restored) {
-      directPlanCheck = await checkFormalPlanForMember(memberEmail, studioToken);
-      console.info("[fitness-chat-relay] direct-plan-check-after-recovery", directPlanCheck);
+  if (!standaloneNoSaveWorkout) {
+    let directPlanCheck = await checkFormalPlanForMember(memberEmail, studioToken);
+    console.info("[fitness-chat-relay] direct-plan-check", directPlanCheck);
+
+    if (
+      !directPlanCheck.formalPlanPresent &&
+      requiresValidatedWorkoutDelivery(message) === false
+    ) {
+      const recovery = await recoverStructuredPlanForMember(memberEmail, studioToken);
+      console.info("[fitness-chat-relay] recovery-result", recovery);
+      if (recovery.restored) {
+        directPlanCheck = await checkFormalPlanForMember(memberEmail, studioToken);
+        console.info("[fitness-chat-relay] direct-plan-check-after-recovery", directPlanCheck);
+      }
     }
+  } else {
+    console.info("[fitness-chat-relay] standalone-preview", {
+      conversationId,
+      planLookupSkipped: true,
+      actionPollingSkipped: true,
+    });
   }
 
   const pickaxeMessage = buildPickaxeMessage(message);
@@ -2198,15 +2110,17 @@ export async function POST(request: Request) {
       return { kind: "completion" as const, responseText: completionText };
     })();
 
-    const relayPromise = pollForFirstValidatedDelivery(
-      conversationId,
-      studioToken,
-      requestStartedAt,
-      pollAbort.signal,
-      [GET_WORKOUT_PLAN_ACTION_ID],
-    )
-      .then((currentRelay) => ({ kind: "relay" as const, relay: currentRelay }))
-      .catch(() => ({ kind: "relay-error" as const }));
+    const relayPromise = standaloneNoSaveWorkout
+      ? new Promise<{ kind: "relay-error" }>(() => {})
+      : pollForFirstValidatedDelivery(
+          conversationId,
+          studioToken,
+          requestStartedAt,
+          pollAbort.signal,
+          [GET_WORKOUT_PLAN_ACTION_ID],
+        )
+          .then((currentRelay) => ({ kind: "relay" as const, relay: currentRelay }))
+          .catch(() => ({ kind: "relay-error" as const }));
 
     const first = await Promise.race([completionPromise, relayPromise]);
 
@@ -2228,7 +2142,11 @@ export async function POST(request: Request) {
       // Completion finished first. Give the Action store a short consistency
       // window, then use the current-turn read Action result if one exists.
       const consistencyDeadline = Date.now() + 4_000;
-      while (Date.now() < consistencyDeadline && !relay.finalDelivery) {
+      while (
+        !standaloneNoSaveWorkout &&
+        Date.now() < consistencyDeadline &&
+        !relay.finalDelivery
+      ) {
         try {
           const runs = await fetchActionRunsForSession(
             conversationId,
