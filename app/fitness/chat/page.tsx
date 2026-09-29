@@ -82,6 +82,31 @@ function workoutMap(plan: JsonRecord | null) {
 
 type WorkoutScope = "current" | "next";
 
+type TrackerSet = {
+  weight: string;
+  reps: string;
+  time: string;
+  distance: string;
+};
+
+type TrackerExercise = {
+  id: string;
+  name: string;
+  trackingType: string | null;
+  skipped: boolean;
+  prescription: string;
+  sets: TrackerSet[];
+};
+
+type WorkoutTracker = {
+  key: string;
+  workoutId: string;
+  scheduledDate: string;
+  day: string;
+  scope: WorkoutScope;
+  workout: JsonRecord;
+};
+
 function scopedWorkoutEntries(workouts: JsonRecord, scope: WorkoutScope) {
   return Object.entries(workouts).flatMap(([id, raw]) => {
     const workout = asRecord(raw);
@@ -156,6 +181,40 @@ function exerciseDetail(value: unknown) {
   return parts.join(" · ");
 }
 
+function prescribedSetCount(exercise: JsonRecord | null) {
+  const sets = exercise?.sets;
+  if (typeof sets === "number" && Number.isFinite(sets)) {
+    return Math.min(20, Math.max(1, Math.round(sets)));
+  }
+  if (Array.isArray(sets) && sets.length) return Math.min(20, sets.length);
+  return 1;
+}
+
+function emptyTrackerSet(): TrackerSet {
+  return { weight: "", reps: "", time: "", distance: "" };
+}
+
+function buildTrackerExercises(workout: JsonRecord): TrackerExercise[] {
+  const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+
+  return exercises.flatMap((value, index) => {
+    const exercise = asRecord(value);
+    const name = exerciseLabel(value) || `Exercise ${index + 1}`;
+    if (!name) return [];
+
+    const count = prescribedSetCount(exercise);
+    return [{
+      id: String(exercise?.id || `exercise-${index + 1}`),
+      name,
+      trackingType:
+        typeof exercise?.trackingType === "string" ? exercise.trackingType : null,
+      skipped: false,
+      prescription: exerciseDetail(value),
+      sets: Array.from({ length: count }, () => emptyTrackerSet()),
+    }];
+  });
+}
+
 function completionKey(workoutId: string, scheduledDate: string) {
   return `${workoutId}::${scheduledDate}`;
 }
@@ -195,6 +254,9 @@ export default function FitnessChatPage() {
   const [expandedWorkoutKey, setExpandedWorkoutKey] = useState<string | null>(null);
   const [completionBusyKey, setCompletionBusyKey] = useState("");
   const [completionError, setCompletionError] = useState("");
+  const [activeWorkoutTracker, setActiveWorkoutTracker] = useState<WorkoutTracker | null>(null);
+  const [trackerExercises, setTrackerExercises] = useState<TrackerExercise[]>([]);
+  const [trackerNotes, setTrackerNotes] = useState("");
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   async function loadPlan() {
@@ -261,6 +323,121 @@ export default function FitnessChatPage() {
       }
 
       await loadPlan();
+    } catch {
+      setCompletionError("Workout completion could not be saved.");
+    } finally {
+      setCompletionBusyKey("");
+    }
+  }
+
+
+  function openWorkoutTracker(
+    scope: WorkoutScope,
+    row: JsonRecord,
+    workout: JsonRecord | null,
+  ) {
+    const workoutId = String(row.workoutId || "");
+    const scheduledDate = String(row.date || "");
+    if (!workout || !workoutId || !scheduledDate) return;
+
+    setActiveWorkoutTracker({
+      key: `${scope}:${workoutId}:${scheduledDate}`,
+      workoutId,
+      scheduledDate,
+      day: String(row.day || "Workout"),
+      scope,
+      workout,
+    });
+    setTrackerExercises(buildTrackerExercises(workout));
+    setTrackerNotes("");
+    setCompletionError("");
+  }
+
+  function updateTrackerSet(
+    exerciseIndex: number,
+    setIndex: number,
+    field: keyof TrackerSet,
+    value: string,
+  ) {
+    setTrackerExercises((items) =>
+      items.map((exercise, currentExerciseIndex) =>
+        currentExerciseIndex !== exerciseIndex
+          ? exercise
+          : {
+              ...exercise,
+              sets: exercise.sets.map((set, currentSetIndex) =>
+                currentSetIndex === setIndex ? { ...set, [field]: value } : set,
+              ),
+            },
+      ),
+    );
+  }
+
+  function toggleTrackerExercise(exerciseIndex: number) {
+    setTrackerExercises((items) =>
+      items.map((exercise, currentIndex) =>
+        currentIndex === exerciseIndex
+          ? { ...exercise, skipped: !exercise.skipped }
+          : exercise,
+      ),
+    );
+  }
+
+  function addTrackerSet(exerciseIndex: number) {
+    setTrackerExercises((items) =>
+      items.map((exercise, currentIndex) =>
+        currentIndex === exerciseIndex && exercise.sets.length < 20
+          ? { ...exercise, sets: [...exercise.sets, emptyTrackerSet()] }
+          : exercise,
+      ),
+    );
+  }
+
+  function removeTrackerSet(exerciseIndex: number, setIndex: number) {
+    setTrackerExercises((items) =>
+      items.map((exercise, currentIndex) =>
+        currentIndex === exerciseIndex && exercise.sets.length > 1
+          ? {
+              ...exercise,
+              sets: exercise.sets.filter((_, currentSetIndex) => currentSetIndex !== setIndex),
+            }
+          : exercise,
+      ),
+    );
+  }
+
+  async function completeTrackedWorkout() {
+    if (!activeWorkoutTracker || completionBusyKey) return;
+    const key = completionKey(
+      activeWorkoutTracker.workoutId,
+      activeWorkoutTracker.scheduledDate,
+    );
+
+    setCompletionBusyKey(key);
+    setCompletionError("");
+
+    try {
+      const response = await fetch("/api/fitness/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "complete_workout",
+          workoutId: activeWorkoutTracker.workoutId,
+          scheduledDate: activeWorkoutTracker.scheduledDate,
+          exercises: trackerExercises,
+          notes: trackerNotes,
+        }),
+      });
+      const data = (await response.json()) as CompletionResult;
+      if (!response.ok || !data.ok) {
+        setCompletionError(data.error || "Workout completion could not be saved.");
+        return;
+      }
+
+      await loadPlan();
+      setActiveWorkoutTracker(null);
+      setTrackerExercises([]);
+      setTrackerNotes("");
     } catch {
       setCompletionError("Workout completion could not be saved.");
     } finally {
@@ -654,6 +831,15 @@ export default function FitnessChatPage() {
                               >
                                 {expandedWorkoutKey === workoutKey ? "Hide details" : "View details"}
                               </button>
+                              {scheduledDate && workout ? (
+                                <button
+                                  type="button"
+                                  className="text-button"
+                                  onClick={() => openWorkoutTracker("current", row, workout)}
+                                >
+                                  Open workout
+                                </button>
+                              ) : null}
                               {scheduledDate ? (
                                 <button
                                   type="button"
@@ -685,16 +871,189 @@ export default function FitnessChatPage() {
                   <div className="schedule-grid">
                     {upcomingRows.map((row, index) => {
                       const id = String(row.workoutId || "");
+                      const scheduledDate = String(row.date || "");
                       const workout = asRecord(upcomingWorkouts[id]);
                       const rest = row.isRestDay === true || !id;
+                      const completed =
+                        !!scheduledDate &&
+                        completedScheduleKeys.has(completionKey(id, scheduledDate));
                       return (
                         <article key={index} className={rest ? "schedule-card rest" : "schedule-card"}>
                           <span>{String(row.day || `Workout ${index + 1}`)}</span>
                           {row.date ? <small>{formatDate(row.date)}</small> : null}
                           <strong>{rest ? "Rest" : workoutTitle(workout, id)}</strong>
+                          {!rest && scheduledDate && workout ? (
+                            <div className="schedule-card-actions">
+                              <button
+                                type="button"
+                                className="text-button"
+                                onClick={() => openWorkoutTracker("next", row, workout)}
+                              >
+                                Open workout
+                              </button>
+                              {completed ? <span className="schedule-completed-label">Completed</span> : null}
+                            </div>
+                          ) : null}
                         </article>
                       );
                     })}
+                  </div>
+                </section>
+              ) : null}
+
+              {activeWorkoutTracker ? (
+                <section className="workout-tracker-panel" aria-label="Workout tracker">
+                  <div className="workout-tracker-heading">
+                    <div>
+                      <p className="eyebrow compact-eyebrow">
+                        {activeWorkoutTracker.scope === "next" ? "NEXT SAVED WEEK" : "CURRENT SAVED WEEK"}
+                      </p>
+                      <h3>{workoutTitle(activeWorkoutTracker.workout, activeWorkoutTracker.workoutId)}</h3>
+                      <p>
+                        {activeWorkoutTracker.day} · {formatDate(activeWorkoutTracker.scheduledDate)}
+                        {typeof activeWorkoutTracker.workout.durationMinutes === "number"
+                          ? ` · ${activeWorkoutTracker.workout.durationMinutes} min`
+                          : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setActiveWorkoutTracker(null)}
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  {trackerExercises.length ? (
+                    <div className="workout-tracker-exercises">
+                      {trackerExercises.map((exercise, exerciseIndex) => (
+                        <article
+                          key={exercise.id || exerciseIndex}
+                          className={exercise.skipped ? "tracker-exercise skipped" : "tracker-exercise"}
+                        >
+                          <div className="tracker-exercise-heading">
+                            <div>
+                              <h4>{exercise.name}</h4>
+                              {exercise.prescription ? <p>{exercise.prescription}</p> : null}
+                            </div>
+                            <label className="tracker-skip">
+                              <input
+                                type="checkbox"
+                                checked={exercise.skipped}
+                                onChange={() => toggleTrackerExercise(exerciseIndex)}
+                              />
+                              <span>Skip exercise</span>
+                            </label>
+                          </div>
+
+                          {!exercise.skipped ? (
+                            <>
+                              <div className="tracker-set-list">
+                                {exercise.sets.map((set, setIndex) => (
+                                  <div key={setIndex} className="tracker-set-row">
+                                    <strong>Set {setIndex + 1}</strong>
+                                    <input
+                                      value={set.weight}
+                                      onChange={(event) =>
+                                        updateTrackerSet(exerciseIndex, setIndex, "weight", event.target.value)
+                                      }
+                                      placeholder="Weight"
+                                      inputMode="decimal"
+                                      aria-label={`${exercise.name} set ${setIndex + 1} weight`}
+                                    />
+                                    <input
+                                      value={set.reps}
+                                      onChange={(event) =>
+                                        updateTrackerSet(exerciseIndex, setIndex, "reps", event.target.value)
+                                      }
+                                      placeholder="Reps"
+                                      inputMode="numeric"
+                                      aria-label={`${exercise.name} set ${setIndex + 1} reps`}
+                                    />
+                                    <input
+                                      value={set.time}
+                                      onChange={(event) =>
+                                        updateTrackerSet(exerciseIndex, setIndex, "time", event.target.value)
+                                      }
+                                      placeholder="Time"
+                                      aria-label={`${exercise.name} set ${setIndex + 1} time`}
+                                    />
+                                    <input
+                                      value={set.distance}
+                                      onChange={(event) =>
+                                        updateTrackerSet(exerciseIndex, setIndex, "distance", event.target.value)
+                                      }
+                                      placeholder="Distance"
+                                      aria-label={`${exercise.name} set ${setIndex + 1} distance`}
+                                    />
+                                    {exercise.sets.length > 1 ? (
+                                      <button
+                                        type="button"
+                                        className="tracker-remove-set"
+                                        onClick={() => removeTrackerSet(exerciseIndex, setIndex)}
+                                        aria-label={`Remove ${exercise.name} set ${setIndex + 1}`}
+                                      >
+                                        Remove
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                ))}
+                              </div>
+                              {exercise.sets.length < 20 ? (
+                                <button
+                                  type="button"
+                                  className="text-button tracker-add-set"
+                                  onClick={() => addTrackerSet(exerciseIndex)}
+                                >
+                                  + Add set
+                                </button>
+                              ) : null}
+                            </>
+                          ) : null}
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted-copy">
+                      This saved workout does not include individual exercises to track.
+                    </p>
+                  )}
+
+                  <label className="tracker-notes">
+                    <span>Workout notes</span>
+                    <textarea
+                      value={trackerNotes}
+                      onChange={(event) => setTrackerNotes(event.target.value)}
+                      rows={3}
+                      maxLength={280}
+                      placeholder="Optional notes about the workout..."
+                    />
+                  </label>
+
+                  {completionError ? <p className="member-error">{completionError}</p> : null}
+
+                  <div className="workout-tracker-actions">
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={!!completionBusyKey}
+                      onClick={() => void completeTrackedWorkout()}
+                    >
+                      {completionBusyKey === completionKey(
+                        activeWorkoutTracker.workoutId,
+                        activeWorkoutTracker.scheduledDate,
+                      )
+                        ? "Saving..."
+                        : "Complete workout"}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setActiveWorkoutTracker(null)}
+                    >
+                      Close workout
+                    </button>
                   </div>
                 </section>
               ) : null}

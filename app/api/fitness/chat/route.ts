@@ -614,12 +614,87 @@ function completionExercise(value: unknown, index: number) {
   if (!name) return null;
 
   return {
-    id: exercise?.id ? String(exercise.id) : `exercise-${index + 1}`,
-    name,
-    trackingType: exercise?.trackingType ? String(exercise.trackingType) : null,
+    id: exercise?.id ? String(exercise.id).slice(0, 120) : `exercise-${index + 1}`,
+    name: name.slice(0, 160),
+    trackingType: exercise?.trackingType ? String(exercise.trackingType).slice(0, 40) : null,
     skipped: false,
     sets: [],
   };
+}
+
+function sanitizeTrackedText(value: unknown, maxLength = 40) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+}
+
+function sanitizeTrackedExercises(value: unknown) {
+  if (!Array.isArray(value) || value.length > 30) return null;
+
+  const exercises = value.map((rawExercise, exerciseIndex) => {
+    const input =
+      rawExercise && typeof rawExercise === "object" && !Array.isArray(rawExercise)
+        ? (rawExercise as Record<string, unknown>)
+        : null;
+    if (!input) return null;
+
+    const name = sanitizeTrackedText(input.name, 160);
+    if (!name) return null;
+
+    const rawSets = Array.isArray(input.sets) ? input.sets : [];
+    if (rawSets.length > 20) return null;
+    const sets = rawSets.map((rawSet) => {
+      const set =
+        rawSet && typeof rawSet === "object" && !Array.isArray(rawSet)
+          ? (rawSet as Record<string, unknown>)
+          : null;
+      if (!set) return null;
+
+      return {
+        weight: sanitizeTrackedText(set.weight),
+        reps: sanitizeTrackedText(set.reps),
+        time: sanitizeTrackedText(set.time),
+        distance: sanitizeTrackedText(set.distance),
+      };
+    });
+    if (sets.some((set) => set === null)) return null;
+
+    return {
+      id: sanitizeTrackedText(input.id, 120) || `exercise-${exerciseIndex + 1}`,
+      name,
+      trackingType: sanitizeTrackedText(input.trackingType, 40) || null,
+      skipped: input.skipped === true,
+      sets,
+    };
+  });
+
+  return exercises.some((exercise) => exercise === null)
+    ? null
+    : (exercises as Record<string, unknown>[]);
+}
+
+function scheduledPlanForWorkout(
+  plan: Record<string, unknown>,
+  workoutId: string,
+  scheduledDate: string,
+) {
+  let candidate: Record<string, unknown> | null = activeSavedPlan(plan);
+
+  for (let depth = 0; depth < 8 && candidate; depth += 1) {
+    const rows = Array.isArray(candidate.weekSchedule) ? candidate.weekSchedule : [];
+    const scheduledRow = rows
+      .filter((value) => value && typeof value === "object" && !Array.isArray(value))
+      .map((value) => value as Record<string, unknown>)
+      .find(
+        (row) =>
+          String(row.workoutId || "") === workoutId &&
+          String(row.date || "") === scheduledDate &&
+          row.isRestDay !== true,
+      );
+
+    if (scheduledRow) return candidate;
+    candidate = nextPlanCandidate(candidate);
+  }
+
+  return null;
 }
 
 async function recoverStructuredPlanForMember(email: string, studioToken: string) {
@@ -1783,30 +1858,19 @@ export async function POST(request: Request) {
         );
       }
 
-      const activePlan = activeSavedPlan(data.plan);
-      const rows = Array.isArray(activePlan.weekSchedule) ? activePlan.weekSchedule : [];
-      const scheduledRow = rows
-        .filter((value) => value && typeof value === "object" && !Array.isArray(value))
-        .map((value) => value as Record<string, unknown>)
-        .find(
-          (row) =>
-            String(row.workoutId || "") === workoutId &&
-            String(row.date || "") === scheduledDate &&
-            row.isRestDay !== true,
-        );
-
-      if (!scheduledRow) {
+      const scheduledPlan = scheduledPlanForWorkout(data.plan, workoutId, scheduledDate);
+      if (!scheduledPlan) {
         return Response.json(
-          { ok: false, error: "That workout is not scheduled in your current saved week." },
+          { ok: false, error: "That workout is not scheduled in your saved plan." },
           { status: 404 },
         );
       }
 
       const workouts =
-        activePlan.workouts &&
-        typeof activePlan.workouts === "object" &&
-        !Array.isArray(activePlan.workouts)
-          ? (activePlan.workouts as Record<string, unknown>)
+        scheduledPlan.workouts &&
+        typeof scheduledPlan.workouts === "object" &&
+        !Array.isArray(scheduledPlan.workouts)
+          ? (scheduledPlan.workouts as Record<string, unknown>)
           : {};
       const workoutValue = workouts[workoutId];
       const workout =
@@ -1821,14 +1885,33 @@ export async function POST(request: Request) {
         );
       }
 
-      const completedAt = new Date().toISOString();
-      const exercises = (Array.isArray(workout.exercises) ? workout.exercises : [])
-        .map(completionExercise)
-        .filter((value): value is NonNullable<ReturnType<typeof completionExercise>> => !!value);
+      const input =
+        body && typeof body === "object" && !Array.isArray(body)
+          ? (body as Record<string, unknown>)
+          : {};
+      const submittedExercises =
+        input.exercises == null ? null : sanitizeTrackedExercises(input.exercises);
+      if (input.exercises != null && !submittedExercises) {
+        return Response.json(
+          { ok: false, error: "Workout tracking details are invalid." },
+          { status: 400 },
+        );
+      }
 
+      const completedAt = new Date().toISOString();
+      const exercises =
+        submittedExercises ||
+        (Array.isArray(workout.exercises) ? workout.exercises : [])
+          .map(completionExercise)
+          .filter((value): value is NonNullable<ReturnType<typeof completionExercise>> => !!value);
+
+      const notes = sanitizeTrackedText(input.notes, 280);
       const entry: Record<string, unknown> = {
-        planId: String(activePlan.planId || data.plan.planId || "") || null,
-        phase: null,
+        planId: String(scheduledPlan.planId || data.plan.planId || "") || null,
+        phase:
+          scheduledPlan.phase && typeof scheduledPlan.phase === "object" && !Array.isArray(scheduledPlan.phase)
+            ? scheduledPlan.phase
+            : null,
         scheduledDate,
         workoutId,
         title: String(workout.title || workout.name || workoutId),
@@ -1836,9 +1919,9 @@ export async function POST(request: Request) {
         durationMinutes:
           typeof workout.durationMinutes === "number" ? workout.durationMinutes : null,
         difficulty: typeof workout.difficulty === "string" ? workout.difficulty : null,
-        notes: "",
-        exercisesCompleted: exercises.length,
-        exercisesSkipped: 0,
+        notes,
+        exercisesCompleted: exercises.filter((exercise) => exercise.skipped !== true).length,
+        exercisesSkipped: exercises.filter((exercise) => exercise.skipped === true).length,
         exercises,
       };
 

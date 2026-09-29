@@ -192,6 +192,18 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
 }
 
 @media (max-width: 720px) {
+  .workout-tracker-heading,
+  .tracker-exercise-heading {
+    flex-direction: column;
+  }
+  .tracker-set-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .tracker-set-row > strong,
+  .tracker-set-row .tracker-remove-set {
+    grid-column: 1 / -1;
+  }
+
   .site-shell, .signup-shell, .legal-shell { width: min(100% - 24px, 1180px); }
   .nav { min-height: 72px; }
   .nav-links > a:not(.nav-cta):not(.nav-member-login) { display: none; }
@@ -1059,6 +1071,139 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
 .completion-error {
   margin: -10px 0 20px;
 }
+.schedule-completed-label {
+  align-self: center;
+  color: #a7f27d !important;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.workout-tracker-panel {
+  margin: 6px 0 24px;
+  padding: 24px;
+  border: 1px solid rgba(118,216,78,.28);
+  border-radius: 20px;
+  background: rgba(7,16,27,.74);
+}
+.workout-tracker-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.workout-tracker-heading h3 {
+  margin: 5px 0 4px;
+  font-size: 26px;
+}
+.workout-tracker-heading p {
+  margin: 0;
+  color: #8e9daf;
+}
+.workout-tracker-exercises {
+  display: grid;
+  gap: 14px;
+}
+.tracker-exercise {
+  padding: 16px;
+  border: 1px solid rgba(116,182,215,.16);
+  border-radius: 16px;
+  background: rgba(255,255,255,.018);
+}
+.tracker-exercise.skipped {
+  opacity: .7;
+}
+.tracker-exercise-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+.tracker-exercise-heading h4 {
+  margin: 0;
+  font-size: 18px;
+}
+.tracker-exercise-heading p {
+  margin: 5px 0 0;
+  color: #8e9daf;
+  font-size: 13px;
+}
+.tracker-skip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #aab7c5;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.tracker-skip input {
+  width: 16px;
+  height: 16px;
+}
+.tracker-set-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.tracker-set-row {
+  display: grid;
+  grid-template-columns: 62px repeat(4, minmax(0, 1fr)) auto;
+  gap: 8px;
+  align-items: center;
+}
+.tracker-set-row > strong {
+  color: #dfe9f3;
+  font-size: 12px;
+}
+.tracker-set-row input,
+.tracker-notes textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(116,182,215,.2);
+  border-radius: 10px;
+  background: rgba(4,12,22,.9);
+  color: #eef7ff;
+  font: inherit;
+}
+.tracker-set-row input {
+  min-width: 0;
+  padding: 9px 10px;
+}
+.tracker-set-row input::placeholder,
+.tracker-notes textarea::placeholder {
+  color: #6f7f91;
+}
+.tracker-remove-set {
+  border: 0;
+  background: transparent;
+  color: #8e9daf;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+.tracker-add-set {
+  margin-top: 10px;
+}
+.tracker-notes {
+  display: grid;
+  gap: 7px;
+  margin-top: 18px;
+  color: #dfe9f3;
+  font-size: 13px;
+  font-weight: 700;
+}
+.tracker-notes textarea {
+  padding: 11px 12px;
+  resize: vertical;
+  font-weight: 400;
+}
+.workout-tracker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
 
 .workout-card-grid {
   display: grid;
@@ -1149,6 +1294,12 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
 }
 
 @media (max-width: 1120px) {
+  .tracker-set-row {
+    grid-template-columns: 52px repeat(2, minmax(0, 1fr));
+  }
+  .tracker-set-row .tracker-remove-set {
+    justify-self: start;
+  }
   .member-coach-layout {
     grid-template-columns: 210px minmax(0, 1fr);
   }
@@ -1172,6 +1323,17 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   .workout-card-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 680px) {
+  .workout-tracker-heading,
+  .tracker-exercise-heading {
+    flex-direction: column;
+  }
+  .tracker-set-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .tracker-set-row > strong,
+  .tracker-set-row .tracker-remove-set {
+    grid-column: 1 / -1;
+  }
   .member-hub-shell { width: min(100% - 22px, 1180px); padding-top: 16px; }
   .member-hub-header { align-items: flex-start; flex-direction: column; }
   .member-hub-header h1 { font-size: 44px; }
