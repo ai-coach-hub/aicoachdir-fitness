@@ -1714,59 +1714,51 @@ export async function POST(request: Request) {
   let responseText = "";
 
   if (mustUseValidatedDelivery) {
-    let triggerResponse: Response;
-    try {
-      triggerResponse = await fetch(`${PICKAXE_STUDIO_BASE_URL}/triggers`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${deploymentKey}`,
-          "Content-Type": "application/json",
-          Accept: "*/*",
-        },
-        body: JSON.stringify({
-          message: pickaxeMessage,
-          userId: memberEmail,
-          conversationId,
-          stream: true,
-        }),
-        cache: "no-store",
-        signal: AbortSignal.timeout(55_000),
-      });
-    } catch {
-      return Response.json(
-        {
-          ok: false,
-          error: "Workout update could not be started.",
-          conversationId,
-        },
-        { status: 502 },
-      );
-    }
+    const mutationCompletionAbort = new AbortController();
+    let mutationDriverStatus = "pending";
 
-    if (!triggerResponse.ok) {
-      return Response.json(
-        {
-          ok: false,
-          error: "Workout update could not be started.",
-          conversationId,
-          status: triggerResponse.status,
-        },
-        { status: 502 },
-      );
-    }
-
-    // Keep the streamed trigger flowing while the Action relay watches for
-    // the validated saved result. The member response comes from FINAL_DELIVERY,
-    // not from this stream.
-    void (async () => {
+    // Drive the coach through the completion endpoint that has historically
+    // executed the workout Actions reliably, while independently watching the
+    // Action store for the validated FINAL_DELIVERY. We never trust the
+    // completion text for a workout mutation.
+    const mutationDriverPromise = (async () => {
       try {
-        const reader = triggerResponse.body?.getReader();
-        if (!reader) return;
-        while (true) {
-          const { done } = await reader.read();
-          if (done) break;
+        const driverResponse = await fetch(PICKAXE_COMPLETIONS_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${deploymentKey}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            message: pickaxeMessage,
+            userId: memberEmail,
+            conversationId,
+            stream: false,
+          }),
+          cache: "no-store",
+          signal: AbortSignal.any([
+            mutationCompletionAbort.signal,
+            AbortSignal.timeout(70_000),
+          ]),
+        });
+
+        mutationDriverStatus = `http-${driverResponse.status}`;
+        // Drain the response so the request completes cleanly. The member-facing
+        // result still comes only from a validated Action FINAL_DELIVERY.
+        await driverResponse.text().catch(() => "");
+      } catch (error) {
+        if (mutationCompletionAbort.signal.aborted) {
+          mutationDriverStatus = "aborted-after-validation";
+          return;
         }
-      } catch {}
+
+        mutationDriverStatus = "fetch-error";
+        console.info("[fitness-chat-relay] mutation-driver-error", {
+          conversationId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
     })();
 
     relay = await pollForFirstValidatedDelivery(
@@ -1777,7 +1769,19 @@ export async function POST(request: Request) {
       [SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID],
     );
 
+    mutationCompletionAbort.abort();
+    await Promise.race([
+      mutationDriverPromise,
+      new Promise<void>((resolve) => setTimeout(resolve, 250)),
+    ]);
+
     if (!relay.finalDelivery) {
+      console.warn("[fitness-chat-relay] mutation-timeout", {
+        conversationId,
+        actionRunCount: relay.runCount,
+        mutationDriverStatus,
+      });
+
       return Response.json(
         {
           ok: false,
