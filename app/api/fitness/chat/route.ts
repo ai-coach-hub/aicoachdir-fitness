@@ -1050,12 +1050,31 @@ function summarizeSavedPlan(plan: Record<string, unknown>) {
 function extractFinalDelivery(content: string) {
   const startMarker = "FINAL_DELIVERY_START";
   const endMarker = "FINAL_DELIVERY_END";
-  const start = content.indexOf(startMarker);
-  const end = content.indexOf(endMarker);
 
-  if (start < 0 || end < 0 || end <= start) return "";
+  // Prefer real marker blocks on their own lines. Action output can also mention
+  // the marker names inline (for example "FINAL_DELIVERY_START and
+  // FINAL_DELIVERY_END"); treating that instructional text as delimiters reduces
+  // the member-facing response to the word "and".
+  const markerBlock =
+    /(?:^|\r?\n)[ \t]*FINAL_DELIVERY_START[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*FINAL_DELIVERY_END[ \t]*(?=\r?\n|$)/g;
+  let block = "";
+  for (const match of content.matchAll(markerBlock)) {
+    if (typeof match[1] === "string" && match[1].trim()) block = match[1];
+  }
+  if (block) return cleanFinalDelivery(block);
 
-  return cleanFinalDelivery(content.slice(start + startMarker.length, end));
+  // Fallback for compact Action output. Use the last start marker so an earlier
+  // inline instruction cannot win, and reject tiny connector text.
+  const start = content.lastIndexOf(startMarker);
+  if (start < 0) return "";
+
+  const end = content.indexOf(endMarker, start + startMarker.length);
+  if (end < 0 || end <= start) return "";
+
+  const candidate = content.slice(start + startMarker.length, end).trim();
+  if (!candidate || /^(?:and|to)$/i.test(candidate) || candidate.length < 8) return "";
+
+  return cleanFinalDelivery(candidate);
 }
 
 async function fetchActionRunsForSession(
