@@ -13,6 +13,7 @@ type ChatResult = {
   error?: string;
   conversationId?: string;
   relaySource?: string;
+  actionMode?: string | null;
 };
 
 type PlanResult = {
@@ -189,8 +190,13 @@ export default function FitnessChatPage() {
       }
 
       setMessages((items) => [...items, { role: "assistant", text: cleanCoachText(data.response!) }]);
-      setStatus(data.relaySource === "action-final-delivery" ? "Workout updated and validated." : "");
-      if (data.relaySource === "action-final-delivery") {
+      const validationOnly =
+        data.relaySource === "action-final-delivery" &&
+        data.actionMode === "validate_workout_feasibility";
+      const savedPlanChanged =
+        data.relaySource === "action-final-delivery" && !validationOnly;
+      setStatus(savedPlanChanged ? "Workout updated and validated." : "");
+      if (savedPlanChanged) {
         await loadPlan();
       }
     } catch {
