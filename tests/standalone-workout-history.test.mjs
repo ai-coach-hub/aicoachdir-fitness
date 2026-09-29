@@ -19,3 +19,10 @@ test("standalone workout requests and previous chats stay supported", async () =
   assert.ok(history.includes("/studio/workspace/history"));
   assert.ok(history.includes('format: "messages"'));
 });
+
+
+test("coach display strips leaked markdown heading markers", async () => {
+  const page = await readFile(new URL("../app/fitness/chat/page.tsx", import.meta.url), "utf8");
+  assert.ok(page.includes('replace(/\\\\(?=#{1,6}\\s)/g, "")'));
+  assert.ok(page.includes('replace(/^#{1,6}\\s+/gm, "")'));
+});
