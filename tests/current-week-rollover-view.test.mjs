@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
+// These assertions protect read-time rollover without mutating saved member data.
 async function routeSource() {
   return readFile(new URL("../app/api/fitness/chat/route.ts", import.meta.url), "utf8");
 }
