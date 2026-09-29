@@ -865,8 +865,13 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   35% { opacity: 1; transform: translateY(-2px); }
 }
 .member-chat-form {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
   border-top: 1px solid rgba(255,255,255,.08);
-  padding-top: 18px;
+  padding: 18px 0 2px;
+  background: linear-gradient(180deg, rgba(5,22,38,0), rgba(5,22,38,.96) 22%, rgba(5,22,38,.99));
+  backdrop-filter: blur(10px);
 }
 .member-chat-form textarea {
   width: 100%;

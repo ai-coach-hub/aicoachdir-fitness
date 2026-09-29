@@ -1182,12 +1182,19 @@ async function pollForFirstValidatedDelivery(
   };
 
   while (!signal.aborted) {
-    const runs = await fetchActionRunsForSession(sessionId, studioToken, actionIds, signal);
-    latest = selectCurrentTurnDelivery(runs, requestStartedAt);
-    if (latest.finalDelivery) return latest;
+    try {
+      const runs = await fetchActionRunsForSession(sessionId, studioToken, actionIds, signal);
+      latest = selectCurrentTurnDelivery(runs, requestStartedAt);
+      if (latest.finalDelivery) return latest;
+    } catch (error) {
+      if (signal.aborted) break;
+      console.info("[fitness-chat-relay] action-poll-retry", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     await new Promise<void>((resolve) => {
-      const timer = setTimeout(resolve, 500);
+      const timer = setTimeout(resolve, 750);
       signal.addEventListener(
         "abort",
         () => {
@@ -1762,24 +1769,13 @@ export async function POST(request: Request) {
       } catch {}
     })();
 
-    try {
-      relay = await pollForFirstValidatedDelivery(
-        conversationId,
-        studioToken,
-        requestStartedAt,
-        AbortSignal.timeout(55_000),
-        [SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID],
-      );
-    } catch {
-      return Response.json(
-        {
-          ok: false,
-          error: "Workout update validation could not be checked.",
-          conversationId,
-        },
-        { status: 502 },
-      );
-    }
+    relay = await pollForFirstValidatedDelivery(
+      conversationId,
+      studioToken,
+      requestStartedAt,
+      AbortSignal.timeout(55_000),
+      [SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID],
+    );
 
     if (!relay.finalDelivery) {
       return Response.json(

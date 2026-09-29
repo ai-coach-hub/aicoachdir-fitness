@@ -1,0 +1,31 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+
+async function routeSource() {
+  return readFile(new URL("../app/api/fitness/chat/route.ts", import.meta.url), "utf8");
+}
+
+async function cssSource() {
+  return readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+}
+
+test("validation polling retries transient Action-history lookup failures", async () => {
+  const text = await routeSource();
+
+  assert.match(text, /action-poll-retry/);
+  assert.match(text, /if \(signal\.aborted\) break;/);
+  assert.match(text, /setTimeout\(resolve, 750\)/);
+  assert.doesNotMatch(
+    text,
+    /error: "Workout update validation could not be checked\."/,
+  );
+});
+
+test("composer stays visible at the bottom of the chat panel", async () => {
+  const text = await cssSource();
+
+  assert.match(text, /\.member-chat-form \{[\s\S]*?position: sticky;/);
+  assert.match(text, /\.member-chat-form \{[\s\S]*?bottom: 0;/);
+  assert.match(text, /\.member-chat-form \{[\s\S]*?z-index: 4;/);
+});
