@@ -44,7 +44,7 @@ test("validated workout mutations use async Pickaxe triggers instead of synchron
   assert.ok(mutationStart >= 0 && nonMutationStart > mutationStart);
 
   const mutationBlock = text.slice(mutationStart, nonMutationStart);
-  assert.match(mutationBlock, /PICKAXE_STUDIO_BASE_URL}\/>?triggers|PICKAXE_STUDIO_BASE_URL\}\/triggers/);
+  assert.ok(mutationBlock.includes("PICKAXE_STUDIO_BASE_URL}/triggers"));
   assert.match(mutationBlock, /stream: true/);
   assert.match(
     mutationBlock,
