@@ -1062,6 +1062,7 @@ async function fetchActionRunsForSession(
   sessionId: string,
   studioToken: string,
   actionIds: string[] = [GET_WORKOUT_PLAN_ACTION_ID],
+  signal?: AbortSignal,
 ) {
   const uniqueActionIds = [...new Set(actionIds.filter(Boolean))];
   const results = await Promise.allSettled(
@@ -1078,7 +1079,9 @@ async function fetchActionRunsForSession(
           Accept: "application/json",
         },
         cache: "no-store",
-        signal: AbortSignal.timeout(15_000),
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(10_000)])
+          : AbortSignal.timeout(10_000),
       });
 
       if (!response.ok) {
@@ -1179,7 +1182,7 @@ async function pollForFirstValidatedDelivery(
   };
 
   while (!signal.aborted) {
-    const runs = await fetchActionRunsForSession(sessionId, studioToken, actionIds);
+    const runs = await fetchActionRunsForSession(sessionId, studioToken, actionIds, signal);
     latest = selectCurrentTurnDelivery(runs, requestStartedAt);
     if (latest.finalDelivery) return latest;
 
@@ -1687,93 +1690,9 @@ export async function POST(request: Request) {
 
   const pickaxeMessage = buildPickaxeMessage(message);
   const qualityGuardApplied = pickaxeMessage !== message;
+  const mustUseValidatedDelivery = requiresValidatedWorkoutDelivery(message);
 
   const requestStartedAt = Date.now();
-  const completionAbort = new AbortController();
-  const pollAbort = new AbortController();
-
-  const completionPromise = (async () => {
-    let pickaxeResponse: Response;
-    try {
-      pickaxeResponse = await fetch(PICKAXE_COMPLETIONS_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${deploymentKey}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          message: pickaxeMessage,
-          userId: memberEmail,
-          conversationId,
-          stream: false,
-        }),
-        cache: "no-store",
-        signal: AbortSignal.any([
-          completionAbort.signal,
-          AbortSignal.timeout(115_000),
-        ]),
-      });
-    } catch {
-      if (completionAbort.signal.aborted) {
-        return { kind: "aborted" as const };
-      }
-      return { kind: "error" as const, response: Response.json({ ok: false, error: "Pickaxe request timed out or failed." }, { status: 502 }) };
-    }
-
-    const raw = await pickaxeResponse.text();
-    let payload: unknown = null;
-    try {
-      payload = raw ? JSON.parse(raw) : null;
-    } catch {
-      payload = null;
-    }
-
-    if (!pickaxeResponse.ok) {
-      return {
-        kind: "error" as const,
-        response: Response.json(
-          {
-            ok: false,
-            error: "Pickaxe completion failed.",
-            status: pickaxeResponse.status,
-            detail:
-              payload && typeof payload === "object"
-                ? ((payload as { message?: unknown }).message ?? (payload as { error?: unknown }).error ?? null)
-                : null,
-          },
-          { status: 502 },
-        ),
-      };
-    }
-
-    const responseText = extractResult(payload);
-    if (!responseText) {
-      return {
-        kind: "error" as const,
-        response: Response.json({ ok: false, error: "Pickaxe returned no response text." }, { status: 502 }),
-      };
-    }
-
-    return { kind: "completion" as const, responseText };
-  })();
-
-  const relayActionIds = requiresValidatedWorkoutDelivery(message)
-    ? [SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID]
-    : [GET_WORKOUT_PLAN_ACTION_ID];
-
-  const relayPromise = pollForFirstValidatedDelivery(
-    conversationId,
-    studioToken,
-    requestStartedAt,
-    pollAbort.signal,
-    relayActionIds,
-  )
-    .then((relay) => ({ kind: "relay" as const, relay }))
-    .catch(() => ({ kind: "relay-error" as const }));
-
-  const first = await Promise.race([completionPromise, relayPromise]);
-
   let relay: RelayResult = {
     finalDelivery: "",
     runId: null,
@@ -1787,39 +1706,225 @@ export async function POST(request: Request) {
   };
   let responseText = "";
 
-  if (first.kind === "relay" && first.relay.finalDelivery) {
-    relay = first.relay;
-    completionAbort.abort();
-  } else if (first.kind === "relay-error") {
-    pollAbort.abort();
-    const completion = await completionPromise;
-    if (completion.kind === "error") return completion.response;
-    if (completion.kind === "completion") responseText = completion.responseText;
-  } else {
-    if (first.kind === "error") {
-      pollAbort.abort();
-      return first.response;
+  if (mustUseValidatedDelivery) {
+    let triggerResponse: Response;
+    try {
+      triggerResponse = await fetch(`${PICKAXE_STUDIO_BASE_URL}/triggers`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${deploymentKey}`,
+          "Content-Type": "application/json",
+          Accept: "*/*",
+        },
+        body: JSON.stringify({
+          message: pickaxeMessage,
+          userId: memberEmail,
+          conversationId,
+          stream: true,
+        }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(55_000),
+      });
+    } catch {
+      return Response.json(
+        {
+          ok: false,
+          error: "Workout update could not be started.",
+          conversationId,
+        },
+        { status: 502 },
+      );
     }
-    if (first.kind === "completion") responseText = first.responseText;
 
-    // Completion finished first. Give the Action store a short consistency window,
-    // then use the current-turn Action result if one exists.
-    const consistencyDeadline = Date.now() + 4_000;
-    while (Date.now() < consistencyDeadline && !relay.finalDelivery) {
-      try {
-        const runs = await fetchActionRunsForSession(conversationId, studioToken);
-        relay = selectCurrentTurnDelivery(runs, requestStartedAt);
-      } catch {
-        break;
-      }
-      if (!relay.finalDelivery) await new Promise((resolve) => setTimeout(resolve, 400));
+    if (!triggerResponse.ok) {
+      return Response.json(
+        {
+          ok: false,
+          error: "Workout update could not be started.",
+          conversationId,
+          status: triggerResponse.status,
+        },
+        { status: 502 },
+      );
     }
+
+    // Keep the streamed trigger flowing while the Action relay watches for
+    // the validated saved result. The member response comes from FINAL_DELIVERY,
+    // not from this stream.
+    void (async () => {
+      try {
+        const reader = triggerResponse.body?.getReader();
+        if (!reader) return;
+        while (true) {
+          const { done } = await reader.read();
+          if (done) break;
+        }
+      } catch {}
+    })();
+
+    try {
+      relay = await pollForFirstValidatedDelivery(
+        conversationId,
+        studioToken,
+        requestStartedAt,
+        AbortSignal.timeout(55_000),
+        [SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID],
+      );
+    } catch {
+      return Response.json(
+        {
+          ok: false,
+          error: "Workout update validation could not be checked.",
+          conversationId,
+        },
+        { status: 502 },
+      );
+    }
+
+    if (!relay.finalDelivery) {
+      return Response.json(
+        {
+          ok: false,
+          error: "Workout update did not finish in time. No update was confirmed.",
+          conversationId,
+          relaySource: "action-session-timeout",
+          actionRunCount: relay.runCount,
+        },
+        { status: 504 },
+      );
+    }
+  } else {
+    const completionAbort = new AbortController();
+    const pollAbort = new AbortController();
+
+    const completionPromise = (async () => {
+      let pickaxeResponse: Response;
+      try {
+        pickaxeResponse = await fetch(PICKAXE_COMPLETIONS_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${deploymentKey}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            message: pickaxeMessage,
+            userId: memberEmail,
+            conversationId,
+            stream: false,
+          }),
+          cache: "no-store",
+          signal: AbortSignal.any([
+            completionAbort.signal,
+            AbortSignal.timeout(115_000),
+          ]),
+        });
+      } catch {
+        if (completionAbort.signal.aborted) {
+          return { kind: "aborted" as const };
+        }
+        return {
+          kind: "error" as const,
+          response: Response.json(
+            { ok: false, error: "Pickaxe request timed out or failed." },
+            { status: 502 },
+          ),
+        };
+      }
+
+      const raw = await pickaxeResponse.text();
+      let payload: unknown = null;
+      try {
+        payload = raw ? JSON.parse(raw) : null;
+      } catch {
+        payload = null;
+      }
+
+      if (!pickaxeResponse.ok) {
+        return {
+          kind: "error" as const,
+          response: Response.json(
+            {
+              ok: false,
+              error: "Pickaxe completion failed.",
+              status: pickaxeResponse.status,
+              detail:
+                payload && typeof payload === "object"
+                  ? ((payload as { message?: unknown }).message ??
+                    (payload as { error?: unknown }).error ??
+                    null)
+                  : null,
+            },
+            { status: 502 },
+          ),
+        };
+      }
+
+      const completionText = extractResult(payload);
+      if (!completionText) {
+        return {
+          kind: "error" as const,
+          response: Response.json(
+            { ok: false, error: "Pickaxe returned no response text." },
+            { status: 502 },
+          ),
+        };
+      }
+
+      return { kind: "completion" as const, responseText: completionText };
+    })();
+
+    const relayPromise = pollForFirstValidatedDelivery(
+      conversationId,
+      studioToken,
+      requestStartedAt,
+      pollAbort.signal,
+      [GET_WORKOUT_PLAN_ACTION_ID],
+    )
+      .then((currentRelay) => ({ kind: "relay" as const, relay: currentRelay }))
+      .catch(() => ({ kind: "relay-error" as const }));
+
+    const first = await Promise.race([completionPromise, relayPromise]);
+
+    if (first.kind === "relay" && first.relay.finalDelivery) {
+      relay = first.relay;
+      completionAbort.abort();
+    } else if (first.kind === "relay-error") {
+      pollAbort.abort();
+      const completion = await completionPromise;
+      if (completion.kind === "error") return completion.response;
+      if (completion.kind === "completion") responseText = completion.responseText;
+    } else {
+      if (first.kind === "error") {
+        pollAbort.abort();
+        return first.response;
+      }
+      if (first.kind === "completion") responseText = first.responseText;
+
+      // Completion finished first. Give the Action store a short consistency
+      // window, then use the current-turn read Action result if one exists.
+      const consistencyDeadline = Date.now() + 4_000;
+      while (Date.now() < consistencyDeadline && !relay.finalDelivery) {
+        try {
+          const runs = await fetchActionRunsForSession(
+            conversationId,
+            studioToken,
+            [GET_WORKOUT_PLAN_ACTION_ID],
+          );
+          relay = selectCurrentTurnDelivery(runs, requestStartedAt);
+        } catch {
+          break;
+        }
+        if (!relay.finalDelivery) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+      }
+    }
+
+    pollAbort.abort();
   }
 
-  pollAbort.abort();
-
   const actionRunsPresent = relay.runCount > 0;
-  const mustUseValidatedDelivery = requiresValidatedWorkoutDelivery(message);
   if (actionRunsPresent && !relay.finalDelivery && mustUseValidatedDelivery) {
     return Response.json(
       {
