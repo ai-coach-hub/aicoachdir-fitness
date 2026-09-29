@@ -23,6 +23,12 @@ type PlanResult = {
   error?: string;
 };
 
+type CompletionResult = {
+  ok?: boolean;
+  completedAt?: string;
+  error?: string;
+};
+
 type HistoryMessage = {
   role: "user" | "assistant";
   text: string;
@@ -121,9 +127,37 @@ function scheduleRange(rows: JsonRecord[]) {
 }
 
 function exerciseLabel(value: unknown) {
+  if (typeof value === "string") return value.trim();
   const exercise = asRecord(value);
   if (!exercise) return "";
   return String(exercise.name || exercise.title || exercise.exercise || "").trim();
+}
+
+function exerciseDetail(value: unknown) {
+  const exercise = asRecord(value);
+  if (!exercise) return "";
+  const parts: string[] = [];
+
+  if (typeof exercise.sets === "number") parts.push(`${exercise.sets} sets`);
+  if (typeof exercise.reps === "number" || typeof exercise.reps === "string") {
+    parts.push(`${exercise.reps} reps`);
+  }
+  if (typeof exercise.time === "string" && exercise.time.trim()) parts.push(exercise.time.trim());
+  if (typeof exercise.duration === "string" && exercise.duration.trim()) {
+    parts.push(exercise.duration.trim());
+  }
+  if (typeof exercise.durationMinutes === "number") {
+    parts.push(`${exercise.durationMinutes} min`);
+  }
+  if (typeof exercise.distance === "string" && exercise.distance.trim()) {
+    parts.push(exercise.distance.trim());
+  }
+
+  return parts.join(" · ");
+}
+
+function completionKey(workoutId: string, scheduledDate: string) {
+  return `${workoutId}::${scheduledDate}`;
 }
 
 function formatHistoryDate(value: string) {
@@ -158,6 +192,9 @@ export default function FitnessChatPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [selectedThreadId, setSelectedThreadId] = useState("");
+  const [expandedWorkoutKey, setExpandedWorkoutKey] = useState<string | null>(null);
+  const [completionBusyKey, setCompletionBusyKey] = useState("");
+  const [completionError, setCompletionError] = useState("");
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   async function loadPlan() {
@@ -197,6 +234,37 @@ export default function FitnessChatPage() {
       setHistoryError("Previous chats could not be loaded.");
     } finally {
       setHistoryLoading(false);
+    }
+  }
+
+  async function completeScheduledWorkout(workoutId: string, scheduledDate: string) {
+    const key = completionKey(workoutId, scheduledDate);
+    if (!workoutId || !scheduledDate || completionBusyKey) return;
+
+    setCompletionBusyKey(key);
+    setCompletionError("");
+
+    try {
+      const response = await fetch("/api/fitness/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "complete_workout",
+          workoutId,
+          scheduledDate,
+        }),
+      });
+      const data = (await response.json()) as CompletionResult;
+      if (!response.ok || !data.ok) {
+        setCompletionError(data.error || "Workout completion could not be saved.");
+        return;
+      }
+
+      await loadPlan();
+    } catch {
+      setCompletionError("Workout completion could not be saved.");
+    } finally {
+      setCompletionBusyKey("");
     }
   }
 
@@ -318,6 +386,20 @@ export default function FitnessChatPage() {
   );
 
   const completedCount = history.filter((entry) => !!asRecord(entry)?.completedAt).length;
+  const completedScheduleKeys = useMemo(
+    () =>
+      new Set(
+        history.flatMap((entry) => {
+          const record = asRecord(entry);
+          const workoutId = String(record?.workoutId || "");
+          const scheduledDate = String(record?.scheduledDate || "");
+          return record?.completedAt && workoutId && scheduledDate
+            ? [completionKey(workoutId, scheduledDate)]
+            : [];
+        }),
+      ),
+    [history],
+  );
   const scheduleMode =
     plan?.scheduleMode === "fixed_weekdays"
       ? "Scheduled by day"
@@ -547,17 +629,48 @@ export default function FitnessChatPage() {
                   <div className="schedule-grid">
                     {rows.map((row, index) => {
                       const id = String(row.workoutId || "");
+                      const scheduledDate = String(row.date || "");
                       const workout = asRecord(currentWorkouts[id]);
                       const rest = row.isRestDay === true || !id;
+                      const workoutKey = `current:${id}`;
+                      const doneKey = completionKey(id, scheduledDate);
+                      const completed = !!scheduledDate && completedScheduleKeys.has(doneKey);
+                      const savingCompletion = completionBusyKey === doneKey;
                       return (
                         <article key={index} className={rest ? "schedule-card rest" : "schedule-card"}>
                           <span>{String(row.day || `Workout ${index + 1}`)}</span>
                           {row.date ? <small>{formatDate(row.date)}</small> : null}
                           <strong>{rest ? "Rest" : workoutTitle(workout, id)}</strong>
+                          {!rest ? (
+                            <div className="schedule-card-actions">
+                              <button
+                                type="button"
+                                className="text-button"
+                                onClick={() =>
+                                  setExpandedWorkoutKey((current) =>
+                                    current === workoutKey ? null : workoutKey,
+                                  )
+                                }
+                              >
+                                {expandedWorkoutKey === workoutKey ? "Hide details" : "View details"}
+                              </button>
+                              {scheduledDate ? (
+                                <button
+                                  type="button"
+                                  className="text-button"
+                                  disabled={completed || !!completionBusyKey}
+                                  onClick={() => void completeScheduledWorkout(id, scheduledDate)}
+                                >
+                                  {completed ? "Completed" : savingCompletion ? "Saving..." : "Mark complete"}
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </article>
                       );
                     })}
                   </div>
+                  {completionError ? <p className="member-error completion-error">{completionError}</p> : null}
                 </section>
               ) : null}
 
@@ -589,9 +702,9 @@ export default function FitnessChatPage() {
               <div className="workout-card-grid">
                 {workoutList.map(({ key, id, workout, scope }) => {
                   const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
-                  const names = exercises.map(exerciseLabel).filter(Boolean);
+                  const expanded = expandedWorkoutKey === key;
                   return (
-                    <article key={key} className="workout-card">
+                    <article key={key} className={expanded ? "workout-card expanded" : "workout-card"}>
                       <div className="workout-card-topline">
                         <span>{scope === "next" ? "Next saved week" : "Current saved week"}</span>
                         {typeof workout.durationMinutes === "number" ? (
@@ -600,23 +713,54 @@ export default function FitnessChatPage() {
                       </div>
                       <h3>{workoutTitle(workout, id)}</h3>
                       {workout.description ? <p>{String(workout.description)}</p> : null}
-                      {names.length ? (
-                        <ul>
-                          {names.slice(0, 8).map((name, index) => <li key={index}>{name}</li>)}
-                        </ul>
+
+                      {expanded ? (
+                        exercises.length ? (
+                          <div className="workout-detail-list">
+                            {exercises.map((exercise, index) => {
+                              const name = exerciseLabel(exercise) || `Exercise ${index + 1}`;
+                              const detail = exerciseDetail(exercise);
+                              return (
+                                <div key={index} className="workout-detail-row">
+                                  <strong>{name}</strong>
+                                  {detail ? <span>{detail}</span> : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="muted-copy">No additional exercise details are saved for this workout.</p>
+                        )
                       ) : (
-                        <p className="muted-copy">Open Coach to ask about the details or make a change.</p>
+                        <p className="muted-copy">
+                          {exercises.length
+                            ? `${exercises.length} exercise${exercises.length === 1 ? "" : "s"} saved`
+                            : "Open the workout to review its saved details."}
+                        </p>
                       )}
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={() => {
-                          setTab("coach");
-                          setInput(`I want to adjust my "${workoutTitle(workout, id)}" workout in my ${scope === "next" ? "next" : "current"} saved week.`);
-                        }}
-                      >
-                        Adjust with Coach
-                      </button>
+
+                      <div className="workout-card-actions">
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          aria-expanded={expandedWorkoutKey === key}
+                          onClick={() =>
+                            setExpandedWorkoutKey((current) => (current === key ? null : key))
+                          }
+                        >
+                          {expanded ? "Hide details" : "View details"}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => {
+                            setTab("coach");
+                            setInput(`I want to adjust my "${workoutTitle(workout, id)}" workout in my ${scope === "next" ? "next" : "current"} saved week.`);
+                          }}
+                        >
+                          Adjust with Coach
+                        </button>
+                      </div>
                     </article>
                   );
                 })}
