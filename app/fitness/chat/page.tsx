@@ -200,6 +200,7 @@ export default function FitnessChatPage() {
 
   useEffect(() => {
     void loadPlan();
+    void loadChatHistory();
 
     try {
       const previous = window.localStorage.getItem(COACH_INTRO_STORAGE_KEY);
@@ -275,6 +276,16 @@ export default function FitnessChatPage() {
 
   function reviewThread(thread: HistoryThread) {
     setSelectedThreadId(thread.id);
+  }
+
+  function openThreadFromRail(thread: HistoryThread) {
+    if (canResumeThread(thread.id)) {
+      resumeThread(thread);
+      return;
+    }
+
+    setSelectedThreadId(thread.id);
+    setTab("history");
   }
 
   function resumeThread(thread: HistoryThread) {
@@ -366,6 +377,58 @@ export default function FitnessChatPage() {
 
       {tab === "coach" ? (
         <section className="member-coach-layout">
+          <aside className="chat-history-rail" aria-label="Previous chats">
+            <div className="chat-history-rail-heading">
+              <div>
+                <p className="eyebrow compact-eyebrow">CHATS</p>
+                <h2>Previous Chats</h2>
+              </div>
+              <button type="button" className="text-button" onClick={newChat}>
+                + New
+              </button>
+            </div>
+
+            {historyLoading ? <p className="chat-history-state">Loading chats...</p> : null}
+            {historyError ? <p className="chat-history-state member-error">{historyError}</p> : null}
+
+            {!historyLoading && !historyError && threads.length === 0 ? (
+              <p className="chat-history-state">Your previous Fitness Coach chats will appear here.</p>
+            ) : null}
+
+            {threads.length ? (
+              <div className="chat-history-list">
+                {threads.slice(0, 20).map((thread) => (
+                  <button
+                    key={thread.id}
+                    type="button"
+                    className={
+                      canResumeThread(thread.id) && thread.id === conversationId
+                        ? "chat-history-item active"
+                        : "chat-history-item"
+                    }
+                    onClick={() => openThreadFromRail(thread)}
+                    title={thread.title}
+                  >
+                    <strong>{thread.title}</strong>
+                    <span>{formatHistoryDate(thread.updatedAt || thread.createdAt) || "Previous chat"}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              className="secondary-button chat-history-view-all"
+              onClick={() => {
+                setSelectedThreadId("");
+                setTab("history");
+                void loadChatHistory();
+              }}
+            >
+              View all chats
+            </button>
+          </aside>
+
           <div className="member-chat-panel">
             <div className="member-panel-heading">
               <div>
