@@ -9,10 +9,10 @@ async function routeSource() {
 test("read-only plan summaries include flexibleSequence plans", async () => {
   const text = await routeSource();
 
-  assert.match(text, /function summarizeFlexibleSequencesummarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence(plan: Record<string, unknown>, label: stringsummarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence)/);
-  assert.match(text, /ArraysummarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence.isArraysummarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence(plansummarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence.flexibleSequencesummarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence)/);
-  assert.match(text, /summarizeFlexibleSequencesummarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequencesummarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence(visiblePlan, "Current flexible sequence"summarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequencesummarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence)/);
-  assert.match(text, /summarizeFlexibleSequencesummarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence(candidate, "Next flexible sequence"summarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence)/);
+  assert.match(text, /function summarizeFlexibleSequence\(plan: Record<string, unknown>, label: string\)/);
+  assert.match(text, /Array\.isArray\(plan\.flexibleSequence\)/);
+  assert.match(text, /summarizeFlexibleSequence\(visiblePlan, "Current flexible sequence"\)/);
+  assert.match(text, /summarizeFlexibleSequence\(candidate, "Next flexible sequence"\)/);
 });
 
 test("nextPlan summary supports nested and direct plan shapes", async () => {
@@ -28,10 +28,10 @@ test("fixed weekday summaries remain preferred when available", async () => {
 
   assert.match(
     text,
-    /summarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence|summarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence|summarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequences*summarizeFlexibleSequence/,
+    /summarizeWeek\(visiblePlan, "Current saved week"\) \|\|\s*summarizeFlexibleSequence/,
   );
   assert.match(
     text,
-    /summarizeWeeksummarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence(candidate, "Next saved week"summarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence) summarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence|summarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequence|summarizeWeek\\(visiblePlan, "Current saved week"\\) \\|\\|\\s*summarizeFlexibleSequences*summarizeFlexibleSequence/,
+    /summarizeWeek\(candidate, "Next saved week"\) \|\|\s*summarizeFlexibleSequence/,
   );
 });
