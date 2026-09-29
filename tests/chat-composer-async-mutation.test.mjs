@@ -36,7 +36,7 @@ test("desktop Enter sends while Shift+Enter remains available for a newline", as
   assert.match(text, /event\.currentTarget\.form\?\.requestSubmit\(\)/);
 });
 
-test("validated workout mutations use async Pickaxe triggers instead of synchronous completion", async () => {
+test("validated workout mutations use the reliable completion driver but only trust Action delivery", async () => {
   const text = await routeSource();
 
   const mutationStart = text.indexOf("if (mustUseValidatedDelivery) {");
@@ -44,14 +44,16 @@ test("validated workout mutations use async Pickaxe triggers instead of synchron
   assert.ok(mutationStart >= 0 && nonMutationStart > mutationStart);
 
   const mutationBlock = text.slice(mutationStart, nonMutationStart);
-  assert.ok(mutationBlock.includes("PICKAXE_STUDIO_BASE_URL}/triggers"));
-  assert.match(mutationBlock, /stream: true/);
+  assert.match(mutationBlock, /PICKAXE_COMPLETIONS_URL/);
+  assert.match(mutationBlock, /stream: false/);
   assert.match(
     mutationBlock,
     /\[SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID\]/,
   );
   assert.match(mutationBlock, /AbortSignal\.timeout\(55_000\)/);
-  assert.doesNotMatch(mutationBlock, /PICKAXE_COMPLETIONS_URL/);
+  assert.match(mutationBlock, /if \(!relay\.finalDelivery\)/);
+  assert.match(mutationBlock, /status: 504/);
+  assert.doesNotMatch(mutationBlock, /PICKAXE_STUDIO_BASE_URL}\/triggers/);
 });
 
 test("non-mutation coaching retains the existing completion path", async () => {
