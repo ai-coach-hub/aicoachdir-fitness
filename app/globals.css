@@ -692,7 +692,7 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
 }
 .member-hub-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 22px;
 }
@@ -1117,9 +1117,9 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   .member-hub-shell { width: min(100% - 22px, 1180px); padding-top: 16px; }
   .member-hub-header { align-items: flex-start; flex-direction: column; }
   .member-hub-header h1 { font-size: 44px; }
-  .member-hub-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .member-tab { padding: 10px; min-height: 54px; font-size: 12px; }
-  .member-tab span { display: none; }
+  .member-hub-tabs { grid-template-columns: 1fr 1fr; }
+  .member-tab { padding: 12px; min-height: 66px; }
+  .member-tab span { display: block; }
   .member-chat-panel,
   .member-workouts-panel,
   .member-plan-glance { padding: 18px; border-radius: 20px; }
