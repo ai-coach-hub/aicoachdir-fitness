@@ -613,6 +613,130 @@ async function mirrorPlanIntoHistoryMemory(
   return false;
 }
 
+
+async function saveMemberWorkoutHistory(
+  email: string,
+  studioToken: string,
+  plan: Record<string, unknown>,
+  entries: Record<string, unknown>[],
+) {
+  const headers = {
+    Authorization: `Bearer ${studioToken}`,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+
+  const definitionsResponse = await fetch(
+    `${PICKAXE_STUDIO_BASE_URL}/studio/memory/list?skip=0&take=100`,
+    { headers, cache: "no-store", signal: AbortSignal.timeout(15_000) },
+  );
+  if (!definitionsResponse.ok) return false;
+
+  const definitions = memoryPayloadItems(await definitionsResponse.json());
+  const historyNames = new Set(
+    [
+      "fitness workout history v1",
+      "fitness-workout-history-v1",
+      "fitness_workout_history_v1",
+      "fitness workout history for ai coach",
+      "fitness workout history (for ai coach)",
+    ].map(normalizeMemoryName),
+  );
+  const definition = definitions.find((item) => historyNames.has(memoryDefinitionName(item)));
+  const memoryId = memoryDefinitionId(definition);
+  if (!memoryId) return false;
+
+  const readUrl =
+    `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}?memoryId=${encodeURIComponent(memoryId)}&skip=0&take=100`;
+  const existingResponse = await fetch(readUrl, {
+    headers,
+    cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+  });
+  const hasExisting =
+    existingResponse.ok && collectMemoryValues(await existingResponse.json()).length > 0;
+
+  const planForHistory = clonePlan(plan);
+  attachHistoryBridge(planForHistory, email, studioToken);
+  const updatedAt = new Date().toISOString();
+  const storedEntries = entries.slice(0, 15);
+  const envelope = JSON.stringify({
+    schemaVersion: 2,
+    updatedAt,
+    plan: planForHistory,
+    entries: storedEntries,
+  });
+
+  const writeResponse = hasExisting
+    ? await fetch(
+        `${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/${encodeURIComponent(email)}/${encodeURIComponent(memoryId)}`,
+        {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ data: { value: envelope } }),
+          cache: "no-store",
+          signal: AbortSignal.timeout(20_000),
+        },
+      )
+    : await fetch(`${PICKAXE_STUDIO_BASE_URL}/studio/memory/user/create`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ userId: email, memoryId, value: envelope }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(20_000),
+      });
+
+  if (!writeResponse.ok) return false;
+
+  for (const delay of [0, 400, 900]) {
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    const verifyResponse = await fetch(readUrl, {
+      headers,
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!verifyResponse.ok) continue;
+
+    const values = collectMemoryValues(await verifyResponse.json());
+    const verified = values.some((value) => {
+      const decoded = unwrapMemoryValue(value);
+      if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) return false;
+      const record = decoded as Record<string, unknown>;
+      return (
+        record.updatedAt === updatedAt &&
+        Array.isArray(record.entries) &&
+        JSON.stringify(record.entries) === JSON.stringify(storedEntries)
+      );
+    });
+
+    if (verified) return true;
+  }
+
+  return false;
+}
+
+function completionExercise(value: unknown, index: number) {
+  const exercise =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  const name =
+    exercise
+      ? String(exercise.name || exercise.title || exercise.exercise || "").trim()
+      : typeof value === "string"
+        ? value.trim()
+        : "";
+  if (!name) return null;
+
+  return {
+    id: exercise?.id ? String(exercise.id) : `exercise-${index + 1}`,
+    name,
+    trackingType: exercise?.trackingType ? String(exercise.trackingType) : null,
+    skipped: false,
+    sets: [],
+  };
+}
+
 async function recoverStructuredPlanForMember(email: string, studioToken: string) {
   const runs = await fetchSuccessfulMemberSaveRuns(email, studioToken);
   if (!runs.length) return { attempted: true, restored: false, reason: "no-member-save-runs" };
@@ -1706,11 +1830,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const deploymentKey = getDeploymentKey();
   const studioToken = getStudioToken();
-  if (!deploymentKey || !studioToken) {
+  if (!studioToken) {
     return Response.json(
-      { ok: false, error: "Fitness Coach relay is not configured." },
+      { ok: false, error: "Workout data is not configured." },
       { status: 503 },
     );
   }
@@ -1720,6 +1843,144 @@ export async function POST(request: Request) {
     body = await request.json();
   } catch {
     body = null;
+  }
+
+  const action =
+    body && typeof body === "object" && typeof (body as { action?: unknown }).action === "string"
+      ? (body as { action: string }).action.trim()
+      : "";
+
+  if (action === "complete_workout") {
+    const workoutId =
+      body &&
+      typeof body === "object" &&
+      typeof (body as { workoutId?: unknown }).workoutId === "string"
+        ? (body as { workoutId: string }).workoutId.trim()
+        : "";
+    const scheduledDate =
+      body &&
+      typeof body === "object" &&
+      typeof (body as { scheduledDate?: unknown }).scheduledDate === "string"
+        ? (body as { scheduledDate: string }).scheduledDate.trim()
+        : "";
+
+    if (!workoutId || !/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)) {
+      return Response.json(
+        { ok: false, error: "A valid scheduled workout is required." },
+        { status: 400 },
+      );
+    }
+
+    try {
+      const data = await readMemberWorkoutData(memberEmail, studioToken);
+      if (!data.plan) {
+        return Response.json(
+          { ok: false, error: "Your saved workout plan could not be found." },
+          { status: 404 },
+        );
+      }
+
+      const activePlan = activeSavedPlan(data.plan);
+      const rows = Array.isArray(activePlan.weekSchedule) ? activePlan.weekSchedule : [];
+      const scheduledRow = rows
+        .filter((value) => value && typeof value === "object" && !Array.isArray(value))
+        .map((value) => value as Record<string, unknown>)
+        .find(
+          (row) =>
+            String(row.workoutId || "") === workoutId &&
+            String(row.date || "") === scheduledDate &&
+            row.isRestDay !== true,
+        );
+
+      if (!scheduledRow) {
+        return Response.json(
+          { ok: false, error: "That workout is not scheduled in your current saved week." },
+          { status: 404 },
+        );
+      }
+
+      const workouts =
+        activePlan.workouts &&
+        typeof activePlan.workouts === "object" &&
+        !Array.isArray(activePlan.workouts)
+          ? (activePlan.workouts as Record<string, unknown>)
+          : {};
+      const workoutValue = workouts[workoutId];
+      const workout =
+        workoutValue && typeof workoutValue === "object" && !Array.isArray(workoutValue)
+          ? (workoutValue as Record<string, unknown>)
+          : null;
+
+      if (!workout) {
+        return Response.json(
+          { ok: false, error: "Workout details could not be found." },
+          { status: 404 },
+        );
+      }
+
+      const completedAt = new Date().toISOString();
+      const exercises = (Array.isArray(workout.exercises) ? workout.exercises : [])
+        .map(completionExercise)
+        .filter((value): value is NonNullable<ReturnType<typeof completionExercise>> => !!value);
+
+      const entry: Record<string, unknown> = {
+        planId: String(activePlan.planId || data.plan.planId || "") || null,
+        phase: null,
+        scheduledDate,
+        workoutId,
+        title: String(workout.title || workout.name || workoutId),
+        completedAt,
+        durationMinutes:
+          typeof workout.durationMinutes === "number" ? workout.durationMinutes : null,
+        difficulty: typeof workout.difficulty === "string" ? workout.difficulty : null,
+        notes: "",
+        exercisesCompleted: exercises.length,
+        exercisesSkipped: 0,
+        exercises,
+      };
+
+      const previousEntries = data.historyEntries
+        .filter((value) => value && typeof value === "object" && !Array.isArray(value))
+        .map((value) => value as Record<string, unknown>)
+        .filter(
+          (value) =>
+            !(
+              String(value.workoutId || "") === workoutId &&
+              String(value.scheduledDate || "") === scheduledDate
+            ),
+        );
+
+      const saved = await saveMemberWorkoutHistory(
+        memberEmail,
+        studioToken,
+        data.plan,
+        [entry, ...previousEntries],
+      );
+      if (!saved) {
+        return Response.json(
+          { ok: false, error: "Workout completion could not be saved." },
+          { status: 502 },
+        );
+      }
+
+      return Response.json({ ok: true, completedAt });
+    } catch (error) {
+      console.error("[fitness-member-hub] completion-save-failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return Response.json(
+        { ok: false, error: "Workout completion could not be saved." },
+        { status: 502 },
+      );
+    }
+  }
+
+  const deploymentKey = getDeploymentKey();
+  if (!deploymentKey) {
+    return Response.json(
+      { ok: false, error: "Fitness Coach relay is not configured." },
+      { status: 503 },
+    );
   }
 
   const message =
