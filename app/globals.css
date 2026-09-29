@@ -725,13 +725,14 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
 
 .member-coach-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 290px;
+  grid-template-columns: 230px minmax(0, 1fr) 290px;
   gap: 18px;
   align-items: start;
 }
 .member-chat-panel,
 .member-plan-glance,
-.member-workouts-panel {
+.member-workouts-panel,
+.chat-history-rail {
   border: 1px solid rgba(255,255,255,.18);
   border-radius: 24px;
   background: linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.045));
@@ -741,6 +742,68 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
 .member-chat-panel,
 .member-workouts-panel {
   padding: 26px;
+}
+.chat-history-rail {
+  padding: 16px;
+  position: sticky;
+  top: 18px;
+}
+.chat-history-rail-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.chat-history-rail-heading h2 {
+  margin: 3px 0 0;
+  font-size: 19px;
+}
+.chat-history-list {
+  display: grid;
+  gap: 7px;
+  max-height: 58vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.chat-history-item {
+  width: 100%;
+  display: grid;
+  gap: 5px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 13px;
+  background: rgba(255,255,255,.045);
+  color: #eaf3fb;
+  text-align: left;
+}
+.chat-history-item:hover {
+  border-color: rgba(77,226,231,.32);
+  background: rgba(77,226,231,.055);
+}
+.chat-history-item.active {
+  border-color: rgba(118,216,78,.44);
+  background: rgba(104,216,73,.09);
+}
+.chat-history-item strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.chat-history-item span,
+.chat-history-state {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.chat-history-state {
+  margin: 8px 2px 14px;
+}
+.chat-history-view-all {
+  width: 100%;
+  margin-top: 12px;
 }
 .member-plan-glance {
   padding: 24px;
@@ -1027,9 +1090,27 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   margin-bottom: 7px;
 }
 
+@media (max-width: 1120px) {
+  .member-coach-layout {
+    grid-template-columns: 210px minmax(0, 1fr);
+  }
+  .member-plan-glance {
+    grid-column: 1 / -1;
+    position: static;
+  }
+}
 @media (max-width: 900px) {
   .member-coach-layout { grid-template-columns: 1fr; }
+  .chat-history-rail,
   .member-plan-glance { position: static; }
+  .chat-history-list {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(190px, 240px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+    padding-bottom: 4px;
+  }
   .workout-card-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 680px) {
