@@ -1417,7 +1417,7 @@ function buildStandaloneWorkoutPreviewMessage(message: string) {
     "The member explicitly does not want this workout saved. Do not call Get Workout Plan, get_plan, Save Workout Plan, validate_workout_feasibility, or any other Action.",
     "Build the requested one-off workout directly from the member's message and relevant compact user context only.",
     "Honor every stated equipment exclusion, restriction, and the full requested session duration. Use realistic work and rest time; do not pad the duration with headings.",
-    "Do not introduce unconfirmed equipment or setup. If the member says they only have dumbbells, bands, or bodyweight and excludes a bench, chair, table, bar, machine, or other equipment, treat the resistance band as UNANCHORED unless an anchor was explicitly confirmed. Do not prescribe high-anchor pulldowns, anchored rows, anchored presses, door anchors, furniture anchors, or similar setup.",
+    "Do not introduce unconfirmed equipment or setup. If the member says they only have dumbbells, bands, or bodyweight and excludes a bench, chair, table, bar, machine, or other equipment, treat the resistance band as UNANCHORED unless an anchor was explicitly confirmed. Do not prescribe high-anchor pulldowns, anchored rows, anchored presses, door anchors, furniture anchors, or similar setup. Any unanchored band exercise must be mechanically valid with the stated setup; for example, a band chest press may wrap the band behind the upper back, but do not tell the member to stand on the band and press it forward from the shoulders.",
     "Do not include alternatives unless the member requested them.",
     "Before answering, silently verify that every exercise can be performed with only the explicitly allowed equipment/setup and that the programmed work plus stated rest plausibly fits the full requested duration.",
     "Return only the member-facing workout. Use plain section labels, not Markdown heading markers such as # or ##.",
@@ -1464,12 +1464,27 @@ function responseUsesUnconfirmedAnchor(responseText: string) {
   );
 }
 
+function responseUsesInvalidUnanchoredBandSetup(responseText: string) {
+  const hasBandChestPress = /\bband chest press\b/i.test(responseText);
+  const tellsUserToStandOnBand =
+    /\b(?:stand|step)\s+(?:in|on)\s+(?:the\s+)?(?:center|middle)?\s*(?:of\s+)?(?:the\s+)?band\b/i.test(
+      responseText,
+    ) ||
+    /\bband\s+(?:under|beneath)\s+(?:your\s+)?feet\b/i.test(responseText);
+
+  return hasBandChestPress && tellsUserToStandOnBand;
+}
+
 function coachingQualitySignals(message: string, responseText: string) {
   const signals: string[] = [];
   if (!shouldApplyCoachQualityGuard(message)) return signals;
 
   if (isStandaloneNoSaveWorkout(message) && memberDisallowsAnchorSetup(message) && responseUsesUnconfirmedAnchor(responseText)) {
     signals.push("UNCONFIRMED_ANCHOR_SETUP");
+  }
+
+  if (isStandaloneNoSaveWorkout(message) && responseUsesInvalidUnanchoredBandSetup(responseText)) {
+    signals.push("INVALID_UNANCHORED_BAND_SETUP");
   }
 
   if (
@@ -1512,7 +1527,7 @@ async function requestCoachQualityRewrite(args: {
     "Do not call tools, Actions, save anything, or mention this correction.",
     "Rewrite the draft so it directly answers the member's request, uses the active subject already reflected in the draft, and gives a concrete useful next step now when enough information exists.",
     "Remove generic filler and any arbitrary check-back delay. Do not invent facts, equipment, restrictions, dates, or user details.",
-    "If the original member message limits equipment/setup, remove every exercise that requires anything outside those limits. In particular, if no anchor/setup is confirmed, do not use anchored band rows, pulldowns, presses, door anchors, furniture anchors, or similar setup.",
+    "If the original member message limits equipment/setup, remove every exercise that requires anything outside those limits. In particular, if no anchor/setup is confirmed, do not use anchored band rows, pulldowns, presses, door anchors, furniture anchors, or similar setup. Also correct mechanically invalid unanchored band setups: do not describe a band chest press by having the member stand on the band and press it forward; either use a mechanically valid unanchored setup such as wrapping the band behind the upper back or choose a different exercise.",
     "Keep the requested full session duration realistic by accounting for the programmed work and stated rest. Keep the answer concise unless detail is genuinely needed.",
     "",
     "ORIGINAL MEMBER MESSAGE:",
