@@ -88,3 +88,9 @@ test("standalone previews reject unconfirmed resistance-band anchor setup", asyn
   assert.ok(route.includes("treat the resistance band as UNANCHORED"));
   assert.ok(route.includes("do not use anchored band rows, pulldowns, presses"));
 });
+
+test("standalone previews catch invalid unanchored band setup", async () => {
+  const route = await readFile(new URL("../app/api/fitness/chat/route.ts", import.meta.url), "utf8");
+  assert.ok(route.includes("responseUsesInvalidUnanchoredBandSetup"));
+  assert.ok(route.includes("INVALID_UNANCHORED_BAND_SETUP"));
+});
