@@ -132,7 +132,7 @@ test("coach explains unfamiliar exercises without bloating familiar ones", async
     "utf8",
   );
 
-  assert.ok(route.includes("do not assume every exercise name is common knowledge"));
+  assert.ok(route.includes("Do not assume every exercise name is common knowledge"));
   assert.ok(route.includes("typical non-expert might reasonably not recognize"));
   assert.ok(route.includes("Keep obvious movements concise"));
   assert.ok(syncScript.includes("Meet members where they are"));
