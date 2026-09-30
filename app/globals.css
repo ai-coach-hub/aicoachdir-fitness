@@ -1147,12 +1147,13 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   margin-top: 14px;
 }
 .tracker-set-row {
-  display: grid;
-  grid-template-columns: 62px repeat(4, minmax(0, 1fr)) auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
 .tracker-set-row > strong {
+  flex: 0 0 62px;
   color: #dfe9f3;
   font-size: 12px;
 }
@@ -1167,7 +1168,9 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   font: inherit;
 }
 .tracker-set-row input {
-  min-width: 0;
+  flex: 1 1 140px;
+  min-width: 120px;
+  max-width: 280px;
   padding: 9px 10px;
 }
 .tracker-set-row input::placeholder,
@@ -1294,11 +1297,8 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
 }
 
 @media (max-width: 1120px) {
-  .tracker-set-row {
-    grid-template-columns: 52px repeat(2, minmax(0, 1fr));
-  }
-  .tracker-set-row .tracker-remove-set {
-    justify-self: start;
+  .tracker-set-row > strong {
+    flex-basis: 52px;
   }
   .member-coach-layout {
     grid-template-columns: 210px minmax(0, 1fr);
@@ -1327,12 +1327,16 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   .tracker-exercise-heading {
     flex-direction: column;
   }
-  .tracker-set-row {
-    grid-template-columns: 1fr 1fr;
+  .tracker-set-row > strong {
+    flex: 0 0 100%;
   }
-  .tracker-set-row > strong,
+  .tracker-set-row input {
+    flex: 1 1 calc(50% - 4px);
+    max-width: none;
+  }
   .tracker-set-row .tracker-remove-set {
-    grid-column: 1 / -1;
+    flex: 0 0 100%;
+    text-align: left;
   }
   .member-hub-shell { width: min(100% - 22px, 1180px); padding-top: 16px; }
   .member-hub-header { align-items: flex-start; flex-direction: column; }

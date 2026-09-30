@@ -78,3 +78,18 @@ test("fitness member route sanitizes and persists submitted exercise tracking da
   assert.match(text, /distance/);
   assert.match(text, /notes/);
 });
+
+
+test("workout tracker only shows fields that match the exercise prescription", async () => {
+  const text = await memberHubSource();
+
+  assert.match(text, /trackerFieldVisibility/);
+  assert.match(text, /fields:\s*trackerFieldVisibility\(exercise\)/);
+  assert.match(text, /exercise\.fields\.weight/);
+  assert.match(text, /exercise\.fields\.reps/);
+  assert.match(text, /exercise\.fields\.time/);
+  assert.match(text, /exercise\.fields\.distance/);
+  assert.match(text, /distanceRelevant/);
+  assert.match(text, /timeRelevant/);
+  assert.match(text, /repsRelevant/);
+});
