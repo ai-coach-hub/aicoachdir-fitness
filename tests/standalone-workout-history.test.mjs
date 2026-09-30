@@ -66,7 +66,7 @@ test("production deploy compacts the Pickaxe system prompt with rollback backup"
 
   assert.ok(workflow.includes("Sync compact Pickaxe coach configuration"));
   assert.ok(workflow.includes("--env-file=.vercel/.env.production.local"));
-  assert.ok(syncScript.includes("AI FITNESS COACH - COMPACT PRODUCTION PROMPT v1"));
+  assert.ok(syncScript.includes("AI FITNESS COACH - COMPACT PRODUCTION PROMPT v2"));
   assert.ok(syncScript.includes('body: JSON.stringify({ data: { role: compactPrompt } })'));
   assert.ok(syncScript.includes("ai-fitness-coach-role-before-compact.txt"));
 });
@@ -122,4 +122,19 @@ test("saved-plan mutations log per-action breakdown without another model call",
   assert.ok(route.includes("sourceActionId"));
   assert.ok(route.includes("save_workout_plan"));
   assert.ok(route.includes("get_workout_plan"));
+});
+
+
+test("coach explains unfamiliar exercises without bloating familiar ones", async () => {
+  const route = await readFile(new URL("../app/api/fitness/chat/route.ts", import.meta.url), "utf8");
+  const syncScript = await readFile(
+    new URL("../scripts/sync-pickaxe-compact-coach.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.ok(route.includes("do not assume every exercise name is common knowledge"));
+  assert.ok(route.includes("typical non-expert might reasonably not recognize"));
+  assert.ok(route.includes("Keep obvious movements concise"));
+  assert.ok(syncScript.includes("Meet members where they are"));
+  assert.ok(syncScript.includes("one short plain-language setup or execution cue"));
 });
