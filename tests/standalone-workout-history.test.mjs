@@ -78,3 +78,13 @@ test("compact Pickaxe migration script parses as valid Node code", () => {
   );
   execFileSync(process.execPath, ["--check", scriptPath], { stdio: "pipe" });
 });
+
+test("standalone previews reject unconfirmed resistance-band anchor setup", async () => {
+  const route = await readFile(new URL("../app/api/fitness/chat/route.ts", import.meta.url), "utf8");
+
+  assert.ok(route.includes("memberDisallowsAnchorSetup"));
+  assert.ok(route.includes("responseUsesUnconfirmedAnchor"));
+  assert.ok(route.includes("UNCONFIRMED_ANCHOR_SETUP"));
+  assert.ok(route.includes("treat the resistance band as UNANCHORED"));
+  assert.ok(route.includes("do not use anchored band rows, pulldowns, presses"));
+});
