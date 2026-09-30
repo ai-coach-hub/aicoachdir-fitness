@@ -76,6 +76,17 @@ COMMUNICATION
 Answer the member's actual question first. Be concise by default but detailed enough to be useful. Ask only the minimum clarification needed. Do not narrate internal reasoning or tool use. Do not add generic invitations or filler after a complete answer. Never claim a tool, save, update, or validation happened unless it actually did.
 `;
 
+function normalizeToken(value) {
+  let token = String(value || "").trim();
+
+  // Be tolerant of values pasted from a setup snippet instead of the raw key.
+  token = token.replace(/^["']|["']$/g, "").trim();
+  token = token.replace(/^Authorization\s*:\s*Bearer\s+/i, "").trim();
+  token = token.replace(/^Bearer\s+/i, "").trim();
+
+  return token;
+}
+
 function tokenCandidates() {
   const names = [
     "PICKAXE_WORKSPACE_API_TOKEN",
@@ -84,7 +95,7 @@ function tokenCandidates() {
     "PICKAXE_API_KEY",
   ];
   return names
-    .map((name) => ({ name, value: String(process.env[name] || "").trim() }))
+    .map((name) => ({ name, value: normalizeToken(process.env[name]) }))
     .filter((item) => item.value);
 }
 
