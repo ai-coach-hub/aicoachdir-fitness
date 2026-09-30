@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 const LEGACY_COACH_ID = "W7S4B963AI9ELAW";
 const API_BASE = "https://api.pickaxe.co/v1";
 const MARKER = "AI FITNESS COACH - COMPACT PRODUCTION PROMPT v1";
@@ -106,6 +108,10 @@ async function resolveWorkspaceToken() {
   }
 
   for (const candidate of candidates) {
+    const fingerprint = createHash("sha256").update(candidate.value, "utf8").digest("hex").slice(0, 12);
+    console.log(
+      `[pickaxe-compact-coach] testing ${candidate.name}: length=${candidate.value.length}, sha256_prefix=${fingerprint}`,
+    );
     try {
       const whoami = await pickaxeFetch("/studio/whoami", candidate.value);
       console.log(`[pickaxe-compact-coach] authenticated with ${candidate.name}`);
