@@ -89,12 +89,20 @@ type TrackerSet = {
   distance: string;
 };
 
+type TrackerFields = {
+  weight: boolean;
+  reps: boolean;
+  time: boolean;
+  distance: boolean;
+};
+
 type TrackerExercise = {
   id: string;
   name: string;
   trackingType: string | null;
   skipped: boolean;
   prescription: string;
+  fields: TrackerFields;
   sets: TrackerSet[];
 };
 
@@ -158,6 +166,15 @@ function exerciseLabel(value: unknown) {
   return String(exercise.name || exercise.title || exercise.exercise || "").trim();
 }
 
+function timeLikeValue(value: unknown) {
+  return (
+    typeof value === "string" &&
+    /(?:^|\s)\d+(?:\.\d+)?\s*(?:s|sec|secs|second|seconds|min|mins|minute|minutes|hr|hrs|hour|hours)(?:\s|$)/i.test(
+      value.trim(),
+    )
+  );
+}
+
 function exerciseDetail(value: unknown) {
   const exercise = asRecord(value);
   if (!exercise) return "";
@@ -165,7 +182,7 @@ function exerciseDetail(value: unknown) {
 
   if (typeof exercise.sets === "number") parts.push(`${exercise.sets} sets`);
   if (typeof exercise.reps === "number" || typeof exercise.reps === "string") {
-    parts.push(`${exercise.reps} reps`);
+    parts.push(timeLikeValue(exercise.reps) ? String(exercise.reps).trim() : `${exercise.reps} reps`);
   }
   if (typeof exercise.time === "string" && exercise.time.trim()) parts.push(exercise.time.trim());
   if (typeof exercise.duration === "string" && exercise.duration.trim()) {
@@ -174,11 +191,75 @@ function exerciseDetail(value: unknown) {
   if (typeof exercise.durationMinutes === "number") {
     parts.push(`${exercise.durationMinutes} min`);
   }
-  if (typeof exercise.distance === "string" && exercise.distance.trim()) {
-    parts.push(exercise.distance.trim());
+  if (
+    (typeof exercise.distance === "string" && exercise.distance.trim()) ||
+    typeof exercise.distance === "number"
+  ) {
+    parts.push(String(exercise.distance).trim());
   }
 
   return parts.join(" · ");
+}
+
+function trackerFieldVisibility(exercise: JsonRecord | null): TrackerFields {
+  if (!exercise) {
+    return { weight: true, reps: true, time: false, distance: false };
+  }
+
+  const trackingType = String(exercise.trackingType || "").toLowerCase();
+  const exerciseName = String(exercise.name || exercise.title || exercise.exercise || "").toLowerCase();
+  const repsValue = exercise.reps;
+
+  const hasExplicitDistance =
+    (typeof exercise.distance === "string" && !!exercise.distance.trim()) ||
+    typeof exercise.distance === "number";
+  const hasExplicitTime =
+    (typeof exercise.time === "string" && !!exercise.time.trim()) ||
+    (typeof exercise.duration === "string" && !!exercise.duration.trim()) ||
+    typeof exercise.durationMinutes === "number" ||
+    typeof exercise.durationSeconds === "number";
+  const timedRepPrescription = timeLikeValue(repsValue);
+
+  const distanceRelevant =
+    hasExplicitDistance ||
+    /distance|meter|metre|mile|kilometer|kilometre|\bkm\b/.test(trackingType) ||
+    /distance|meter|metre|mile|kilometer|kilometre|\bkm\b/.test(exerciseName);
+
+  const timeRelevant =
+    hasExplicitTime ||
+    timedRepPrescription ||
+    /time|duration|interval|hold/.test(trackingType);
+
+  const repsRelevant =
+    !timedRepPrescription &&
+    (typeof repsValue === "number" ||
+      (typeof repsValue === "string" && !!repsValue.trim()) ||
+      /rep|set|strength|resistance|weight|load|bodyweight/.test(trackingType));
+
+  const weightRelevant =
+    repsRelevant ||
+    /weight|load|strength|resistance/.test(trackingType) ||
+    exercise.weight != null ||
+    exercise.load != null;
+
+  if (distanceRelevant) {
+    return {
+      weight: false,
+      reps: repsRelevant && !timeRelevant,
+      time: timeRelevant || !repsRelevant,
+      distance: true,
+    };
+  }
+
+  if (timeRelevant && !repsRelevant) {
+    return { weight: false, reps: false, time: true, distance: false };
+  }
+
+  if (repsRelevant) {
+    return { weight: weightRelevant, reps: true, time: false, distance: false };
+  }
+
+  return { weight: true, reps: true, time: false, distance: false };
 }
 
 function prescribedSetCount(exercise: JsonRecord | null) {
@@ -210,6 +291,7 @@ function buildTrackerExercises(workout: JsonRecord): TrackerExercise[] {
         typeof exercise?.trackingType === "string" ? exercise.trackingType : null,
       skipped: false,
       prescription: exerciseDetail(value),
+      fields: trackerFieldVisibility(exercise),
       sets: Array.from({ length: count }, () => emptyTrackerSet()),
     }];
   });
@@ -951,42 +1033,55 @@ export default function FitnessChatPage() {
                             <>
                               <div className="tracker-set-list">
                                 {exercise.sets.map((set, setIndex) => (
-                                  <div key={setIndex} className="tracker-set-row">
+                                  <div
+                                    key={setIndex}
+                                    className={`tracker-set-row tracker-fields-${
+                                      Object.values(exercise.fields).filter(Boolean).length
+                                    }`}
+                                  >
                                     <strong>Set {setIndex + 1}</strong>
-                                    <input
-                                      value={set.weight}
-                                      onChange={(event) =>
-                                        updateTrackerSet(exerciseIndex, setIndex, "weight", event.target.value)
-                                      }
-                                      placeholder="Weight"
-                                      inputMode="decimal"
-                                      aria-label={`${exercise.name} set ${setIndex + 1} weight`}
-                                    />
-                                    <input
-                                      value={set.reps}
-                                      onChange={(event) =>
-                                        updateTrackerSet(exerciseIndex, setIndex, "reps", event.target.value)
-                                      }
-                                      placeholder="Reps"
-                                      inputMode="numeric"
-                                      aria-label={`${exercise.name} set ${setIndex + 1} reps`}
-                                    />
-                                    <input
-                                      value={set.time}
-                                      onChange={(event) =>
-                                        updateTrackerSet(exerciseIndex, setIndex, "time", event.target.value)
-                                      }
-                                      placeholder="Time"
-                                      aria-label={`${exercise.name} set ${setIndex + 1} time`}
-                                    />
-                                    <input
-                                      value={set.distance}
-                                      onChange={(event) =>
-                                        updateTrackerSet(exerciseIndex, setIndex, "distance", event.target.value)
-                                      }
-                                      placeholder="Distance"
-                                      aria-label={`${exercise.name} set ${setIndex + 1} distance`}
-                                    />
+                                    {exercise.fields.weight ? (
+                                      <input
+                                        value={set.weight}
+                                        onChange={(event) =>
+                                          updateTrackerSet(exerciseIndex, setIndex, "weight", event.target.value)
+                                        }
+                                        placeholder="Weight"
+                                        inputMode="decimal"
+                                        aria-label={`${exercise.name} set ${setIndex + 1} weight`}
+                                      />
+                                    ) : null}
+                                    {exercise.fields.reps ? (
+                                      <input
+                                        value={set.reps}
+                                        onChange={(event) =>
+                                          updateTrackerSet(exerciseIndex, setIndex, "reps", event.target.value)
+                                        }
+                                        placeholder="Reps"
+                                        inputMode="numeric"
+                                        aria-label={`${exercise.name} set ${setIndex + 1} reps`}
+                                      />
+                                    ) : null}
+                                    {exercise.fields.time ? (
+                                      <input
+                                        value={set.time}
+                                        onChange={(event) =>
+                                          updateTrackerSet(exerciseIndex, setIndex, "time", event.target.value)
+                                        }
+                                        placeholder="Time"
+                                        aria-label={`${exercise.name} set ${setIndex + 1} time`}
+                                      />
+                                    ) : null}
+                                    {exercise.fields.distance ? (
+                                      <input
+                                        value={set.distance}
+                                        onChange={(event) =>
+                                          updateTrackerSet(exerciseIndex, setIndex, "distance", event.target.value)
+                                        }
+                                        placeholder="Distance"
+                                        aria-label={`${exercise.name} set ${setIndex + 1} distance`}
+                                      />
+                                    ) : null}
                                     {exercise.sets.length > 1 ? (
                                       <button
                                         type="button"
