@@ -103,3 +103,12 @@ test("standalone previews guard mechanically invalid row setup and unilateral ti
   assert.ok(route.includes("responseUsesInvalidUprightDumbbellRow"));
   assert.ok(route.includes("Count both sides of unilateral work in the duration check"));
 });
+
+
+test("short standalone previews use time-anchored programming when needed", async () => {
+  const route = await readFile(new URL("../app/api/fitness/chat/route.ts", import.meta.url), "utf8");
+
+  assert.ok(route.includes("For short sessions (about 30 minutes or less)"));
+  assert.ok(route.includes("prefer time-anchored blocks, EMOMs, AMRAPs, intervals"));
+  assert.ok(route.includes("convert the main work to timed rounds"));
+});
