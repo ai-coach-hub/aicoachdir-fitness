@@ -877,6 +877,7 @@ type ActionRun = {
   parsedArgs?: Record<string, unknown>;
   content?: string;
   createdAt?: string;
+  sourceActionId?: string;
 };
 
 type RelayResult = {
@@ -1189,7 +1190,9 @@ async function fetchActionRunsForSession(
         data?: { runs?: ActionRun[] };
       };
 
-      return Array.isArray(payload.data?.runs) ? payload.data.runs : [];
+      return Array.isArray(payload.data?.runs)
+        ? payload.data.runs.map((run) => ({ ...run, sourceActionId: actionId }))
+        : [];
     }),
   );
 
@@ -1204,12 +1207,63 @@ async function fetchActionRunsForSession(
   return runs;
 }
 
-function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number): RelayResult {
-  const currentTurnRuns = runs.filter((run) => {
+function currentTurnActionRuns(runs: ActionRun[], requestStartedAt: number) {
+  return runs.filter((run) => {
     if (!run.createdAt) return true;
     const created = Date.parse(run.createdAt);
     return Number.isFinite(created) && created >= requestStartedAt - 5_000;
   });
+}
+
+function actionLabel(actionId: string | undefined) {
+  if (actionId === SAVE_WORKOUT_PLAN_ACTION_ID) return "save_workout_plan";
+  if (actionId === GET_WORKOUT_PLAN_ACTION_ID) return "get_workout_plan";
+  return actionId || "unknown";
+}
+
+async function logSavedMutationActionBreakdown(
+  sessionId: string,
+  studioToken: string,
+  requestStartedAt: number,
+) {
+  try {
+    const runs = currentTurnActionRuns(
+      await fetchActionRunsForSession(
+        sessionId,
+        studioToken,
+        [SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID],
+      ),
+      requestStartedAt,
+    );
+
+    const byAction = runs.reduce<Record<string, number>>((summary, run) => {
+      const label = actionLabel(run.sourceActionId);
+      summary[label] = (summary[label] || 0) + 1;
+      return summary;
+    }, {});
+
+    const byStatus = runs.reduce<Record<string, number>>((summary, run) => {
+      const status = String(run.status || "unknown");
+      summary[status] = (summary[status] || 0) + 1;
+      return summary;
+    }, {});
+
+    console.info("[fitness-chat-relay] mutation-action-breakdown", {
+      conversationId: sessionId,
+      totalCurrentTurnRuns: runs.length,
+      byAction,
+      byStatus,
+    });
+  } catch (error) {
+    console.info("[fitness-chat-relay] mutation-action-breakdown-unavailable", {
+      conversationId: sessionId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+function selectCurrentTurnDelivery(runs: ActionRun[], requestStartedAt: number): RelayResult {
+  const currentTurnRuns = currentTurnActionRuns(runs, requestStartedAt);
 
   const analyzedRuns = currentTurnRuns.map((run) => {
     const content = typeof run.content === "string" ? run.content : "";
@@ -2147,6 +2201,12 @@ export async function POST(request: Request) {
       mutationDriverPromise,
       new Promise<void>((resolve) => setTimeout(resolve, 250)),
     ]);
+
+    await logSavedMutationActionBreakdown(
+      conversationId,
+      studioToken,
+      requestStartedAt,
+    );
 
     if (!relay.finalDelivery) {
       console.warn("[fitness-chat-relay] mutation-timeout", {
