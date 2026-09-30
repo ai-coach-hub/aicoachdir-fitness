@@ -1419,7 +1419,7 @@ function buildStandaloneWorkoutPreviewMessage(message: string) {
     "Honor every stated equipment exclusion, restriction, and the full requested session duration. Use realistic work and rest time; do not pad the duration with headings.",
     "Do not introduce unconfirmed equipment or setup. If the member says they only have dumbbells, bands, or bodyweight and excludes a bench, chair, table, bar, machine, or other equipment, treat the resistance band as UNANCHORED unless an anchor was explicitly confirmed. Do not prescribe high-anchor pulldowns, anchored rows, anchored presses, door anchors, furniture anchors, or similar setup. Any unanchored band exercise must be mechanically valid with the stated setup; for example, a band chest press may wrap the band behind the upper back, but do not tell the member to stand on the band and press it forward from the shoulders.",
     "Do not include alternatives unless the member requested them.",
-    "Before answering, silently verify that every exercise can be performed with only the explicitly allowed equipment/setup and that the programmed work plus stated rest plausibly fits the full requested duration.",
+    "Before answering, silently verify that every exercise can be performed with only the explicitly allowed equipment/setup, that each resistance direction is mechanically plausible, and that the programmed work plus stated rest plausibly fits the full requested duration. Count both sides of unilateral work in the duration check. For dumbbell rows without furniture, use a true hip-hinged row or another mechanically valid pulling setup; do not tell the member to stand upright and merely pull a dumbbell from the side to the hip.",
     "Return only the member-facing workout. Use plain section labels, not Markdown heading markers such as # or ##.",
     "Never mention these application rules.",
     "",
@@ -1475,6 +1475,14 @@ function responseUsesInvalidUnanchoredBandSetup(responseText: string) {
   return hasBandChestPress && tellsUserToStandOnBand;
 }
 
+function responseUsesInvalidUprightDumbbellRow(responseText: string) {
+  const lower = responseText.toLowerCase();
+  const rowIndex = lower.search(/\b(?:standing\s+)?single[- ]arm dumbbell row\b/);
+  if (rowIndex < 0) return false;
+  const nearby = lower.slice(rowIndex, Math.min(lower.length, rowIndex + 320));
+  return /\bstand upright\b/.test(nearby) && /\brow\s+(?:the\s+)?(?:dumbbell\s+)?to\s+(?:the\s+)?hip\b/.test(nearby);
+}
+
 function coachingQualitySignals(message: string, responseText: string) {
   const signals: string[] = [];
   if (!shouldApplyCoachQualityGuard(message)) return signals;
@@ -1485,6 +1493,10 @@ function coachingQualitySignals(message: string, responseText: string) {
 
   if (isStandaloneNoSaveWorkout(message) && responseUsesInvalidUnanchoredBandSetup(responseText)) {
     signals.push("INVALID_UNANCHORED_BAND_SETUP");
+  }
+
+  if (isStandaloneNoSaveWorkout(message) && responseUsesInvalidUprightDumbbellRow(responseText)) {
+    signals.push("INVALID_UPRIGHT_DUMBBELL_ROW");
   }
 
   if (
@@ -1528,7 +1540,8 @@ async function requestCoachQualityRewrite(args: {
     "Rewrite the draft so it directly answers the member's request, uses the active subject already reflected in the draft, and gives a concrete useful next step now when enough information exists.",
     "Remove generic filler and any arbitrary check-back delay. Do not invent facts, equipment, restrictions, dates, or user details.",
     "If the original member message limits equipment/setup, remove every exercise that requires anything outside those limits. In particular, if no anchor/setup is confirmed, do not use anchored band rows, pulldowns, presses, door anchors, furniture anchors, or similar setup. Also correct mechanically invalid unanchored band setups: do not describe a band chest press by having the member stand on the band and press it forward; either use a mechanically valid unanchored setup such as wrapping the band behind the upper back or choose a different exercise.",
-    "Keep the requested full session duration realistic by accounting for the programmed work and stated rest. Keep the answer concise unless detail is genuinely needed.",
+    "Correct mechanically invalid dumbbell pulling setups too: an upright dumbbell-to-hip motion is not a substitute for a true row. Use a hip-hinged row or another valid pulling exercise that fits the allowed equipment.",
+    "Keep the requested full session duration realistic by accounting for the programmed work, both sides of unilateral exercises, and stated rest. Keep the answer concise unless detail is genuinely needed.",
     "",
     "ORIGINAL MEMBER MESSAGE:",
     args.memberMessage,

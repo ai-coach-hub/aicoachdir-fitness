@@ -94,3 +94,12 @@ test("standalone previews catch invalid unanchored band setup", async () => {
   assert.ok(route.includes("responseUsesInvalidUnanchoredBandSetup"));
   assert.ok(route.includes("INVALID_UNANCHORED_BAND_SETUP"));
 });
+
+
+test("standalone previews guard mechanically invalid row setup and unilateral timing", async () => {
+  const route = await readFile(new URL("../app/api/fitness/chat/route.ts", import.meta.url), "utf8");
+
+  assert.ok(route.includes("INVALID_UPRIGHT_DUMBBELL_ROW"));
+  assert.ok(route.includes("responseUsesInvalidUprightDumbbellRow"));
+  assert.ok(route.includes("Count both sides of unilateral work in the duration check"));
+});
