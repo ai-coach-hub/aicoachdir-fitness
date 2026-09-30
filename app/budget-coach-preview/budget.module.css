@@ -1,0 +1,486 @@
+.shell {
+  min-height: 100%;
+  padding: 32px clamp(18px, 4vw, 56px) 64px;
+  background:
+    radial-gradient(circle at top right, rgba(22, 101, 52, 0.08), transparent 32rem),
+    #f7f8f7;
+  color: #17201b;
+}
+
+.header,
+.summaryGrid,
+.layout,
+.notice {
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 20px;
+}
+
+.header h1 {
+  margin: 6px 0 8px;
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.eyebrow,
+.kicker {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #496054;
+}
+
+.subhead {
+  max-width: 700px;
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: #526057;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.previewBadge,
+.backLink {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 15px;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.previewBadge {
+  background: #17201b;
+  color: #ffffff;
+}
+
+.backLink {
+  border: 1px solid #cdd5cf;
+  color: #223029;
+  background: #ffffff;
+  text-decoration: none;
+}
+
+.notice {
+  border: 1px solid #cfd7d1;
+  border-left: 5px solid #476052;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  line-height: 1.55;
+  color: #46544b;
+}
+
+.notice strong {
+  color: #17201b;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.summaryGrid article {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #d8ded9;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.summaryGrid span,
+.summaryGrid small {
+  display: block;
+  color: #647069;
+}
+
+.summaryGrid span {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.summaryGrid strong {
+  display: block;
+  margin: 7px 0 5px;
+  font-size: clamp(1.65rem, 3vw, 2.35rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.summaryGrid small {
+  line-height: 1.35;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 20px;
+  align-items: start;
+}
+
+.workspace,
+.coachRail {
+  min-width: 0;
+}
+
+.sectionHeading,
+.panelHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sectionHeading {
+  margin: 0 0 12px;
+}
+
+.sectionHeading h2,
+.panelHeading h3,
+.coachCard h2,
+.guardrailCard h3 {
+  margin: 4px 0 0;
+  letter-spacing: -0.025em;
+}
+
+.panel {
+  margin-bottom: 14px;
+  overflow: hidden;
+  border: 1px solid #d9dfda;
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+.panelHeading {
+  padding: 17px 18px;
+  border-bottom: 1px solid #e5e9e6;
+}
+
+.panelHeading p {
+  margin: 5px 0 0;
+  color: #6a746e;
+  font-size: 0.9rem;
+}
+
+.secondaryButton,
+.textButton,
+.disabledButton {
+  min-height: 42px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.secondaryButton {
+  border: 1px solid #cfd6d1;
+  background: #ffffff;
+  color: #24322a;
+  cursor: pointer;
+}
+
+.textButton {
+  border: 0;
+  background: #edf2ee;
+  color: #25382d;
+  cursor: pointer;
+}
+
+.incomeList {
+  padding: 10px 18px 18px;
+}
+
+.incomeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.nameInput,
+.moneyField input {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  border: 1px solid #d9dfda;
+  border-radius: 11px;
+  background: #fbfcfb;
+  color: #17201b;
+  font: inherit;
+  font-size: 16px;
+}
+
+.nameInput {
+  padding: 0 12px;
+}
+
+.nameInput:focus,
+.moneyField input:focus,
+.secondaryButton:focus-visible,
+.textButton:focus-visible,
+.backLink:focus-visible {
+  outline: 3px solid rgba(71, 96, 82, 0.24);
+  outline-offset: 2px;
+  border-color: #6b8174;
+}
+
+.moneyField {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.moneyField span {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6f7c74;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.moneyField input {
+  padding: 0 10px 0 25px;
+  text-align: right;
+}
+
+.tableWrap {
+  width: 100%;
+}
+
+.tableHeader,
+.budgetRow {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.45fr) minmax(105px, 0.65fr) minmax(105px, 0.65fr) minmax(90px, 0.55fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.tableHeader {
+  padding: 10px 18px;
+  background: #f6f8f6;
+  color: #68746c;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tableHeader span:not(:first-child) {
+  text-align: right;
+}
+
+.budgetRow {
+  padding: 10px 18px;
+  border-top: 1px solid #edf0ee;
+}
+
+.budgetRow:first-of-type {
+  border-top: 0;
+}
+
+.categoryCell {
+  min-width: 0;
+}
+
+.remainingAmount,
+.negativeAmount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.remainingAmount {
+  color: #22372a;
+}
+
+.negativeAmount {
+  color: #a13b32;
+}
+
+.coachRail {
+  display: grid;
+  gap: 14px;
+}
+
+.coachCard,
+.guardrailCard {
+  border: 1px solid #d8ded9;
+  border-radius: 20px;
+  background: #ffffff;
+  padding: 20px;
+}
+
+.coachCard h2 {
+  font-size: 1.45rem;
+}
+
+.coachCard > p:not(.kicker),
+.guardrailCard li {
+  color: #59665e;
+  line-height: 1.55;
+}
+
+.coachExample {
+  margin: 18px 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f1f4f2;
+}
+
+.coachExample span {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #65726a;
+}
+
+.coachExample p {
+  margin: 7px 0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.disabledButton {
+  width: 100%;
+  border: 1px dashed #b8c2bb;
+  background: #f5f6f5;
+  color: #7b8580;
+  cursor: not-allowed;
+}
+
+.guardrailCard h3 {
+  font-size: 1rem;
+}
+
+.guardrailCard ul {
+  padding-left: 20px;
+  margin: 12px 0 0;
+}
+
+.guardrailCard li + li {
+  margin-top: 8px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .secondaryButton:hover,
+  .backLink:hover {
+    background: #f4f6f4;
+  }
+
+  .textButton:hover {
+    background: #e3eae5;
+  }
+}
+
+@media (max-width: 930px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .coachRail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .shell {
+    padding: 22px 12px 48px;
+  }
+
+  .header,
+  .sectionHeading,
+  .panelHeading {
+    align-items: flex-start;
+  }
+
+  .header {
+    flex-direction: column;
+  }
+
+  .headerActions {
+    width: 100%;
+  }
+
+  .summaryGrid,
+  .coachRail {
+    grid-template-columns: 1fr;
+  }
+
+  .tableWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tableHeader,
+  .budgetRow {
+    min-width: 670px;
+  }
+
+  .incomeRow {
+    grid-template-columns: minmax(0, 1fr) 130px;
+  }
+}
+
+@media (max-width: 430px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .incomeRow {
+    grid-template-columns: 1fr;
+  }
+
+  .moneyField {
+    width: 100%;
+  }
+
+  .sectionHeading {
+    flex-direction: column;
+  }
+}
