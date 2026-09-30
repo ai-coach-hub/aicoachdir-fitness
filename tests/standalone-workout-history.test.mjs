@@ -112,3 +112,14 @@ test("short standalone previews use time-anchored programming when needed", asyn
   assert.ok(route.includes("prefer time-anchored blocks, EMOMs, AMRAPs, intervals"));
   assert.ok(route.includes("convert the main work to timed rounds"));
 });
+
+
+test("saved-plan mutations log per-action breakdown without another model call", async () => {
+  const route = await readFile(new URL("../app/api/fitness/chat/route.ts", import.meta.url), "utf8");
+
+  assert.ok(route.includes("logSavedMutationActionBreakdown"));
+  assert.ok(route.includes("mutation-action-breakdown"));
+  assert.ok(route.includes("sourceActionId"));
+  assert.ok(route.includes("save_workout_plan"));
+  assert.ok(route.includes("get_workout_plan"));
+});
