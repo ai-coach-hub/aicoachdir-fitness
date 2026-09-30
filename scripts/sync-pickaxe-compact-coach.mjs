@@ -1,4 +1,4 @@
-const COACH_ID = "W7S4B963AI9ELAW";
+const LEGACY_COACH_ID = "W7S4B963AI9ELAW";
 const API_BASE = "https://api.pickaxe.co/v1";
 const MARKER = "AI FITNESS COACH - COMPACT PRODUCTION PROMPT v1";
 
@@ -96,17 +96,52 @@ async function resolveWorkspaceToken() {
 
   for (const candidate of candidates) {
     try {
-      const current = await pickaxeFetch(`/studio/pickaxe/${COACH_ID}`, candidate.value);
+      const whoami = await pickaxeFetch("/studio/whoami", candidate.value);
       console.log(`[pickaxe-compact-coach] authenticated with ${candidate.name}`);
-      return { token: candidate.value, current };
+      return { token: candidate.value, whoami };
     } catch (error) {
       console.warn(
-        `[pickaxe-compact-coach] ${candidate.name} was rejected; trying the next configured Pickaxe credential.`,
+        `[pickaxe-compact-coach] ${candidate.name} failed workspace authentication; trying the next configured Pickaxe credential.`,
       );
     }
   }
 
-  throw new Error("All configured Pickaxe workspace API credentials were rejected.");
+  throw new Error("All configured Pickaxe workspace API credentials failed workspace authentication.");
+}
+
+function pickaxeListFromPayload(payload) {
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload)) return payload;
+  return [];
+}
+
+async function resolveCoachId(token) {
+  const explicit = String(process.env.PICKAXE_FITNESS_COACH_PICKAXE_ID || "").trim();
+  const list = pickaxeListFromPayload(await pickaxeFetch("/studio/pickaxe/list", token));
+
+  if (explicit) {
+    const exact = list.find((item) => String(item?.pickaxeId || "") === explicit);
+    if (!exact) throw new Error(`Configured PICKAXE_FITNESS_COACH_PICKAXE_ID was not found in this workspace: ${explicit}`);
+    return explicit;
+  }
+
+  const legacy = list.find((item) => String(item?.pickaxeId || "") === LEGACY_COACH_ID);
+  if (legacy) return LEGACY_COACH_ID;
+
+  const fitnessCandidates = list.filter((item) => {
+    const text = [item?.name, item?.description, item?.pickaxeId]
+      .map((value) => String(value || "").toLowerCase())
+      .join(" ");
+    return text.includes("fitness") && text.includes("coach");
+  });
+
+  if (fitnessCandidates.length === 1) {
+    return String(fitnessCandidates[0].pickaxeId);
+  }
+
+  throw new Error(
+    `Could not uniquely identify the AI Fitness Coach Pickaxe. Workspace contains ${list.length} Pickaxes and ${fitnessCandidates.length} fitness-coach candidates.`,
+  );
 }
 
 async function pickaxeFetch(path, token, options = {}) {
@@ -143,7 +178,12 @@ function roleFromPayload(payload) {
 }
 
 async function main() {
-  const { token, current } = await resolveWorkspaceToken();
+  const { token, whoami } = await resolveWorkspaceToken();
+  const coachId = await resolveCoachId(token);
+  console.log(`[pickaxe-compact-coach] workspace: ${whoami?.data?.workspace?.name || "unknown"}`);
+  console.log(`[pickaxe-compact-coach] coach Pickaxe ID: ${coachId}`);
+
+  const current = await pickaxeFetch(`/studio/pickaxe/${coachId}`, token);
   const currentRole = roleFromPayload(current);
 
   console.log(`[pickaxe-compact-coach] current prompt characters: ${currentRole.length}`);
@@ -162,12 +202,12 @@ async function main() {
     "utf8",
   );
 
-  await pickaxeFetch(`/studio/pickaxe/${COACH_ID}`, token, {
+  await pickaxeFetch(`/studio/pickaxe/${coachId}`, token, {
     method: "PATCH",
     body: JSON.stringify({ data: { role: compactPrompt } }),
   });
 
-  const verified = await pickaxeFetch(`/studio/pickaxe/${COACH_ID}`, token);
+  const verified = await pickaxeFetch(`/studio/pickaxe/${coachId}`, token);
   const verifiedRole = roleFromPayload(verified);
   if (!verifiedRole.includes(MARKER)) {
     throw new Error("Compact Pickaxe prompt update could not be verified.");
