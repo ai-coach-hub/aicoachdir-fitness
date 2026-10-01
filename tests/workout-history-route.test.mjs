@@ -179,7 +179,7 @@ test('saves verified workout history when current plan context is temporarily un
     if (path.startsWith('/studio/memory/user/member%40example.com?')) {
       return Response.json({
         items: [{
-          value: JSON.stringify({
+          value: writtenValue ?? JSON.stringify({
             schemaVersion: 2,
             updatedAt: '2026-09-15T17:30:00.000Z',
             entries: [],
