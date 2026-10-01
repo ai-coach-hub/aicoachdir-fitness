@@ -33,6 +33,66 @@ function getStudioToken() {
   return (process.env.PICKAXE_WORKSPACE_API_TOKEN || "").trim();
 }
 
+function normalizedIdentifier(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function userRecordFromPayload(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const data = record.data;
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    return data as Record<string, unknown>;
+  }
+  return record;
+}
+
+function historyIdentifierAliases(value: unknown, memberEmail: string) {
+  const aliases = new Set<string>([memberEmail.toLowerCase()]);
+  const record = userRecordFromPayload(value);
+  if (!record) return [...aliases];
+
+  for (const key of ["id", "_id", "userId", "userID", "uid", "identifier", "email"]) {
+    const candidate = normalizedIdentifier(record[key]);
+    if (candidate) aliases.add(candidate);
+  }
+
+  return [...aliases].slice(0, 6);
+}
+
+async function resolveHistoryUserIdentifiers(memberEmail: string, studioToken: string) {
+  try {
+    const response = await fetch(
+      `${PICKAXE_STUDIO_BASE_URL}/studio/user/${encodeURIComponent(memberEmail)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${studioToken}`,
+          Accept: "application/json",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+
+    if (!response.ok) {
+      console.info("[fitness-chat-history] user-alias-lookup", {
+        status: response.status,
+        fallbackToEmail: true,
+      });
+      return [memberEmail.toLowerCase()];
+    }
+
+    return historyIdentifierAliases(await response.json(), memberEmail);
+  } catch (error) {
+    console.info("[fitness-chat-history] user-alias-lookup-failed", {
+      fallbackToEmail: true,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return [memberEmail.toLowerCase()];
+  }
+}
+
 function stringFromUnknown(value: unknown): string {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -115,11 +175,11 @@ function threadTitle(messages: HistoryMessage[]) {
   return oneLine.length > 80 ? `${oneLine.slice(0, 77)}...` : oneLine;
 }
 
-function normalizeThread(value: unknown, memberEmail: string): HistoryThread | null {
+function normalizeThread(value: unknown, expectedUserIds: string[]): HistoryThread | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  const userId = String(record.userId || record.user || "").trim().toLowerCase();
-  if (userId !== memberEmail.toLowerCase()) return null;
+  const userId = normalizedIdentifier(record.userId || record.user);
+  if (!expectedUserIds.includes(userId)) return null;
 
   const id = String(record.responseId || record.sessionId || record.id || "").trim();
   if (!id) return null;
@@ -168,6 +228,7 @@ export async function GET() {
   }
 
   try {
+    const historyIdentifiers = await resolveHistoryUserIdentifiers(memberEmail, studioToken);
     const response = await fetch(`${PICKAXE_STUDIO_BASE_URL}/studio/workspace/history`, {
       method: "POST",
       headers: {
@@ -176,7 +237,7 @@ export async function GET() {
         Accept: "application/json",
       },
       body: JSON.stringify({
-        users: [memberEmail],
+        users: historyIdentifiers,
         skip: 0,
         limit: 50,
         format: "messages",
@@ -194,9 +255,17 @@ export async function GET() {
     }
 
     const payload = (await response.json()) as { data?: unknown[] };
-    const threads = (Array.isArray(payload.data) ? payload.data : [])
-      .map((item) => normalizeThread(item, memberEmail))
+    const rawRecords = Array.isArray(payload.data) ? payload.data : [];
+    const threads = rawRecords
+      .map((item) => normalizeThread(item, historyIdentifiers))
       .filter((item): item is HistoryThread => !!item);
+
+    console.info("[fitness-chat-history] read-result", {
+      identifiersResolved: historyIdentifiers.length,
+      recordsReturned: rawRecords.length,
+      threadsAccepted: threads.length,
+      recordsRejected: rawRecords.length - threads.length,
+    });
 
     return Response.json({
       ok: true,
