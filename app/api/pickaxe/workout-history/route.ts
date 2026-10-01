@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { neon } from "@neondatabase/serverless";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -438,6 +439,64 @@ async function storedPlanConfirmsBridge(
   }
 }
 
+function cachedPlanConfirmsBridge(value: unknown, auth: BridgeAuth) {
+  const seen = new WeakSet<object>();
+
+  function visit(candidate: unknown, depth = 0): boolean {
+    const decoded = unwrapStoredValue(candidate);
+    if (
+      !decoded ||
+      typeof decoded !== "object" ||
+      Array.isArray(decoded) ||
+      depth > 10
+    ) {
+      return false;
+    }
+
+    if (seen.has(decoded)) return false;
+    seen.add(decoded);
+
+    const record = decoded as JsonRecord;
+    const bridge = parseBridgeAuth(record._historyBridge || record.historyBridge);
+    if (bridge && sameBridgeCapability(bridge, auth)) return true;
+
+    if (visit(record.nextPlan, depth + 1)) return true;
+    if (visit(record.plan, depth + 1)) return true;
+    if (visit(record.currentPlan, depth + 1)) return true;
+    if (visit(record.workoutPlan, depth + 1)) return true;
+
+    return false;
+  }
+
+  return visit(value);
+}
+
+async function cachedPlanConfirmsStoredBridge(auth: BridgeAuth) {
+  const connectionString =
+    process.env.STORAGE_URL ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    "";
+  if (!connectionString) return false;
+
+  try {
+    const sql = neon(connectionString);
+    const rows = await sql`
+      SELECT plan_json
+      FROM workout_plan_cache
+      WHERE email = ${auth.email}
+      LIMIT 1
+    `;
+    return rows.length > 0 && cachedPlanConfirmsBridge(rows[0].plan_json, auth);
+  } catch (error) {
+    console.warn(
+      "Pickaxe workout-history bridge cache capability lookup failed.",
+      error instanceof Error ? error.message : error,
+    );
+    return false;
+  }
+}
+
 function looksLikePlanForAuth(value: unknown, auth: BridgeAuth): value is JsonRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const plan = value as JsonRecord;
@@ -633,15 +692,18 @@ export async function POST(request: Request) {
   if (!hmacValid) {
     try {
       rotatedCapabilityMemoryIds = await workoutMemoryIds(token);
-      const storedCapabilityValid = await storedPlanConfirmsBridge(
-        token,
-        auth,
-        rotatedCapabilityMemoryIds.planMemoryId,
-      );
+      const storedCapabilityValid =
+        (await storedPlanConfirmsBridge(
+          token,
+          auth,
+          rotatedCapabilityMemoryIds.planMemoryId,
+        )) || (await cachedPlanConfirmsStoredBridge(auth));
       if (!storedCapabilityValid) {
         return jsonResponse(origin, { ok: false, message: "Workout sync authorization failed." }, 401);
       }
-      console.info("Pickaxe workout-history bridge accepted a trusted stored capability after signing-key rotation.");
+      console.info(
+        "Pickaxe workout-history bridge accepted a trusted stored or cached capability after signing-key rotation.",
+      );
     } catch {
       return jsonResponse(origin, { ok: false, message: "Workout sync authorization failed." }, 401);
     }
