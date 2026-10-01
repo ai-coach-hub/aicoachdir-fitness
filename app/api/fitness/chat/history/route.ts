@@ -255,9 +255,17 @@ export async function GET() {
     }
 
     const payload = (await response.json()) as { data?: unknown[] };
-    const threads = (Array.isArray(payload.data) ? payload.data : [])
+    const rawRecords = Array.isArray(payload.data) ? payload.data : [];
+    const threads = rawRecords
       .map((item) => normalizeThread(item, historyIdentifiers))
       .filter((item): item is HistoryThread => !!item);
+
+    console.info("[fitness-chat-history] read-result", {
+      identifiersResolved: historyIdentifiers.length,
+      recordsReturned: rawRecords.length,
+      threadsAccepted: threads.length,
+      recordsRejected: rawRecords.length - threads.length,
+    });
 
     return Response.json({
       ok: true,
