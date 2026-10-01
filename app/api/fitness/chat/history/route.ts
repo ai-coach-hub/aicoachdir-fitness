@@ -33,6 +33,33 @@ function getStudioToken() {
   return (process.env.PICKAXE_WORKSPACE_API_TOKEN || "").trim();
 }
 
+function normalizedIdentifier(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function userRecordFromPayload(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const data = record.data;
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    return data as Record<string, unknown>;
+  }
+  return record;
+}
+
+function historyIdentifierAliases(value: unknown, memberEmail: string) {
+  const aliases = new Set<string>([memberEmail.toLowerCase()]);
+  const record = userRecordFromPayload(value);
+  if (!record) return [...aliases];
+
+  for (const key of ["id", "_id", "userId", "userID", "uid", "identifier", "email"]) {
+    const candidate = normalizedIdentifier(record[key]);
+    if (candidate) aliases.add(candidate);
+  }
+
+  return [...aliases].slice(0, 6);
+}
+
 function stringFromUnknown(value: unknown): string {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number" || typeof value === "boolean") return String(value);
