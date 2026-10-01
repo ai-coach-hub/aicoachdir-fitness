@@ -1940,7 +1940,8 @@ export async function POST(request: Request) {
       ? (body as { action: string }).action.trim()
       : "";
 
-  if (action === "complete_workout") {
+  if (action === "complete_workout" || action === "sync_completed_workout") {
+    const isRecoverySync = action === "sync_completed_workout";
     const workoutId =
       body &&
       typeof body === "object" &&
@@ -1970,11 +1971,50 @@ export async function POST(request: Request) {
         );
       }
 
+      const existingCompletion = data.historyEntries
+        .filter((value) => value && typeof value === "object" && !Array.isArray(value))
+        .map((value) => value as Record<string, unknown>)
+        .find(
+          (value) =>
+            String(value.workoutId || "") === workoutId &&
+            String(value.scheduledDate || "") === scheduledDate &&
+            typeof value.completedAt === "string" &&
+            !!value.completedAt,
+        );
+
+      if (existingCompletion) {
+        return Response.json({
+          ok: true,
+          completedAt: String(existingCompletion.completedAt),
+          alreadySynced: true,
+        });
+      }
+
       const scheduledPlan = scheduledPlanForWorkout(data.plan, workoutId, scheduledDate);
       if (!scheduledPlan) {
         return Response.json(
           { ok: false, error: "That workout is not scheduled in your saved plan." },
           { status: 404 },
+        );
+      }
+
+      const planTimeZone =
+        typeof scheduledPlan.userTimezone === "string" && scheduledPlan.userTimezone.trim()
+          ? scheduledPlan.userTimezone.trim()
+          : typeof data.plan.userTimezone === "string" && data.plan.userTimezone.trim()
+            ? data.plan.userTimezone.trim()
+            : "UTC";
+      const today = dateKeyInTimezone(planTimeZone);
+      if (!today) {
+        return Response.json(
+          { ok: false, error: "The workout date could not be verified." },
+          { status: 400 },
+        );
+      }
+      if (scheduledDate > today) {
+        return Response.json(
+          { ok: false, error: "Future workouts cannot be marked complete." },
+          { status: 400 },
         );
       }
 
@@ -2010,7 +2050,10 @@ export async function POST(request: Request) {
         );
       }
 
-      const completedAt = new Date().toISOString();
+      const completedAt =
+        isRecoverySync && scheduledDate < today
+          ? `${scheduledDate}T12:00:00.000Z`
+          : new Date().toISOString();
       const exercises =
         submittedExercises ||
         (Array.isArray(workout.exercises) ? workout.exercises : [])
