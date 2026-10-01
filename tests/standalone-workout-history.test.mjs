@@ -148,11 +148,10 @@ test("chat history resolves legacy Pickaxe user identifiers without widening mem
 
   assert.ok(history.includes("resolveHistoryUserIdentifiers"));
   assert.ok(history.includes("historyIdentifierAliases"));
-  assert.ok(history.includes("users: historyIdentifiers"));
-  assert.ok(history.includes("normalizeThread(item, historyIdentifiers)"));
-  assert.ok(history.includes("if (!expectedUserIds.includes(userId)) return null;"));
+  assert.ok(history.includes("for (const historyUserId of historyIdentifiers)"));
+  assert.ok(history.includes("users: [historyUserId]"));
   assert.ok(history.includes("identifiersResolved"));
-  assert.ok(history.includes("recordsRejected"));
+  assert.ok(history.includes("successfulQueries"));
 });
 
 
