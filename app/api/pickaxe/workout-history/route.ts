@@ -125,6 +125,33 @@ function verifyBridgeAuth(auth: BridgeAuth, token: string) {
   return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }
 
+function sameBridgeCapability(left: BridgeAuth, right: BridgeAuth) {
+  return (
+    left.email === right.email &&
+    left.planId === right.planId &&
+    left.planUpdatedAt === right.planUpdatedAt &&
+    left.signature === right.signature
+  );
+}
+
+function bridgeFromPlanValue(value: unknown): BridgeAuth | null {
+  const decoded = unwrapStoredValue(value);
+  if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) return null;
+  const plan = decoded as JsonRecord;
+  const direct = parseBridgeAuth(plan._historyBridge || plan.historyBridge);
+  if (direct) return direct;
+
+  for (const key of ["plan", "currentPlan", "workoutPlan"]) {
+    const nested = unwrapStoredValue(plan[key]);
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      const nestedPlan = nested as JsonRecord;
+      const candidate = parseBridgeAuth(nestedPlan._historyBridge || nestedPlan.historyBridge);
+      if (candidate) return candidate;
+    }
+  }
+  return null;
+}
+
 function cleanText(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.slice(0, maxLength) : "";
 }
@@ -393,6 +420,23 @@ async function readHistory(token: string, email: string, memoryId: string) {
   return collectStoredValues(await response.json());
 }
 
+async function storedPlanConfirmsBridge(
+  token: string,
+  auth: BridgeAuth,
+  planMemoryId: string | null,
+) {
+  if (!planMemoryId) return false;
+  try {
+    const values = await readHistory(token, auth.email, planMemoryId);
+    return values.some((value) => {
+      const storedBridge = bridgeFromPlanValue(value);
+      return !!storedBridge && sameBridgeCapability(storedBridge, auth);
+    });
+  } catch {
+    return false;
+  }
+}
+
 function looksLikePlanForAuth(value: unknown, auth: BridgeAuth): value is JsonRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const plan = value as JsonRecord;
@@ -579,12 +623,21 @@ export async function POST(request: Request) {
   const input = body as JsonRecord;
   const auth = parseBridgeAuth(input.auth);
   const history = sanitizeHistory(input.history);
-  if (!auth || !history || !verifyBridgeAuth(auth, token)) {
+  if (!auth || !history) {
     return jsonResponse(origin, { ok: false, message: "Workout sync authorization failed." }, 401);
   }
 
   try {
     const { historyMemoryId: memoryId, planMemoryId } = await workoutMemoryIds(token);
+    const hmacValid = verifyBridgeAuth(auth, token);
+    const storedCapabilityValid =
+      hmacValid ? false : await storedPlanConfirmsBridge(token, auth, planMemoryId);
+    if (!hmacValid && !storedCapabilityValid) {
+      return jsonResponse(origin, { ok: false, message: "Workout sync authorization failed." }, 401);
+    }
+    if (storedCapabilityValid) {
+      console.info("Pickaxe workout-history bridge accepted a trusted stored capability after signing-key rotation.");
+    }
     await saveHistory(token, auth.email, memoryId, planMemoryId, history, auth);
     return jsonResponse(origin, { ok: true, savedAt: history.updatedAt });
   } catch (error) {
