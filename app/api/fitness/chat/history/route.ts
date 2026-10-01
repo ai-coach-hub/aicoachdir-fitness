@@ -175,11 +175,11 @@ function threadTitle(messages: HistoryMessage[]) {
   return oneLine.length > 80 ? `${oneLine.slice(0, 77)}...` : oneLine;
 }
 
-function normalizeThread(value: unknown, memberEmail: string): HistoryThread | null {
+function normalizeThread(value: unknown, expectedUserId: string): HistoryThread | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  const userId = String(record.userId || record.user || "").trim().toLowerCase();
-  if (userId !== memberEmail.toLowerCase()) return null;
+  const userId = normalizedIdentifier(record.userId || record.user);
+  if (userId !== expectedUserId.toLowerCase()) return null;
 
   const id = String(record.responseId || record.sessionId || record.id || "").trim();
   if (!id) return null;
