@@ -211,7 +211,7 @@ test('saves verified workout history when current plan context is temporarily un
   }
 });
 
-test('still rejects invalid bridge signatures before any Pickaxe write', async () => {
+test('rejects invalid bridge signatures when no trusted stored capability confirms them', async () => {
   const auth = signedAuth();
   auth.signature = '0'.repeat(64);
   const originalFetch = globalThis.fetch;
@@ -224,7 +224,7 @@ test('still rejects invalid bridge signatures before any Pickaxe write', async (
   try {
     const response = await POST(requestFor(auth, historyPayload('older-plan')));
     assert.equal(response.status, 401);
-    assert.equal(fetchCalled, false);
+    assert.equal(fetchCalled, true);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -280,3 +280,5 @@ test('accepts a timed-out history write when read-back proves Pickaxe saved it',
     globalThis.fetch = originalFetch;
   }
 });
+
+// Rotated bridge capabilities remain fail-closed unless the exact stored plan capability matches.
