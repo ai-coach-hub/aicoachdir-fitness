@@ -133,3 +133,16 @@ test("unknown hotel gym equipment can use a conservative baseline when the membe
   assert.match(route, /basic hotel gym/);
   assert.match(route, /complete\/save the plan instead of blocking on another equipment question/);
 });
+
+
+test("previous chats hide internal coaching instruction wrappers from members", async () => {
+  const historyRoute = await readFile(
+    new URL("../app/api/fitness/chat/history/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(historyRoute, /memberFacingHistoryText/);
+  assert.match(historyRoute, /MEMBER MESSAGE:/);
+  assert.match(historyRoute, /ORIGINAL MEMBER MESSAGE:/);
+  assert.match(historyRoute, /parsed\.push\(\{ role, text: memberFacingHistoryText\(role, text\) \}\)/);
+});
