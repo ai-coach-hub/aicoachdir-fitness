@@ -228,6 +228,7 @@ export async function GET() {
   }
 
   try {
+    const historyIdentifiers = await resolveHistoryUserIdentifiers(memberEmail, studioToken);
     const response = await fetch(`${PICKAXE_STUDIO_BASE_URL}/studio/workspace/history`, {
       method: "POST",
       headers: {
