@@ -1928,3 +1928,12 @@ test('persists authoritative Sep 20 alternating current week even without histor
   assert.equal(saved.weekSchedule[2].workoutId, 'otf');
   assert.equal(saved.weekSchedule[4].workoutId, 'otf');
 });
+
+
+test("workout-plan read supports an exact trusted cached bridge after signing-key rotation without accepting arbitrary invalid signatures", async () => {
+  const text = await routeCoreSource();
+  assert.match(text, /trustedCachedCapability/);
+  assert.match(text, /cachedPlanConfirmsBridge/);
+  assert.match(text, /!hmacValid && !storedCapabilityValid/);
+  assert.match(text, /accepted-trusted-stored-capability-after-key-rotation/);
+});
