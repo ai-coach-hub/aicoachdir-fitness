@@ -175,11 +175,9 @@ function threadTitle(messages: HistoryMessage[]) {
   return oneLine.length > 80 ? `${oneLine.slice(0, 77)}...` : oneLine;
 }
 
-function normalizeThread(value: unknown, expectedUserIds: string[]): HistoryThread | null {
+function normalizeThread(value: unknown): HistoryThread | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  const userId = normalizedIdentifier(record.userId || record.user);
-  if (!expectedUserIds.includes(userId)) return null;
 
   const id = String(record.responseId || record.sessionId || record.id || "").trim();
   if (!id) return null;
@@ -229,42 +227,76 @@ export async function GET() {
 
   try {
     const historyIdentifiers = await resolveHistoryUserIdentifiers(memberEmail, studioToken);
-    const response = await fetch(`${PICKAXE_STUDIO_BASE_URL}/studio/workspace/history`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${studioToken}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        users: historyIdentifiers,
-        skip: 0,
-        limit: 50,
-        format: "messages",
-        sortBy: "updated-desc",
-      }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(20_000),
-    });
+    const recordsById = new Map<string, unknown>();
+    let successfulQueries = 0;
+    let failedQueries = 0;
+    let recordsReturned = 0;
 
-    if (!response.ok) {
+    for (const historyUserId of historyIdentifiers) {
+      try {
+        const response = await fetch(`${PICKAXE_STUDIO_BASE_URL}/studio/workspace/history`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${studioToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            users: [historyUserId],
+            skip: 0,
+            limit: 50,
+            format: "messages",
+            sortBy: "updated-desc",
+          }),
+          cache: "no-store",
+          signal: AbortSignal.timeout(20_000),
+        });
+
+        if (!response.ok) {
+          failedQueries += 1;
+          continue;
+        }
+
+        successfulQueries += 1;
+        const payload = (await response.json()) as { data?: unknown[] };
+        const records = Array.isArray(payload.data) ? payload.data : [];
+        recordsReturned += records.length;
+
+        for (const item of records) {
+          if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+          const record = item as Record<string, unknown>;
+          const id = String(record.responseId || record.sessionId || record.id || "").trim();
+          if (id && !recordsById.has(id)) recordsById.set(id, item);
+        }
+      } catch {
+        failedQueries += 1;
+      }
+    }
+
+    if (successfulQueries === 0) {
       return Response.json(
         { ok: false, error: "Previous chats could not be loaded." },
         { status: 502 },
       );
     }
 
-    const payload = (await response.json()) as { data?: unknown[] };
-    const rawRecords = Array.isArray(payload.data) ? payload.data : [];
-    const threads = rawRecords
-      .map((item) => normalizeThread(item, historyIdentifiers))
-      .filter((item): item is HistoryThread => !!item);
+    const threads = [...recordsById.values()]
+      .map((item) => normalizeThread(item))
+      .filter((item): item is HistoryThread => !!item)
+      .sort((a, b) => {
+        const aTime = Date.parse(a.updatedAt || a.createdAt || "") || 0;
+        const bTime = Date.parse(b.updatedAt || b.createdAt || "") || 0;
+        return bTime - aTime;
+      })
+      .slice(0, 50);
 
     console.info("[fitness-chat-history] read-result", {
       identifiersResolved: historyIdentifiers.length,
-      recordsReturned: rawRecords.length,
+      successfulQueries,
+      failedQueries,
+      recordsReturned,
+      uniqueRecords: recordsById.size,
       threadsAccepted: threads.length,
-      recordsRejected: rawRecords.length - threads.length,
     });
 
     return Response.json({
