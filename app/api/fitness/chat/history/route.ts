@@ -60,6 +60,39 @@ function historyIdentifierAliases(value: unknown, memberEmail: string) {
   return [...aliases].slice(0, 6);
 }
 
+async function resolveHistoryUserIdentifiers(memberEmail: string, studioToken: string) {
+  try {
+    const response = await fetch(
+      `${PICKAXE_STUDIO_BASE_URL}/studio/user/${encodeURIComponent(memberEmail)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${studioToken}`,
+          Accept: "application/json",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+
+    if (!response.ok) {
+      console.info("[fitness-chat-history] user-alias-lookup", {
+        status: response.status,
+        fallbackToEmail: true,
+      });
+      return [memberEmail.toLowerCase()];
+    }
+
+    return historyIdentifierAliases(await response.json(), memberEmail);
+  } catch (error) {
+    console.info("[fitness-chat-history] user-alias-lookup-failed", {
+      fallbackToEmail: true,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return [memberEmail.toLowerCase()];
+  }
+}
+
 function stringFromUnknown(value: unknown): string {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number" || typeof value === "boolean") return String(value);
