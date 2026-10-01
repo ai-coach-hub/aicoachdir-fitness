@@ -256,7 +256,7 @@ export async function GET() {
 
     const payload = (await response.json()) as { data?: unknown[] };
     const threads = (Array.isArray(payload.data) ? payload.data : [])
-      .map((item) => normalizeThread(item, memberEmail))
+      .map((item) => normalizeThread(item, historyIdentifiers))
       .filter((item): item is HistoryThread => !!item);
 
     return Response.json({
