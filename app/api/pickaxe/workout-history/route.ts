@@ -427,8 +427,12 @@ function buildStoredEnvelope(
   contextValues: unknown[],
   auth: BridgeAuth,
 ): HistoryEnvelope {
+  // Bridge authorization is already verified with an HMAC before this point.
+  // The current plan lookup is useful as a diagnostic, but completed-workout
+  // history must not fail just because Pickaxe plan memory is temporarily stale
+  // or unavailable. History is now progression-only and does not copy plan data.
   if (!findExistingPlan(contextValues, auth)) {
-    throw new Error("history-plan-context");
+    console.warn("Pickaxe workout-history bridge could not confirm current plan context; saving verified history anyway.");
   }
 
   return {

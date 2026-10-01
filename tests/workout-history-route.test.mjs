@@ -164,6 +164,53 @@ test('falls back to dedicated plan memory when history envelope lacks matching p
   }
 });
 
+test('saves verified workout history when current plan context is temporarily unavailable', async () => {
+  const auth = signedAuth();
+  let writtenValue = null;
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async (url, init = {}) => {
+    const path = String(url).replace('https://api.pickaxe.co/v1', '');
+    if (path.startsWith('/studio/memory/list')) {
+      return Response.json({
+        items: [{ id: 'history-memory', name: 'fitness workout history for ai coach' }],
+      });
+    }
+    if (path.startsWith('/studio/memory/user/member%40example.com?')) {
+      return Response.json({
+        items: [{
+          value: writtenValue ?? JSON.stringify({
+            schemaVersion: 2,
+            updatedAt: '2026-09-15T17:30:00.000Z',
+            entries: [],
+          }),
+        }],
+      });
+    }
+    if (path === '/studio/memory/user/member%40example.com/history-memory' && init.method === 'PATCH') {
+      writtenValue = JSON.parse(init.body).data.value;
+      return Response.json({ ok: true });
+    }
+    throw new Error(`Unexpected fetch: ${init.method || 'GET'} ${path}`);
+  };
+
+  try {
+    const response = await POST(requestFor(auth, historyPayload('older-plan')));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      ok: true,
+      savedAt: '2026-09-15T18:30:00.000Z',
+    });
+    assert.ok(writtenValue, 'history should still be written');
+    const stored = JSON.parse(writtenValue);
+    assert.equal(stored.updatedAt, '2026-09-15T18:30:00.000Z');
+    assert.equal(stored.entries[0].workoutId, 'qa-test');
+    assert.equal('plan' in stored, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('still rejects invalid bridge signatures before any Pickaxe write', async () => {
   const auth = signedAuth();
   auth.signature = '0'.repeat(64);
