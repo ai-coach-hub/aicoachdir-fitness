@@ -221,6 +221,7 @@ function cachedPlanConfirmsBridge(plan, auth) {
   return visit(plan);
 }
 
+// Only exact server-trusted stored capabilities can recover across signing-key rotation.
 async function trustedCachedCapability(cacheRead, auth) {
   if (typeof cacheRead !== 'function') return false;
   try {
