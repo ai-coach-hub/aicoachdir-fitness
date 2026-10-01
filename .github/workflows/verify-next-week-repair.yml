@@ -1,0 +1,41 @@
+name: Verify next-week repair
+on:
+  push:
+    branches: [fix/verified-next-week-persistence]
+    paths:
+      - scripts/apply-verified-next-week-fix.py
+      - tests/verified-next-week-persistence.test.mjs
+      - .github/workflows/verify-next-week-repair.yml
+permissions:
+  contents: write
+concurrency:
+  group: verified-next-week-repair
+  cancel-in-progress: false
+jobs:
+  repair:
+    if: github.event.head_commit.message == 'Run verified next-week correction checks'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/verified-next-week-persistence
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply revision-guarded source correction
+        run: python3 scripts/apply-verified-next-week-fix.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Run all regression tests including real handler tests
+        run: node --test tests/*.test.mjs
+      - name: Type-check
+        run: npx tsc --noEmit
+      - name: Commit only verified application correction to the repair branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/api/fitness/chat/route.ts
+          git commit -m 'Require verified save receipts and preserve both workout weeks'
+          git push origin HEAD:refs/heads/fix/verified-next-week-persistence
