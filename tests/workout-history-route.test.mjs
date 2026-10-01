@@ -280,3 +280,5 @@ test('accepts a timed-out history write when read-back proves Pickaxe saved it',
     globalThis.fetch = originalFetch;
   }
 });
+
+// Rotated bridge capabilities remain fail-closed unless the exact stored plan capability matches.
