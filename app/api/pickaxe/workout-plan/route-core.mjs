@@ -195,6 +195,42 @@ function cacheCanSatisfyAuth(cachedPlan, auth) {
   return newestPlanTimestampMs(cachedPlan) >= authMs;
 }
 
+function sameBridgeCapability(left, right) {
+  return !!(
+    left &&
+    right &&
+    left.email === right.email &&
+    left.planId === right.planId &&
+    left.planUpdatedAt === right.planUpdatedAt &&
+    left.signature === right.signature
+  );
+}
+
+function cachedPlanConfirmsBridge(plan, auth) {
+  const seen = new WeakSet();
+  function visit(value, depth = 0) {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || depth > 10) return false;
+    if (seen.has(value)) return false;
+    seen.add(value);
+
+    const bridge = parseBridgeAuth(value._historyBridge || value.historyBridge);
+    if (bridge && sameBridgeCapability(bridge, auth)) return true;
+    if (visit(value.nextPlan?.plan, depth + 1)) return true;
+    return false;
+  }
+  return visit(plan);
+}
+
+async function trustedCachedCapability(cacheRead, auth) {
+  if (typeof cacheRead !== 'function') return false;
+  try {
+    const cached = await cacheRead(auth.email);
+    return !!cached?.plan && cachedPlanConfirmsBridge(cached.plan, auth);
+  } catch {
+    return false;
+  }
+}
+
 export function isWorkoutPlanCacheFresh(cached, nowMs = Date.now()) {
   // Production Neon reads always include cacheUpdatedAt. Keep custom/test cache readers
   // without that metadata backward-compatible instead of silently disabling their cache path.
@@ -881,8 +917,14 @@ export async function handleWorkoutPlanRead({
   if (!auth || !asOfDate) {
     return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Invalid authorization payload.' }, 400);
   }
-  if (!verifyBridgeAuth(auth, token)) {
+  const hmacValid = verifyBridgeAuth(auth, token);
+  const storedCapabilityValid =
+    hmacValid ? false : await trustedCachedCapability(cacheRead, auth);
+  if (!hmacValid && !storedCapabilityValid) {
     return jsonResponse(origin, allowedOrigins, { ok: false, message: 'Authorization failed.' }, 401);
+  }
+  if (storedCapabilityValid) {
+    console.info('[workout-plan-read] accepted-trusted-stored-capability-after-key-rotation');
   }
 
   try {
