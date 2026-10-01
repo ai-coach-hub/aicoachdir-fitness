@@ -154,3 +154,19 @@ test("chat history resolves legacy Pickaxe user identifiers without widening mem
   assert.ok(history.includes("identifiersResolved"));
   assert.ok(history.includes("recordsRejected"));
 });
+
+
+test("chat history accepts only server-filtered member history results and deduplicates sessions", async () => {
+  const history = await readFile(
+    new URL("../app/api/fitness/chat/history/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.ok(history.includes("for (const historyUserId of historyIdentifiers)"));
+  assert.ok(history.includes("users: [historyUserId]"));
+  assert.ok(history.includes("recordsById"));
+  assert.ok(history.includes("successfulQueries"));
+  assert.ok(history.includes("uniqueRecords"));
+  assert.ok(history.includes(".map((item) => normalizeThread(item))"));
+  assert.equal(history.includes("if (!expectedUserIds.includes(userId)) return null;"), false);
+});
