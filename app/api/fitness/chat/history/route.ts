@@ -237,7 +237,7 @@ export async function GET() {
         Accept: "application/json",
       },
       body: JSON.stringify({
-        users: [memberEmail],
+        users: historyIdentifiers,
         skip: 0,
         limit: 50,
         format: "messages",
