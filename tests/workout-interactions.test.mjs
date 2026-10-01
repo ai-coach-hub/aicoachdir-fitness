@@ -115,3 +115,21 @@ test("future workouts cannot be marked complete from the schedule or tracker", a
   assert.match(route, /scheduledDate > today/);
   assert.match(route, /Future workouts cannot be marked complete/);
 });
+
+
+test("natural next-week workout requests are treated as saved plan mutations", async () => {
+  const route = await fitnessRouteSource();
+
+  assert.match(route, /give\|make\|build\|create\|plan\|schedule/);
+  assert.match(route, /next week\|this week/);
+  assert.match(route, /treat it as a plan to save in My Workouts/);
+  assert.match(route, /Preserve the current saved week/);
+});
+
+test("unknown hotel gym equipment can use a conservative baseline when the member authorizes a best guess", async () => {
+  const route = await fitnessRouteSource();
+
+  assert.match(route, /conservative common baseline/);
+  assert.match(route, /basic hotel gym/);
+  assert.match(route, /complete\/save the plan instead of blocking on another equipment question/);
+});
