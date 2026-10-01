@@ -280,3 +280,12 @@ test('accepts a timed-out history write when read-back proves Pickaxe saved it',
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test("workout-history route supports a previously issued bridge capability after workspace-token rotation only when the exact capability is still stored with the member plan", async () => {
+  const text = await routeSource();
+  assert.match(text, /storedPlanConfirmsBridge/);
+  assert.match(text, /sameBridgeCapability/);
+  assert.match(text, /!hmacValid && !storedCapabilityValid/);
+  assert.match(text, /accepted a trusted stored capability after signing-key rotation/);
+});
