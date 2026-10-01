@@ -1417,6 +1417,17 @@ function requiresConfirmedSavedPlanMutation(message: string) {
     return true;
   }
 
+  if (
+    /\b(?:give|make|build|create|plan|schedule)\b[^.!?\n]{0,100}\b(?:me\s+)?(?:a\s+)?(?:workout|workouts|plan|schedule)\b[^.!?\n]{0,100}\b(?:next week|this week|monday|tuesday|wednesday|thursday|friday|saturday|sunday|m-f|mon(?:day)?\s*(?:-|to)\s*fri(?:day)?)\b/.test(
+      normalized,
+    ) ||
+    /\b(?:next week|this week)\b[^.!?\n]{0,100}\b(?:workout|workouts|plan|schedule)\b/.test(
+      normalized,
+    )
+  ) {
+    return true;
+  }
+
   const calendarContext =
     /\b(?:today|tomorrow|this week|next week|monday|tuesday|wednesday|thursday|friday|saturday|sunday|saved|current|existing|my workouts)\b/.test(
       normalized,
@@ -1455,8 +1466,10 @@ function buildStructuredWorkoutEfficiencyMessage(message: string) {
 
   return [
     "APPLICATION FIRST-PASS WORKOUT VALIDATION RULES - apply silently.",
-    "Preserve the member's exact request, schedule commitments, restrictions, and requested duration.",
-    "Before feasibility validation, build one complete candidate using only confirmed equipment/setup and realistic exercise plus rest time.",
+    "Preserve the member's exact request, schedule commitments, restrictions, requested duration, and requested calendar week.",
+    "When the member asks for a workout plan tied to this week, next week, or named weekdays, treat it as a plan to save in My Workouts unless they explicitly say not to save it. Preserve the current saved week when the request is for next week, and stage the requested plan as the next saved week with the correct dates.",
+    "If a location's exact equipment is unknown but the member explicitly asks you to do your best, use a conservative common baseline (for example dumbbells plus floor space in a basic hotel gym), include simple substitutions, and complete/save the plan instead of blocking on another equipment question.",
+    "Before feasibility validation, build one complete candidate using only confirmed equipment/setup or the conservative baseline the member explicitly authorized, with realistic exercise plus rest time.",
     "If duration is specified, fill it with real programmed work/rest instead of padded headings. Do not introduce unconfirmed anchors, benches, steps, bands, cables, or other setup.",
     "For any exercise a typical non-expert might reasonably not recognize, include one short plain-language setup or execution cue with the exercise. Keep familiar movements concise and do not bloat the workout with repetitive explanations.",
     "Once the Action returns SUCCESS with FINAL_DELIVERY for this turn, relay it exactly and stop; do not run another feasibility attempt.",

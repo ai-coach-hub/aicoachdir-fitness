@@ -123,6 +123,25 @@ function normalizedRole(value: unknown): "user" | "assistant" | null {
   return null;
 }
 
+function memberFacingHistoryText(role: "user" | "assistant", text: string) {
+  if (role !== "user") return text;
+
+  const markers = [
+    "MEMBER MESSAGE:",
+    "ORIGINAL MEMBER MESSAGE:",
+  ];
+
+  for (const marker of markers) {
+    const index = text.lastIndexOf(marker);
+    if (index >= 0) {
+      const memberText = text.slice(index + marker.length).trim();
+      if (memberText) return memberText;
+    }
+  }
+
+  return text;
+}
+
 function parseMessages(value: unknown): HistoryMessage[] {
   if (!Array.isArray(value)) return [];
 
@@ -144,7 +163,7 @@ function parseMessages(value: unknown): HistoryMessage[] {
       stringFromUnknown(record.value);
     if (!text) continue;
 
-    parsed.push({ role, text });
+    parsed.push({ role, text: memberFacingHistoryText(role, text) });
   }
 
   return parsed;
@@ -163,7 +182,7 @@ function fallbackMessages(record: Record<string, unknown>): HistoryMessage[] {
     stringFromUnknown(record.result) ||
     stringFromUnknown(record.answer);
 
-  if (userText) messages.push({ role: "user", text: userText });
+  if (userText) messages.push({ role: "user", text: memberFacingHistoryText("user", userText) });
   if (assistantText) messages.push({ role: "assistant", text: assistantText });
   return messages;
 }
