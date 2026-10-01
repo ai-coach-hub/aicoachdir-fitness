@@ -420,6 +420,7 @@ async function readHistory(token: string, email: string, memoryId: string) {
   return collectStoredValues(await response.json());
 }
 
+// Exact stored-capability fallback is used only when the current HMAC key no longer validates.
 async function storedPlanConfirmsBridge(
   token: string,
   auth: BridgeAuth,
