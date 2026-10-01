@@ -149,6 +149,28 @@ function formatDate(value: unknown) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
 }
 
+function dateKeyForPlan(plan: JsonRecord | null) {
+  const timeZone =
+    typeof plan?.userTimezone === "string" && plan.userTimezone.trim()
+      ? plan.userTimezone.trim()
+      : undefined;
+
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const year = parts.find((part) => part.type === "year")?.value;
+    const month = parts.find((part) => part.type === "month")?.value;
+    const day = parts.find((part) => part.type === "day")?.value;
+    return year && month && day ? `${year}-${month}-${day}` : "";
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
 function scheduleRange(rows: JsonRecord[]) {
   const dates = rows
     .map((row) => String(row.date || ""))
@@ -381,7 +403,11 @@ export default function FitnessChatPage() {
     }
   }
 
-  async function completeScheduledWorkout(workoutId: string, scheduledDate: string) {
+  async function completeScheduledWorkout(
+    workoutId: string,
+    scheduledDate: string,
+    mode: "complete" | "sync" = "complete",
+  ) {
     const key = completionKey(workoutId, scheduledDate);
     if (!workoutId || !scheduledDate || completionBusyKey) return;
 
@@ -393,20 +419,29 @@ export default function FitnessChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "complete_workout",
+          action: mode === "sync" ? "sync_completed_workout" : "complete_workout",
           workoutId,
           scheduledDate,
         }),
       });
       const data = (await response.json()) as CompletionResult;
       if (!response.ok || !data.ok) {
-        setCompletionError(data.error || "Workout completion could not be saved.");
+        setCompletionError(
+          data.error ||
+            (mode === "sync"
+              ? "Workout could not be synced with Coach."
+              : "Workout completion could not be saved."),
+        );
         return;
       }
 
       await loadPlan();
     } catch {
-      setCompletionError("Workout completion could not be saved.");
+      setCompletionError(
+        mode === "sync"
+          ? "Workout could not be synced with Coach."
+          : "Workout completion could not be saved.",
+      );
     } finally {
       setCompletionBusyKey("");
     }
@@ -665,6 +700,7 @@ export default function FitnessChatPage() {
       : plan?.scheduleMode === "flexible_sequence"
         ? "Flexible plan"
         : "Saved plan";
+  const todayKey = useMemo(() => dateKeyForPlan(plan), [plan]);
 
   return (
     <main className="member-hub-shell">
@@ -923,14 +959,31 @@ export default function FitnessChatPage() {
                                 </button>
                               ) : null}
                               {scheduledDate ? (
-                                <button
-                                  type="button"
-                                  className="text-button"
-                                  disabled={completed || !!completionBusyKey}
-                                  onClick={() => void completeScheduledWorkout(id, scheduledDate)}
-                                >
-                                  {completed ? "Completed" : savingCompletion ? "Saving..." : "Mark complete"}
-                                </button>
+                                completed ? (
+                                  <button type="button" className="text-button" disabled>
+                                    Completed
+                                  </button>
+                                ) : todayKey && scheduledDate < todayKey ? (
+                                  <button
+                                    type="button"
+                                    className="text-button"
+                                    disabled={!!completionBusyKey}
+                                    onClick={() =>
+                                      void completeScheduledWorkout(id, scheduledDate, "sync")
+                                    }
+                                  >
+                                    {savingCompletion ? "Syncing..." : "Sync with Coach"}
+                                  </button>
+                                ) : !todayKey || scheduledDate === todayKey ? (
+                                  <button
+                                    type="button"
+                                    className="text-button"
+                                    disabled={!!completionBusyKey}
+                                    onClick={() => void completeScheduledWorkout(id, scheduledDate)}
+                                  >
+                                    {savingCompletion ? "Saving..." : "Mark complete"}
+                                  </button>
+                                ) : null
                               ) : null}
                             </div>
                           ) : null}
@@ -1132,15 +1185,20 @@ export default function FitnessChatPage() {
                     <button
                       type="button"
                       className="primary-button"
-                      disabled={!!completionBusyKey}
+                      disabled={
+                        !!completionBusyKey ||
+                        (!!todayKey && activeWorkoutTracker.scheduledDate > todayKey)
+                      }
                       onClick={() => void completeTrackedWorkout()}
                     >
-                      {completionBusyKey === completionKey(
-                        activeWorkoutTracker.workoutId,
-                        activeWorkoutTracker.scheduledDate,
-                      )
-                        ? "Saving..."
-                        : "Complete workout"}
+                      {todayKey && activeWorkoutTracker.scheduledDate > todayKey
+                        ? "Scheduled for later"
+                        : completionBusyKey === completionKey(
+                            activeWorkoutTracker.workoutId,
+                            activeWorkoutTracker.scheduledDate,
+                          )
+                          ? "Saving..."
+                          : "Complete workout"}
                     </button>
                     <button
                       type="button"
