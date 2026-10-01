@@ -627,17 +627,28 @@ export async function POST(request: Request) {
     return jsonResponse(origin, { ok: false, message: "Workout sync authorization failed." }, 401);
   }
 
-  try {
-    const { historyMemoryId: memoryId, planMemoryId } = await workoutMemoryIds(token);
-    const hmacValid = verifyBridgeAuth(auth, token);
-    const storedCapabilityValid =
-      hmacValid ? false : await storedPlanConfirmsBridge(token, auth, planMemoryId);
-    if (!hmacValid && !storedCapabilityValid) {
+  const hmacValid = verifyBridgeAuth(auth, token);
+  let rotatedCapabilityMemoryIds: { historyMemoryId: string; planMemoryId: string | null } | null = null;
+  if (!hmacValid) {
+    try {
+      rotatedCapabilityMemoryIds = await workoutMemoryIds(token);
+      const storedCapabilityValid = await storedPlanConfirmsBridge(
+        token,
+        auth,
+        rotatedCapabilityMemoryIds.planMemoryId,
+      );
+      if (!storedCapabilityValid) {
+        return jsonResponse(origin, { ok: false, message: "Workout sync authorization failed." }, 401);
+      }
+      console.info("Pickaxe workout-history bridge accepted a trusted stored capability after signing-key rotation.");
+    } catch {
       return jsonResponse(origin, { ok: false, message: "Workout sync authorization failed." }, 401);
     }
-    if (storedCapabilityValid) {
-      console.info("Pickaxe workout-history bridge accepted a trusted stored capability after signing-key rotation.");
-    }
+  }
+
+  try {
+    const { historyMemoryId: memoryId, planMemoryId } =
+      rotatedCapabilityMemoryIds || (await workoutMemoryIds(token));
     await saveHistory(token, auth.email, memoryId, planMemoryId, history, auth);
     return jsonResponse(origin, { ok: true, savedAt: history.updatedAt });
   } catch (error) {
