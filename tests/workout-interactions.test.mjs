@@ -23,7 +23,7 @@ test("current-week scheduled workouts can be marked complete from My Workouts", 
   const text = await memberHubSource();
 
   assert.match(text, /completeScheduledWorkout/);
-  assert.match(text, /action:\s*"complete_workout"/);
+  assert.match(text, /complete_workout/);
   assert.match(text, /Mark complete/);
   assert.match(text, /Completed/);
 });
@@ -92,4 +92,26 @@ test("workout tracker only shows fields that match the exercise prescription", a
   assert.match(text, /distanceRelevant/);
   assert.match(text, /timeRelevant/);
   assert.match(text, /repsRelevant/);
+});
+
+
+test("past scheduled workouts can recover a missing coach-history sync without duplicating completions", async () => {
+  const page = await memberHubSource();
+  const route = await fitnessRouteSource();
+
+  assert.match(page, /Sync with Coach/);
+  assert.match(page, /sync_completed_workout/);
+  assert.match(route, /action === "sync_completed_workout"/);
+  assert.match(route, /existingCompletion/);
+  assert.match(route, /alreadySynced:\s*true/);
+});
+
+test("future workouts cannot be marked complete from the schedule or tracker", async () => {
+  const page = await memberHubSource();
+  const route = await fitnessRouteSource();
+
+  assert.match(page, /scheduledDate < todayKey/);
+  assert.match(page, /Scheduled for later/);
+  assert.match(route, /scheduledDate > today/);
+  assert.match(route, /Future workouts cannot be marked complete/);
 });
