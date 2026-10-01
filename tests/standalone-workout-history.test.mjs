@@ -138,5 +138,3 @@ test("coach explains unfamiliar exercises without bloating familiar ones", async
   assert.ok(syncScript.includes("Meet members where they are"));
   assert.ok(syncScript.includes("one short plain-language setup or execution cue"));
 });
-
-// chat-history identity recovery regression coverage pending
