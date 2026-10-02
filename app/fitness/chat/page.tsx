@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
+import WorkoutHistoryList from "@/components/WorkoutHistoryList";
 
 type Message = { role: "user" | "assistant"; text: string };
 type JsonRecord = Record<string, unknown>;
@@ -111,6 +112,8 @@ type TrackerExercise = {
 };
 
 type WorkoutTracker = {
+  completionMode?: "flexible";
+  completionId?: string;
   key: string;
   workoutId: string;
   scheduledDate: string;
@@ -366,6 +369,8 @@ export default function FitnessChatPage() {
   const [activeWorkoutTracker, setActiveWorkoutTracker] = useState<WorkoutTracker | null>(null);
   const [trackerExercises, setTrackerExercises] = useState<TrackerExercise[]>([]);
   const [trackerNotes, setTrackerNotes] = useState("");
+  const [trackerDuration, setTrackerDuration] = useState("");
+  const [completionNotice, setCompletionNotice] = useState("");
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const planRequestVersion = useRef(0);
 
@@ -462,11 +467,14 @@ export default function FitnessChatPage() {
     row: JsonRecord,
     workout: JsonRecord | null,
   ) {
+    if (completionBusyKey) return;
     const workoutId = String(row.workoutId || "");
-    const scheduledDate = String(row.date || "");
+    const flexible = scope === "current" && plan?.scheduleMode === "flexible_sequence";
+    const scheduledDate = flexible ? dateKeyForPlan(plan) : String(row.date || "");
     if (!workout || !workoutId || !scheduledDate) return;
 
     setActiveWorkoutTracker({
+      ...(flexible ? { completionMode: "flexible" as const, completionId: crypto.randomUUID() } : {}),
       key: `${scope}:${workoutId}:${scheduledDate}`,
       workoutId,
       scheduledDate,
@@ -476,7 +484,9 @@ export default function FitnessChatPage() {
     });
     setTrackerExercises(buildTrackerExercises(workout));
     setTrackerNotes("");
+    setTrackerDuration("");
     setCompletionError("");
+    setCompletionNotice("");
   }
 
   function updateTrackerSet(
@@ -552,6 +562,10 @@ export default function FitnessChatPage() {
           scheduledDate: activeWorkoutTracker.scheduledDate,
           exercises: trackerExercises,
           notes: trackerNotes,
+          completionMode: activeWorkoutTracker.completionMode,
+          completionId: activeWorkoutTracker.completionId,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          actualDurationMinutes: trackerDuration.trim() ? Number(trackerDuration) : null,
         }),
       });
       const data = (await response.json()) as CompletionResult;
@@ -564,6 +578,8 @@ export default function FitnessChatPage() {
       setActiveWorkoutTracker(null);
       setTrackerExercises([]);
       setTrackerNotes("");
+      setTrackerDuration("");
+      setCompletionNotice("Workout saved. View its recorded details in Workout history below.");
     } catch {
       setCompletionError("Workout completion could not be saved.");
     } finally {
@@ -730,7 +746,15 @@ export default function FitnessChatPage() {
       : plan?.scheduleMode === "flexible_sequence"
         ? "Flexible plan"
         : "Saved plan";
-  const todayKey = useMemo(() => dateKeyForPlan(plan), [plan]);
+  const todayKey = dateKeyForPlan(plan);
+
+  useEffect(() => {
+    if (activeWorkoutTracker) {
+      const panel = document.getElementById("active-workout-tracker");
+      panel?.focus({ preventScroll: true });
+      panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [activeWorkoutTracker?.key]);
 
   return (
     <main className="member-hub-shell">
@@ -940,8 +964,10 @@ export default function FitnessChatPage() {
               <div className="workout-summary-strip">
                 <div><span>Plan style</span><strong>{scheduleMode}</strong></div>
                 <div><span>Workouts</span><strong>{workoutList.length}</strong></div>
-                <div><span>Recent completions</span><strong>{completedCount}</strong></div>
+                <div><span>Recent completions</span><strong>{completedCount}</strong><a href="#workout-history" className="text-button">View workout history</a></div>
               </div>
+
+              {completionNotice ? <p role="status">{completionNotice}</p> : null}
 
               {rows.length ? (
                 <section aria-labelledby="current-saved-week">
@@ -963,7 +989,7 @@ export default function FitnessChatPage() {
                       const savingCompletion = completionBusyKey === doneKey;
                       return (
                         <article key={index} className={rest ? "schedule-card rest" : "schedule-card"}>
-                          <span>{String(row.day || `Workout ${index + 1}`)}</span>
+                          <span>{String(row.day || row.label || `Workout ${index + 1}`)}</span>
                           {row.date ? <small>{formatDate(row.date)}</small> : null}
                           <strong>{rest ? "Rest" : workoutTitle(workout, id)}</strong>
                           {!rest ? (
@@ -979,13 +1005,13 @@ export default function FitnessChatPage() {
                               >
                                 {expandedWorkoutKey === workoutKey ? "Hide details" : "View details"}
                               </button>
-                              {scheduledDate && workout ? (
+                              {workout && (scheduledDate || plan.scheduleMode === "flexible_sequence") ? (
                                 <button
                                   type="button"
                                   className="text-button"
                                   onClick={() => openWorkoutTracker("current", row, workout)}
                                 >
-                                  Open workout
+                                  {plan.scheduleMode === "flexible_sequence" ? "Start workout" : "Open workout"}
                                 </button>
                               ) : null}
                               {scheduledDate ? (
@@ -1044,7 +1070,7 @@ export default function FitnessChatPage() {
                         completedScheduleKeys.has(completionKey(id, scheduledDate));
                       return (
                         <article key={index} className={rest ? "schedule-card rest" : "schedule-card"}>
-                          <span>{String(row.day || `Workout ${index + 1}`)}</span>
+                          <span>{String(row.day || row.label || `Workout ${index + 1}`)}</span>
                           {row.date ? <small>{formatDate(row.date)}</small> : null}
                           <strong>{rest ? "Rest" : workoutTitle(workout, id)}</strong>
                           {!rest && scheduledDate && workout ? (
@@ -1067,11 +1093,11 @@ export default function FitnessChatPage() {
               ) : null}
 
               {activeWorkoutTracker ? (
-                <section className="workout-tracker-panel" aria-label="Workout tracker">
+                <section id="active-workout-tracker" tabIndex={-1} className="workout-tracker-panel" aria-label="Workout tracker">
                   <div className="workout-tracker-heading">
                     <div>
                       <p className="eyebrow compact-eyebrow">
-                        {activeWorkoutTracker.scope === "next" ? "NEXT SAVED WEEK" : "CURRENT SAVED WEEK"}
+                        {activeWorkoutTracker.completionMode === "flexible" ? "FLEXIBLE WORKOUT" : activeWorkoutTracker.scope === "next" ? "NEXT SAVED WEEK" : "CURRENT SAVED WEEK"}
                       </p>
                       <h3>{workoutTitle(activeWorkoutTracker.workout, activeWorkoutTracker.workoutId)}</h3>
                       <p>
@@ -1198,6 +1224,23 @@ export default function FitnessChatPage() {
                     </p>
                   )}
 
+                  {activeWorkoutTracker.completionMode === "flexible" ? (
+                    <label className="tracker-notes">
+                      <span>Workout date</span>
+                      <input type="date" value={activeWorkoutTracker.scheduledDate} max={todayKey}
+                        disabled={!!completionBusyKey}
+                        onChange={(event) => setActiveWorkoutTracker((current) => current ? { ...current, scheduledDate: event.target.value } : null)} />
+                      <small>This records the session date without assigning your flexible plan to weekdays.</small>
+                    </label>
+                  ) : null}
+                  <label className="tracker-notes">
+                    <span>Minutes completed (optional)</span>
+                    <input type="number" min="1" max="1440" step="0.5" value={trackerDuration}
+                      disabled={!!completionBusyKey}
+                      onChange={(event) => setTrackerDuration(event.target.value)}
+                      placeholder="Enter actual minutes, not the planned duration" />
+                  </label>
+
                   <label className="tracker-notes">
                     <span>Workout notes</span>
                     <textarea
@@ -1216,7 +1259,7 @@ export default function FitnessChatPage() {
                       type="button"
                       className="primary-button"
                       disabled={
-                        !!completionBusyKey ||
+                        !!completionBusyKey || !activeWorkoutTracker.scheduledDate ||
                         (!!todayKey && activeWorkoutTracker.scheduledDate > todayKey)
                       }
                       onClick={() => void completeTrackedWorkout()}
@@ -1228,7 +1271,7 @@ export default function FitnessChatPage() {
                             activeWorkoutTracker.scheduledDate,
                           )
                           ? "Saving..."
-                          : "Complete workout"}
+                          : "Complete workout and save"}
                     </button>
                     <button
                       type="button"
@@ -1282,6 +1325,12 @@ export default function FitnessChatPage() {
                       )}
 
                       <div className="workout-card-actions">
+                        {scope === "current" && plan.scheduleMode === "flexible_sequence" ? (
+                          <button type="button" className="primary-button" disabled={!!completionBusyKey}
+                            onClick={() => openWorkoutTracker("current", { workoutId: id, label: workoutTitle(workout, id) }, workout)}>
+                            Start workout
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           className="secondary-button"
@@ -1309,6 +1358,7 @@ export default function FitnessChatPage() {
               </div>
             </>
           ) : null}
+          <WorkoutHistoryList entries={history} />
         </section>
       ) : (
         <section className="member-workouts-panel">
