@@ -1900,6 +1900,25 @@ export async function GET() {
     let data = await readMemberWorkoutData(memberEmail, studioToken);
 
     if (!data.plan) {
+      // The legacy portal also reads display-memory envelopes and its member cache.
+      // A new website login must not require regenerating that member's plan.
+      try {
+        const { readLegacyMemberPlan } = await import("@/lib/legacyWorkoutRead");
+        const legacy = await readLegacyMemberPlan(memberEmail, studioToken);
+        if (legacy.plan) {
+          data = { ...data, plan: legacy.plan };
+          console.info("[fitness-member-hub] legacy-plan-read", {
+            source: legacy.source,
+            scheduleMode: legacy.plan.scheduleMode || null,
+            workoutCount: Object.keys(legacy.plan.workouts as Record<string, unknown>).length,
+          });
+        }
+      } catch {
+        console.warn("[fitness-member-hub] legacy-plan-read-unavailable");
+      }
+    }
+
+    if (!data.plan) {
       const recovery = await recoverStructuredPlanForMember(memberEmail, studioToken);
       if (recovery.restored) {
         data = await readMemberWorkoutData(memberEmail, studioToken);
