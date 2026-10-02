@@ -40,7 +40,7 @@ test("validated workout mutations use the reliable completion driver but only tr
   const text = await routeSource();
 
   const mutationStart = text.indexOf("if (mustConfirmSavedPlanMutation) {");
-  const nonMutationStart = text.indexOf("} else {", mutationStart);
+  const nonMutationStart = text.indexOf("const completionAbort = new AbortController();", mutationStart);
   assert.ok(mutationStart >= 0 && nonMutationStart > mutationStart);
 
   const mutationBlock = text.slice(mutationStart, nonMutationStart);

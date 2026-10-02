@@ -15,7 +15,8 @@ test("validation polling retries transient Action-history lookup failures", asyn
 
   assert.match(text, /action-poll-retry/);
   assert.match(text, /if \(signal\.aborted\) break;/);
-  assert.match(text, /setTimeout\(resolve, 750\)/);
+  assert.match(text, /setTimeout\(finish, 750\)/);
+  assert.match(text, /signal\.removeEventListener\("abort", finish\)/);
   assert.doesNotMatch(
     text,
     /error: "Workout update validation could not be checked\."/,

@@ -14,6 +14,9 @@ type ChatResult = {
   conversationId?: string;
   relaySource?: string;
   actionMode?: string | null;
+  savedPlanVerified?: boolean;
+  plan?: JsonRecord | null;
+  pendingPlanRequest?: string;
 };
 
 type PlanResult = {
@@ -63,6 +66,7 @@ const COACH_INTRO_STORAGE_KEY = "fitness-coach-last-intro-v1";
 
 function cleanCoachText(value: string) {
   return value
+    .replace(/\\([*_#])/g, "$1")
     .replace(/\\(?=#{1,6}\s)/g, "")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/\*\*/g, "")
@@ -345,6 +349,7 @@ export default function FitnessChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [running, setRunning] = useState(false);
+  const [pendingPlanRequest, setPendingPlanRequest] = useState("");
   const [status, setStatus] = useState("");
   const [plan, setPlan] = useState<JsonRecord | null>(null);
   const [history, setHistory] = useState<unknown[]>([]);
@@ -362,13 +367,17 @@ export default function FitnessChatPage() {
   const [trackerExercises, setTrackerExercises] = useState<TrackerExercise[]>([]);
   const [trackerNotes, setTrackerNotes] = useState("");
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const planRequestVersion = useRef(0);
 
-  async function loadPlan() {
-    setPlanLoading(true);
+  async function loadPlan(background = false) {
+    const requestVersion = ++planRequestVersion.current;
+    if (!background) setPlanLoading(true);
     setPlanError("");
     try {
       const response = await fetch("/api/fitness/chat", { method: "GET", cache: "no-store" });
       const data = (await response.json()) as PlanResult;
+      // An older GET must never overwrite a just-verified save or a newer GET.
+      if (requestVersion !== planRequestVersion.current) return;
       if (!response.ok || !data.ok) {
         setPlanError(data.error || "Saved workouts could not be loaded.");
         return;
@@ -376,9 +385,9 @@ export default function FitnessChatPage() {
       setPlan(data.plan || null);
       setHistory(Array.isArray(data.historyEntries) ? data.historyEntries : []);
     } catch {
-      setPlanError("Saved workouts could not be loaded.");
+      if (requestVersion === planRequestVersion.current) setPlanError("Saved workouts could not be loaded.");
     } finally {
-      setPlanLoading(false);
+      if (requestVersion === planRequestVersion.current) setPlanLoading(false);
     }
   }
 
@@ -581,6 +590,22 @@ export default function FitnessChatPage() {
   }, []);
 
   useEffect(() => {
+    if (tab === "workouts") void loadPlan(true);
+  }, [tab]);
+
+  useEffect(() => {
+    const refreshVisiblePlan = () => {
+      if (document.visibilityState === "visible") void loadPlan(true);
+    };
+    window.addEventListener("focus", refreshVisiblePlan);
+    document.addEventListener("visibilitychange", refreshVisiblePlan);
+    return () => {
+      window.removeEventListener("focus", refreshVisiblePlan);
+      document.removeEventListener("visibilitychange", refreshVisiblePlan);
+    };
+  }, []);
+
+  useEffect(() => {
     if (tab !== "coach") return;
     chatEndRef.current?.scrollIntoView({
       behavior: running ? "smooth" : "auto",
@@ -602,11 +627,12 @@ export default function FitnessChatPage() {
       const response = await fetch("/api/fitness/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, conversationId }),
+        body: JSON.stringify({ message, conversationId, pendingPlanRequest }),
       });
 
       const data = (await response.json()) as ChatResult;
       if (data.conversationId) setConversationId(data.conversationId);
+      if (typeof data.pendingPlanRequest === "string") setPendingPlanRequest(data.pendingPlanRequest);
 
       if (!response.ok || !data.ok || !data.response) {
         setStatus(data.error || "The Fitness Coach request did not complete.");
@@ -614,13 +640,14 @@ export default function FitnessChatPage() {
       }
 
       setMessages((items) => [...items, { role: "assistant", text: cleanCoachText(data.response!) }]);
-      const validationOnly =
-        data.relaySource === "action-final-delivery" &&
-        data.actionMode === "validate_workout_feasibility";
-      const savedPlanChanged =
-        data.relaySource === "action-final-delivery" && !validationOnly;
-      setStatus(savedPlanChanged ? "Workout updated and validated." : "");
-      if (savedPlanChanged) {
+      const savedPlanChanged = data.savedPlanVerified === true;
+      setStatus(savedPlanChanged ? "Saved and verified in My Workouts." : "");
+      if (savedPlanChanged && data.plan) {
+        ++planRequestVersion.current;
+        setPlan(data.plan);
+        setPlanLoading(false);
+        setPlanError("");
+      } else if (savedPlanChanged) {
         await loadPlan();
       }
     } catch {
@@ -635,6 +662,7 @@ export default function FitnessChatPage() {
     setMessages([]);
     setStatus("");
     setSelectedThreadId("");
+    setPendingPlanRequest("");
     setTab("coach");
   }
 
@@ -656,8 +684,10 @@ export default function FitnessChatPage() {
     if (!canResumeThread(thread.id)) return;
     setConversationId(thread.id);
     setMessages(thread.messages);
+    setPendingPlanRequest("");
     setStatus("");
     setSelectedThreadId("");
+    setPendingPlanRequest("");
     setTab("coach");
   }
 
@@ -896,8 +926,8 @@ export default function FitnessChatPage() {
             </button>
           </div>
 
-          {planLoading ? <div className="workout-empty">Loading your workouts...</div> : null}
-          {planError ? <div className="workout-empty member-error">{planError}</div> : null}
+          {planLoading && !plan ? <div className="workout-empty">Loading your workouts...</div> : null}
+          {planError ? <div className="workout-empty member-error">{planError}{plan ? " Showing the last loaded plan." : ""}</div> : null}
           {!planLoading && !planError && !plan ? (
             <div className="workout-empty">
               <strong>No saved workout plan yet.</strong>
@@ -905,7 +935,7 @@ export default function FitnessChatPage() {
             </div>
           ) : null}
 
-          {!planLoading && !planError && plan ? (
+          {plan ? (
             <>
               <div className="workout-summary-strip">
                 <div><span>Plan style</span><strong>{scheduleMode}</strong></div>
