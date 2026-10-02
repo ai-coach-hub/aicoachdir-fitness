@@ -14,12 +14,9 @@ test("validated delivery parser ignores inline marker-name instructions", async 
   assert.doesNotMatch(text, /const start = content\.indexOf\(startMarker\);/);
 });
 
-test("validation-only delivery is not presented as a saved workout update", async () => {
-  const text = await pageSource();
-
-  assert.match(text, /actionMode\?: string \| null/);
-  assert.match(text, /data\.actionMode === "validate_workout_feasibility"/);
-  assert.match(text, /const savedPlanChanged =/);
-  assert.match(text, /setStatus\(savedPlanChanged \? "Workout updated and validated\." : ""\)/);
-  assert.match(text, /if \(savedPlanChanged\) \{/);
+test("only a verified saved plan is presented as a saved workout update", async () => {
+  const text = await readFile(new URL("../app/fitness/chat/page.tsx", import.meta.url), "utf8");
+  assert.match(text, /const savedPlanChanged = data\.savedPlanVerified === true;/);
+  assert.doesNotMatch(text, /data\.relaySource === "action-final-delivery" && !validationOnly/);
+  assert.match(text, /if \(savedPlanChanged && data\.plan\)/);
 });

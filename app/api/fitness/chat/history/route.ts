@@ -124,22 +124,26 @@ function normalizedRole(value: unknown): "user" | "assistant" | null {
 }
 
 function memberFacingHistoryText(role: "user" | "assistant", text: string) {
-  if (role !== "user") return text;
-
-  const markers = [
-    "MEMBER MESSAGE:",
-    "ORIGINAL MEMBER MESSAGE:",
-  ];
-
-  for (const marker of markers) {
-    const index = text.lastIndexOf(marker);
-    if (index >= 0) {
-      const memberText = text.slice(index + marker.length).trim();
-      if (memberText) return memberText;
+  const wrapped = /^\s*APPLICATION (?:COACHING QUALITY|FIRST-PASS WORKOUT|STANDALONE WORKOUT|SAVED PLAN|SAVE CONTRACT|QUALITY CORRECTION)/.test(text);
+  if (!wrapped) return text;
+  // An internal-only message is not a conversation bubble. Never trim a
+  // member's ordinary message merely because it quotes one of these markers.
+  if (role !== "user") return "";
+  const marker = /(?:^|\r?\n)(?:ORIGINAL MEMBER MESSAGE:|MEMBER MESSAGE:)[ \t]*/.exec(text);
+  if (marker) {
+    const memberText = text.slice(marker.index + marker[0].length).trim();
+    return /^\s*APPLICATION QUALITY CORRECTION/.test(text)
+      ? memberText.split("\nDRAFT RESPONSE:")[0].trim() : memberText;
+  }
+  // Some older providers flattened the entire stored turn to one line.
+  if (!text.includes("\n")) {
+    const markers = ["ORIGINAL MEMBER MESSAGE:", "MEMBER MESSAGE:"];
+    for (const label of markers) {
+      const index = text.indexOf(label);
+      if (index >= 0) return text.slice(index + label.length).trim();
     }
   }
-
-  return text;
+  return "";
 }
 
 function parseMessages(value: unknown): HistoryMessage[] {
@@ -163,6 +167,7 @@ function parseMessages(value: unknown): HistoryMessage[] {
       stringFromUnknown(record.value);
     if (!text) continue;
 
+    if (!memberFacingHistoryText(role, text)) continue;
     parsed.push({ role, text: memberFacingHistoryText(role, text) });
   }
 
@@ -182,8 +187,10 @@ function fallbackMessages(record: Record<string, unknown>): HistoryMessage[] {
     stringFromUnknown(record.result) ||
     stringFromUnknown(record.answer);
 
-  if (userText) messages.push({ role: "user", text: memberFacingHistoryText("user", userText) });
-  if (assistantText) messages.push({ role: "assistant", text: assistantText });
+  const cleanUser = memberFacingHistoryText("user", userText);
+  const cleanAssistant = memberFacingHistoryText("assistant", assistantText);
+  if (cleanUser) messages.push({ role: "user", text: cleanUser });
+  if (cleanAssistant) messages.push({ role: "assistant", text: cleanAssistant });
   return messages;
 }
 
