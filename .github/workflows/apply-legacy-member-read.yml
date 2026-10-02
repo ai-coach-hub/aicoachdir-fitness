@@ -1,0 +1,41 @@
+name: Verify legacy member workout read
+on:
+  push:
+    branches: [fix/legacy-member-workout-read-20261002]
+    paths: [.github/workflows/apply-legacy-member-read.yml]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/legacy-member-workout-read-20261002
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply guarded member-read patch
+        run: python scripts/apply-legacy-member-read.py
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run all regression tests and strict type checking
+        run: |
+          node --experimental-strip-types --test tests/*.test.mjs > /tmp/legacy-member-tests.txt 2>&1 || { tail -100 /tmp/legacy-member-tests.txt; exit 1; }
+          tail -12 /tmp/legacy-member-tests.txt
+          npx tsc --noEmit
+      - name: Save test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-member-workout-read-tests
+          path: /tmp/legacy-member-tests.txt
+          retention-days: 14
+      - name: Commit verified code, remove temporary patch tools
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm scripts/apply-legacy-member-read.py .github/workflows/apply-legacy-member-read.yml
+          git add app/api/fitness/chat/route.ts
+          git commit -m 'Load existing legacy workouts in the authenticated member hub'
+          git push origin HEAD:fix/legacy-member-workout-read-20261002
