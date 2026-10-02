@@ -47,6 +47,7 @@ function hub(fetchImpl) {
       if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'Fragment' };
       if (name === 'next/link') return { __esModule: true, default: 'a' };
       if (name === '@clerk/nextjs') return { useClerk: () => ({ signOut: async () => {} }) };
+      if (name === '@/components/WorkoutHistoryList') return { __esModule: true, default: 'workout-history' };
       throw new Error('Unexpected import: ' + name);
     },
   });

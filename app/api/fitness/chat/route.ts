@@ -499,6 +499,7 @@ async function saveMemberWorkoutHistory(
   email: string,
   studioToken: string,
   entries: Record<string, unknown>[],
+  expectedEntries?: unknown[],
 ) {
   const headers = {
     Authorization: `Bearer ${studioToken}`,
@@ -533,8 +534,13 @@ async function saveMemberWorkoutHistory(
     cache: "no-store",
     signal: AbortSignal.timeout(15_000),
   });
-  const hasExisting =
-    existingResponse.ok && collectMemoryValues(await existingResponse.json()).length > 0;
+  if (!existingResponse.ok && existingResponse.status !== 404) return false;
+  const existingPayload: unknown = existingResponse.ok ? await existingResponse.json() : [];
+  const existingEntries = newestCompletionSnapshot(existingPayload);
+  if (existingEntries === null) return false;
+  // Refuse a stale overwrite rather than erase another recently logged session.
+  if (expectedEntries && !isDeepStrictEqual(existingEntries, expectedEntries)) return false;
+  const hasExisting = collectMemoryValues(existingPayload).length > 0;
 
   const updatedAt = new Date().toISOString();
   const storedEntries = entries.slice(0, 15);
@@ -1790,7 +1796,7 @@ function extractFormalPlanFromValues(values: unknown[]) {
 async function readMemberWorkoutData(
   email: string,
   studioToken: string,
-  options: { includeHistory?: boolean; signal?: AbortSignal } = {},
+  options: { includeHistory?: boolean; requireHistory?: boolean; signal?: AbortSignal } = {},
 ) {
   const readSignal = () => options.signal
     ? AbortSignal.any([options.signal, AbortSignal.timeout(12_000)])
@@ -1829,6 +1835,7 @@ async function readMemberWorkoutData(
 
   let plan: Record<string, unknown> | null = null;
   let historyEntries: unknown[] = [];
+  if (options.requireHistory && !historyMemoryId) throw new Error("history-memory-not-configured");
 
   if (!planMemoryId && options.includeHistory === false) throw new Error("plan-memory-not-configured");
 
@@ -1850,16 +1857,12 @@ async function readMemberWorkoutData(
       { headers, cache: "no-store", signal: readSignal() },
     );
     if (historyResponse.ok) {
-      const values = collectMemoryValues(await historyResponse.json());
-      for (const value of values) {
-        const unwrapped = unwrapMemoryValue(value);
-        if (!unwrapped || typeof unwrapped !== "object" || Array.isArray(unwrapped)) continue;
-        const record = unwrapped as Record<string, unknown>;
-        if (Array.isArray(record.entries)) {
-          historyEntries = record.entries;
-          break;
-        }
-      }
+      const payload: unknown = await historyResponse.json();
+      const snapshot = newestCompletionSnapshot(payload);
+      if (snapshot === null && options.requireHistory) throw new Error("history-invalid-response");
+      historyEntries = snapshot || [];
+    } else if (historyResponse.status !== 404 && options.requireHistory) {
+      throw new Error("history-read-failed");
     }
   }
 
@@ -1986,6 +1989,16 @@ export async function POST(request: Request) {
 
   if (action === "complete_workout" || action === "sync_completed_workout") {
     const isRecoverySync = action === "sync_completed_workout";
+    const completionInput = body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : {};
+    const isFlexibleCompletion = completionInput.completionMode === "flexible";
+    const completionId = typeof completionInput.completionId === "string" ? completionInput.completionId : "";
+    if (isFlexibleCompletion && (isRecoverySync || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(completionId))) {
+      return Response.json({ ok: false, error: "A valid workout session is required." }, { status: 400 });
+    }
+    const actualMinutes = completionInput.actualDurationMinutes;
+    if (actualMinutes != null && (typeof actualMinutes !== "number" || !Number.isFinite(actualMinutes) || actualMinutes <= 0 || actualMinutes > 1440)) {
+      return Response.json({ ok: false, error: "Enter actual minutes between 1 and 1440." }, { status: 400 });
+    }
     const workoutId =
       body &&
       typeof body === "object" &&
@@ -1999,7 +2012,7 @@ export async function POST(request: Request) {
         ? (body as { scheduledDate: string }).scheduledDate.trim()
         : "";
 
-    if (!workoutId || !/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)) {
+    if (!workoutId || !validCompletionDate(scheduledDate)) {
       return Response.json(
         { ok: false, error: "A valid scheduled workout is required." },
         { status: 400 },
@@ -2007,7 +2020,12 @@ export async function POST(request: Request) {
     }
 
     try {
-      const data = await readMemberWorkoutData(memberEmail, studioToken);
+      let data = await readMemberWorkoutData(memberEmail, studioToken, { requireHistory: true });
+      if (!data.plan) {
+        const { readLegacyMemberPlan } = await import("@/lib/legacyWorkoutRead");
+        const legacy = await readLegacyMemberPlan(memberEmail, studioToken);
+        if (legacy.plan) data = { ...data, plan: legacy.plan };
+      }
       if (!data.plan) {
         return Response.json(
           { ok: false, error: "Your saved workout plan could not be found." },
@@ -2020,13 +2038,17 @@ export async function POST(request: Request) {
         .map((value) => value as Record<string, unknown>)
         .find(
           (value) =>
-            String(value.workoutId || "") === workoutId &&
-            String(value.scheduledDate || "") === scheduledDate &&
+            (isFlexibleCompletion
+              ? value.completionId === completionId
+              : String(value.workoutId || "") === workoutId && String(value.scheduledDate || "") === scheduledDate) &&
             typeof value.completedAt === "string" &&
             !!value.completedAt,
         );
 
       if (existingCompletion) {
+        if (isFlexibleCompletion && (existingCompletion.workoutId !== workoutId || existingCompletion.scheduledDate !== scheduledDate)) {
+          return Response.json({ ok: false, error: "That session was already saved with different details." }, { status: 409 });
+        }
         return Response.json({
           ok: true,
           completedAt: String(existingCompletion.completedAt),
@@ -2034,7 +2056,9 @@ export async function POST(request: Request) {
         });
       }
 
-      const scheduledPlan = scheduledPlanForWorkout(data.plan, workoutId, scheduledDate);
+      const scheduledPlan = isFlexibleCompletion
+        ? flexiblePlanForCompletion(data.plan, workoutId)
+        : scheduledPlanForWorkout(data.plan, workoutId, scheduledDate);
       if (!scheduledPlan) {
         return Response.json(
           { ok: false, error: "That workout is not scheduled in your saved plan." },
@@ -2047,7 +2071,7 @@ export async function POST(request: Request) {
           ? scheduledPlan.userTimezone.trim()
           : typeof data.plan.userTimezone === "string" && data.plan.userTimezone.trim()
             ? data.plan.userTimezone.trim()
-            : "UTC";
+            : verifiedCompletionTimezone(completionInput.timeZone);
       const today = dateKeyInTimezone(planTimeZone);
       if (!today) {
         return Response.json(
@@ -2106,6 +2130,8 @@ export async function POST(request: Request) {
 
       const notes = sanitizeTrackedText(input.notes, 280);
       const entry: Record<string, unknown> = {
+        ...(isFlexibleCompletion ? { completionId, completionMode: "flexible" } : {}),
+        ...(typeof actualMinutes === "number" ? { actualDurationMinutes: actualMinutes } : {}),
         planId: String(scheduledPlan.planId || data.plan.planId || "") || null,
         phase:
           scheduledPlan.phase && typeof scheduledPlan.phase === "object" && !Array.isArray(scheduledPlan.phase)
@@ -2129,7 +2155,7 @@ export async function POST(request: Request) {
         .map((value) => value as Record<string, unknown>)
         .filter(
           (value) =>
-            !(
+            isFlexibleCompletion ? value.completionId !== completionId : !(
               String(value.workoutId || "") === workoutId &&
               String(value.scheduledDate || "") === scheduledDate
             ),
@@ -2139,6 +2165,7 @@ export async function POST(request: Request) {
         memberEmail,
         studioToken,
         [entry, ...previousEntries],
+        data.historyEntries,
       );
       if (!saved) {
         return Response.json(
@@ -2945,4 +2972,45 @@ function addCompletionContext(message: string, context: CoachCompletionContext) 
     return message.slice(0, index) + "\n\n" + completionContextText(context) + message.slice(index);
   }
   return ["APPLICATION COACHING QUALITY RULES - apply silently.", completionContextText(context), "", "MEMBER MESSAGE:", message].join("\n");
+}
+
+
+function validCompletionDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function verifiedCompletionTimezone(value: unknown) {
+  if (typeof value !== "string" || value.length > 100) return "UTC";
+  try { new Intl.DateTimeFormat("en-US", { timeZone: value }).format(); return value; }
+  catch { return "UTC"; }
+}
+
+function flexiblePlanForCompletion(plan: Record<string, unknown>, workoutId: string) {
+  const active = activeSavedPlan(plan);
+  if (active.scheduleMode !== "flexible_sequence") return null;
+  const workouts = active.workouts;
+  if (!workouts || typeof workouts !== "object" || Array.isArray(workouts) ||
+      !Object.prototype.hasOwnProperty.call(workouts, workoutId)) return null;
+  const workout = (workouts as Record<string, unknown>)[workoutId];
+  return workout && typeof workout === "object" && !Array.isArray(workout) ? active : null;
+}
+
+// Undefined/malformed history is not evidence of an empty log, especially before a write.
+function newestCompletionSnapshot(payload: unknown): unknown[] | null {
+  const values = collectMemoryValues(payload);
+  if (!values.length) {
+    const items = memoryPayloadItems(payload);
+    const root = payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : null;
+    const data = root?.data && typeof root.data === "object" && !Array.isArray(root.data) ? root.data as Record<string, unknown> : null;
+    const validList = Array.isArray(payload) || Array.isArray(root?.data) ||
+      [root, data].some(node => node && ["memories", "items", "results"].some(key => Array.isArray(node[key])));
+    return validList && !items.length ? [] : null;
+  }
+  const snapshots = values.map(unwrapMemoryValue)
+    .filter((value): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value))
+    .filter(value => Array.isArray(value.entries))
+    .sort((a,b) => (Date.parse(String(b.updatedAt || "")) || 0) - (Date.parse(String(a.updatedAt || "")) || 0));
+  return snapshots.length ? snapshots[0].entries as unknown[] : null;
 }
