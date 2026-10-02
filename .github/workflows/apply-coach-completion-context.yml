@@ -1,0 +1,99 @@
+name: Apply verified completion context
+on:
+  push:
+    branches: [fix/coach-completion-context-20261002]
+    paths: [.github/workflows/apply-coach-completion-context.yml]
+permissions:
+  contents: write
+concurrency:
+  group: apply-coach-completion-context
+  cancel-in-progress: false
+jobs:
+  repair:
+    if: github.ref == 'refs/heads/fix/coach-completion-context-20261002'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply exact locally tested source change
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('app/api/fitness/chat/route.ts')
+          b=p.read_bytes()
+          sha=lambda b:hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          assert sha(b)=='39ca4dd9b44d4002d7351a0a935a4c41b768794c', 'Base route changed; refusing to overwrite'
+          s=b.decode()
+          def replace(old,new):
+              global s
+              assert s.count(old)==1, 'Missing or ambiguous patch anchor'
+              s=s.replace(old,new,1)
+          replace('  const mutationSignal = AbortSignal.timeout(100_000);', '''  const completionHistoryQuestion = !mustConfirmSavedPlanMutation && !standaloneNoSaveWorkout && isCompletionHistoryQuestion(message);
+            const completionContextPromise = !mustConfirmSavedPlanMutation && !standaloneNoSaveWorkout
+              ? readCoachCompletionContext(memberEmail, studioToken) : Promise.resolve(null);
+            const mutationSignal = AbortSignal.timeout(100_000);''')
+          replace('  if (!standaloneNoSaveWorkout && !mustConfirmSavedPlanMutation) {','  if (!standaloneNoSaveWorkout && !mustConfirmSavedPlanMutation && !completionHistoryQuestion) {')
+          replace('''  const pickaxeMessage = mustConfirmSavedPlanMutation
+              ? buildSavedMutationMessage(effectiveMessage, message, planBeforeMutation)
+              : buildPickaxeMessage(message);''','''  const completionContext = await completionContextPromise;
+            if (completionHistoryQuestion && completionContext &&
+                (completionContext.state === "unavailable" || completionContext.state === "not_configured")) {
+              return Response.json({
+                ok: true, conversationId,
+                response: "I could not load your saved workout history right now, so I cannot verify that completion yet. That does not mean it was lost, and you do not need to record it again.",
+                relaySource: "workout-history-unavailable",
+              });
+            }
+            const basePickaxeMessage = mustConfirmSavedPlanMutation
+              ? buildSavedMutationMessage(effectiveMessage, message, planBeforeMutation)
+              : buildPickaxeMessage(message);
+            const pickaxeMessage = completionContext ? addCompletionContext(basePickaxeMessage, completionContext) : basePickaxeMessage;''')
+          replace('    const relayPromise = standaloneNoSaveWorkout','    const relayPromise = standaloneNoSaveWorkout || completionHistoryQuestion')
+          replace('''        !standaloneNoSaveWorkout &&
+                  Date.now() < consistencyDeadline''','''        !standaloneNoSaveWorkout && !completionHistoryQuestion &&
+                  Date.now() < consistencyDeadline''')
+          replace('''  draftResponse: string;
+          }) {
+            const correctionMessage''','''  draftResponse: string;
+            completionContext?: CoachCompletionContext | null;
+          }) {
+            const correctionMessage''')
+          replace('''    "ORIGINAL MEMBER MESSAGE:",
+              args.memberMessage,''','''    ...(args.completionContext ? [completionContextText(args.completionContext), ""] : []),
+              "ORIGINAL MEMBER MESSAGE:",
+              args.memberMessage,''')
+          replace('''      draftResponse: finalResponseText,
+              });''','''      draftResponse: finalResponseText,
+                completionContext,
+              });''')
+          s+=Path('.github/repair-completion-context.txt').read_text()
+          assert sha(s.encode())=='dbdf353d65d66af1b98856de9741b481a8641289', 'Patch differs from locally tested source'
+          p.write_text(s)
+          PY
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run all regressions and type checking
+        run: |
+          set -o pipefail
+          node --experimental-strip-types --test tests/*.test.mjs | tee /tmp/completion-regressions.txt
+          npx tsc --noEmit 2>&1 | tee /tmp/completion-typecheck.txt
+      - name: Retain verification results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: completion-context-checks
+          path: /tmp/completion-*.txt
+          if-no-files-found: ignore
+      - name: Commit only verified application and regression changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/api/fitness/chat/route.ts tests/coach-completion-context.test.mjs
+          git rm .github/repair-completion-context.txt .github/workflows/apply-coach-completion-context.yml
+          git commit -m 'Give Coach fresh authenticated workout-completion context'
+          git push origin HEAD:refs/heads/fix/coach-completion-context-20261002
