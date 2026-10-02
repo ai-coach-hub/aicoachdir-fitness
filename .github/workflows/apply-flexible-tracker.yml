@@ -1,0 +1,42 @@
+name: Verify flexible tracker and history
+on:
+  push:
+    branches: [fix/flexible-tracker-history-20261002]
+    paths: [scripts/apply-flexible-tracker.py, .github/workflows/apply-flexible-tracker.yml]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/flexible-tracker-history-20261002
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply source-guarded patch
+        run: python scripts/apply-flexible-tracker.py
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run full regression suite and type checking
+        run: |
+          node --experimental-strip-types --test tests/*.test.mjs > /tmp/flexible-tracker-tests.txt 2>&1 || { tail -150 /tmp/flexible-tracker-tests.txt; exit 1; }
+          tail -12 /tmp/flexible-tracker-tests.txt
+          npx tsc --noEmit
+      - name: Retain verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flexible-tracker-verification
+          path: /tmp/flexible-tracker-tests.txt
+          retention-days: 14
+      - name: Commit verified source and remove temporary patch tools
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm scripts/apply-flexible-tracker.py .github/workflows/apply-flexible-tracker.yml
+          git add app/fitness/chat/page.tsx app/api/fitness/chat/route.ts tests/next-week-member-ui.test.mjs
+          git commit -m 'Enable flexible workout tracking and visible saved history'
+          git push origin HEAD:fix/flexible-tracker-history-20261002
