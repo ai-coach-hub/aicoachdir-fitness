@@ -49,9 +49,9 @@ const upcomingCoaches = [
     tagline: "Budget with clarity. Spend with purpose.",
     description:
       "A future budgeting-coaching experience focused on monthly planning, intentional spending, savings goals, and practical financial decision support.",
-    image: "/images/ai-coaching-spendsmart.jpg",
+    image: "/images/ai-coaching-for-budgeting.jpg",
     alt: "AI Coaching for Budgeting preview artwork",
-    customBudgetingArtwork: true,
+    customBudgetingArtwork: false,
   },
   {
     name: "AI Coaching for Life",
