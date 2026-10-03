@@ -45,12 +45,13 @@ const plan = {
 
 const upcomingCoaches = [
   {
-    name: "AI Coaching SpendSmart",
-    tagline: "Save More. Spend Wisely. Plan Better.",
+    name: "AI Coaching for Budgeting",
+    tagline: "Budget with clarity. Spend with purpose.",
     description:
-      "A future money-coaching experience focused on budgeting habits, smarter spending, and practical financial decision support.",
+      "A future budgeting-coaching experience focused on monthly planning, intentional spending, savings goals, and practical financial decision support.",
     image: "/images/ai-coaching-spendsmart.jpg",
-    alt: "AI Coaching SpendSmart preview artwork",
+    alt: "AI Coaching for Budgeting preview artwork",
+    customBudgetingArtwork: true,
   },
   {
     name: "AI Coaching for Life",
@@ -268,14 +269,22 @@ export default function HomePage() {
                 <span className="coming-soon-badge">Coming Soon</span>
               </div>
               <div className="coming-soon-image-wrap">
-                <Image
-                  src={coach.image}
-                  alt={coach.alt}
-                  width={1536}
-                  height={1024}
-                  sizes="(max-width: 900px) calc(100vw - 40px), 380px"
-                  className="coming-soon-image"
-                />
+                {coach.customBudgetingArtwork ? (
+                  <div className="coming-soon-image coming-soon-budgeting-artwork" role="img" aria-label={coach.alt}>
+                    <span>AI Coaching</span>
+                    <strong>for Budgeting</strong>
+                    <small>Plan with clarity. Spend with purpose.</small>
+                  </div>
+                ) : (
+                  <Image
+                    src={coach.image}
+                    alt={coach.alt}
+                    width={1536}
+                    height={1024}
+                    sizes="(max-width: 900px) calc(100vw - 40px), 380px"
+                    className="coming-soon-image"
+                  />
+                )}
               </div>
               <div className="coming-soon-copy">
                 <h3>{coach.name}</h3>

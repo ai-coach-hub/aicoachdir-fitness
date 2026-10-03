@@ -4,7 +4,7 @@
 
 AI Fitness Coach 2.0 is the current live coaching experience. It provides personalized AI fitness guidance, workout planning, accountability, and progress support.
 
-Planned coaching areas include SpendSmart for budgeting and smarter spending, Life for mindset and personal growth, and Career for professional development.
+Planned coaching areas include AI Coaching for Budgeting for monthly budgeting and smarter spending, Life for mindset and personal growth, and Career for professional development.
 
 Use the canonical www domain for AI Coach Directory: https://www.aicoachdir.com
 
