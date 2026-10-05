@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
 import WorkoutHistoryList from "@/components/WorkoutHistoryList";
+import { withSingleNetworkRetry } from "@/lib/clientFetchRetry";
 
 type Message = { role: "user" | "assistant"; text: string };
 type JsonRecord = Record<string, unknown>;
@@ -429,15 +430,20 @@ export default function FitnessChatPage() {
     setCompletionError("");
 
     try {
-      const response = await fetch("/api/fitness/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: mode === "sync" ? "sync_completed_workout" : "complete_workout",
-          workoutId,
-          scheduledDate,
-        }),
+      const requestBody = JSON.stringify({
+        action: mode === "sync" ? "sync_completed_workout" : "complete_workout",
+        workoutId,
+        scheduledDate,
       });
+      const response = await withSingleNetworkRetry(() =>
+        fetch("/api/fitness/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+          cache: "no-store",
+          credentials: "same-origin",
+        }),
+      );
       const data = (await response.json()) as CompletionResult;
       if (!response.ok || !data.ok) {
         setCompletionError(
@@ -553,21 +559,26 @@ export default function FitnessChatPage() {
     setCompletionError("");
 
     try {
-      const response = await fetch("/api/fitness/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "complete_workout",
-          workoutId: activeWorkoutTracker.workoutId,
-          scheduledDate: activeWorkoutTracker.scheduledDate,
-          exercises: trackerExercises,
-          notes: trackerNotes,
-          completionMode: activeWorkoutTracker.completionMode,
-          completionId: activeWorkoutTracker.completionId,
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          actualDurationMinutes: trackerDuration.trim() ? Number(trackerDuration) : null,
-        }),
+      const requestBody = JSON.stringify({
+        action: "complete_workout",
+        workoutId: activeWorkoutTracker.workoutId,
+        scheduledDate: activeWorkoutTracker.scheduledDate,
+        exercises: trackerExercises,
+        notes: trackerNotes,
+        completionMode: activeWorkoutTracker.completionMode,
+        completionId: activeWorkoutTracker.completionId,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        actualDurationMinutes: trackerDuration.trim() ? Number(trackerDuration) : null,
       });
+      const response = await withSingleNetworkRetry(() =>
+        fetch("/api/fitness/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+          cache: "no-store",
+          credentials: "same-origin",
+        }),
+      );
       const data = (await response.json()) as CompletionResult;
       if (!response.ok || !data.ok) {
         setCompletionError(data.error || "Workout completion could not be saved.");
