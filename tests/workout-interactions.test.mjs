@@ -146,3 +146,18 @@ test("previous chats hide internal coaching instruction wrappers from members", 
   assert.match(historyRoute, /ORIGINAL MEMBER MESSAGE:/);
   assert.match(historyRoute, /parsed\.push\(\{ role, text: memberFacingHistoryText\(role, text\) \}\)/);
 });
+
+
+test("member workout and chat-history reads retry a transient authenticated-session 401", async () => {
+  const text = await memberHubSource();
+
+  assert.match(text, /withTransientAuthRetry/);
+  assert.match(
+    text,
+    /withTransientAuthRetry\(\(\) =>\s*fetch\("\/api\/fitness\/chat",\s*\{ method: "GET", cache: "no-store" \}\)\)/,
+  );
+  assert.match(
+    text,
+    /withTransientAuthRetry\(\(\) =>\s*fetch\("\/api\/fitness\/chat\/history",\s*\{[\s\S]*?method: "GET",[\s\S]*?cache: "no-store",[\s\S]*?\}\)\)/,
+  );
+});
