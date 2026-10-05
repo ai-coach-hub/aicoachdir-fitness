@@ -167,11 +167,31 @@ function collectMemoryValues(value: unknown, result: unknown[] = []) {
   return result;
 }
 
+function decodeEscapedJsonLayer(value: string) {
+  const source = value.trim();
+  if (!(source.startsWith('{\\"') || source.startsWith('[\\"') || source.includes('\\"schemaVersion\\"'))) {
+    return null;
+  }
+  try {
+    const wrapped = '"' + source.replace(/\r/g, '\\r').replace(/\n/g, '\\n') + '"';
+    const decoded = JSON.parse(wrapped);
+    return typeof decoded === "string" ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
 function unwrapMemoryValue(value: unknown): unknown {
   let current = value;
   for (let depth = 0; depth < 10; depth += 1) {
     if (typeof current === "string") {
-      try { current = JSON.parse(current); continue; } catch { return current; }
+      try { current = JSON.parse(current); continue; } catch {}
+      const escaped = decodeEscapedJsonLayer(current);
+      if (escaped !== null && escaped !== current) {
+        current = escaped;
+        continue;
+      }
+      return current;
     }
     if (!current || typeof current !== "object" || Array.isArray(current)) return current;
     const record = current as Record<string, unknown>;
