@@ -90,6 +90,11 @@ test('a write without matching readback is not reported as saved',async()=>{cons
 for(const [options,status] of [[{signedIn:false},401],[{access:false},403]]){
  test('authentication and membership checks precede completion reads '+status,async()=>{const r=route(options);assert.equal((await r.post()).status,status);assert.equal(r.calls.length,0);});
 }
+test('double-escaped Pickaxe history envelope remains readable',()=>{
+ const {helpers:h}=route();
+ const escaped='{\\"schemaVersion\\":2,\\"updatedAt\\":\\"2026-10-05T20:00:00.000Z\\",\\"entries\\":[{\\"title\\":\\"Easy Spin\\"}]}';
+ assert.deepEqual(h.newestCompletionSnapshot({data:{items:[{value:escaped}]}}),[{title:'Easy Spin'}]);
+});
 test('newest history envelope wins and malformed payload is not empty history',()=>{
  const {helpers:h}=route();const e={data:[{value:JSON.stringify({updatedAt:'2026-10-01',entries:[old]})},{value:JSON.stringify({updatedAt:'2026-10-02',entries:[]})}]};
  assert.equal(h.newestCompletionSnapshot(e).length,0);assert.equal(h.newestCompletionSnapshot({oops:true}),null);
