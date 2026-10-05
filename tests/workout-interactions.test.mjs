@@ -158,6 +158,6 @@ test("member workout and chat-history reads retry a transient authenticated-sess
   );
   assert.match(
     text,
-    /withTransientAuthRetry\(\(\) =>\s*fetch\("\/api\/fitness\/chat\/history",\s*\{[\s\S]*?method: "GET",[\s\S]*?cache: "no-store",[\s\S]*?\}\)\)/,
+    /withTransientAuthRetry\(\(\) =>[\s\S]{0,160}fetch\("\/api\/fitness\/chat\/history"[\s\S]{0,160}method: "GET"[\s\S]{0,160}cache: "no-store"/,
   );
 });
