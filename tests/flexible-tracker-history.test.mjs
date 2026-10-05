@@ -95,6 +95,13 @@ test('double-escaped Pickaxe history envelope remains readable',()=>{
  const escaped='{\\"schemaVersion\\":2,\\"updatedAt\\":\\"2026-10-05T20:00:00.000Z\\",\\"entries\\":[{\\"title\\":\\"Easy Spin\\"}]}';
  assert.deepEqual(h.newestCompletionSnapshot({data:{items:[{value:escaped}]}}),[{title:'Easy Spin'}]);
 });
+test('fenced Pickaxe history envelope remains readable',()=>{
+ const {helpers:h}=route();
+ const fence=String.fromCharCode(96,96,96);
+ const stored='Saved workout history:\n'+fence+'json\n'+JSON.stringify({schemaVersion:2,updatedAt:'2026-10-05T20:00:00.000Z',entries:[{title:'Easy Spin'}]})+'\n'+fence;
+ assert.deepEqual(h.newestCompletionSnapshot({data:{items:[{value:stored}]}}),[{title:'Easy Spin'}]);
+});
+
 test('newest history envelope wins and malformed payload is not empty history',()=>{
  const {helpers:h}=route();const e={data:[{value:JSON.stringify({updatedAt:'2026-10-01',entries:[old]})},{value:JSON.stringify({updatedAt:'2026-10-02',entries:[]})}]};
  assert.equal(h.newestCompletionSnapshot(e).length,0);assert.equal(h.newestCompletionSnapshot({oops:true}),null);
