@@ -185,13 +185,14 @@ function unwrapMemoryValue(value: unknown): unknown {
   let current = value;
   for (let depth = 0; depth < 10; depth += 1) {
     if (typeof current === "string") {
-      try { current = JSON.parse(current); continue; } catch {}
-      const escaped = decodeEscapedJsonLayer(current);
-      if (escaped !== null && escaped !== current) {
+      const text = current;
+      try { current = JSON.parse(text); continue; } catch {}
+      const escaped = decodeEscapedJsonLayer(text);
+      if (escaped !== null && escaped !== text) {
         current = escaped;
         continue;
       }
-      return current;
+      return text;
     }
     if (!current || typeof current !== "object" || Array.isArray(current)) return current;
     const record = current as Record<string, unknown>;
