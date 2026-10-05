@@ -167,13 +167,188 @@ function collectMemoryValues(value: unknown, result: unknown[] = []) {
   return result;
 }
 
+function stripCodeFence(value: string) {
+  const trimmed = value.trim();
+  const fence = String.fromCharCode(96, 96, 96);
+  if (!trimmed.startsWith(fence)) return trimmed;
+  const lines = trimmed.split(/\r?\n/);
+  if (lines.length && lines[0].trim().startsWith(fence)) lines.shift();
+  if (lines.length && lines[lines.length - 1].trim() === fence) lines.pop();
+  return lines.join("\n").trim();
+}
+
+function extractStructuredSlice(value: string) {
+  const objectStart = value.indexOf("{");
+  const arrayStart = value.indexOf("[");
+  let start = -1;
+  let open: "{" | "[" | null = null;
+  let close: "}" | "]" | null = null;
+
+  if (objectStart >= 0 && (arrayStart < 0 || objectStart < arrayStart)) {
+    start = objectStart;
+    open = "{";
+    close = "}";
+  } else if (arrayStart >= 0) {
+    start = arrayStart;
+    open = "[";
+    close = "]";
+  }
+  if (start < 0 || !open || !close) return value.trim();
+
+  let depth = 0;
+  let quote: "'" | '"' | null = null;
+  let escaped = false;
+  for (let index = start; index < value.length; index += 1) {
+    const char = value[index];
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === open) depth += 1;
+    else if (char === close) {
+      depth -= 1;
+      if (depth === 0) return value.slice(start, index + 1).trim();
+    }
+  }
+  return value.slice(start).trim();
+}
+
+function pythonLiteralToJson(value: string) {
+  let result = "";
+  let index = 0;
+
+  while (index < value.length) {
+    const char = value[index];
+
+    if (char === "'") {
+      index += 1;
+      let parsed = "";
+      let closed = false;
+      while (index < value.length) {
+        const current = value[index];
+        if (current === "\\" && index + 1 < value.length) {
+          const next = value[index + 1];
+          const escapes: Record<string, string> = {
+            n: "\n",
+            r: "\r",
+            t: "\t",
+            b: "\b",
+            f: "\f",
+            "'": "'",
+            '"': '"',
+            "\\": "\\",
+          };
+          parsed += Object.prototype.hasOwnProperty.call(escapes, next)
+            ? escapes[next]
+            : next;
+          index += 2;
+          continue;
+        }
+        if (current === "'") {
+          closed = true;
+          index += 1;
+          break;
+        }
+        parsed += current;
+        index += 1;
+      }
+      if (!closed) return null;
+      result += JSON.stringify(parsed);
+      continue;
+    }
+
+    if (char === '"') {
+      const start = index;
+      index += 1;
+      let escaped = false;
+      while (index < value.length) {
+        const current = value[index];
+        if (escaped) {
+          escaped = false;
+          index += 1;
+          continue;
+        }
+        if (current === "\\") {
+          escaped = true;
+          index += 1;
+          continue;
+        }
+        index += 1;
+        if (current === '"') break;
+      }
+      result += value.slice(start, index);
+      continue;
+    }
+
+    const token = value.slice(index).match(/^(True|False|None)\b/);
+    if (token) {
+      result += token[1] === "True" ? "true" : token[1] === "False" ? "false" : "null";
+      index += token[1].length;
+      continue;
+    }
+
+    result += char;
+    index += 1;
+  }
+
+  return result;
+}
+
+function removeTrailingCommas(value: string) {
+  let result = "";
+  let quote: "'" | '"' | null = null;
+  let escaped = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (quote) {
+      result += char;
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      result += char;
+      continue;
+    }
+    if (char === ",") {
+      let lookahead = index + 1;
+      while (lookahead < value.length && /\s/.test(value[lookahead])) lookahead += 1;
+      if (value[lookahead] === "}" || value[lookahead] === "]") continue;
+    }
+    result += char;
+  }
+
+  return result;
+}
+
 function decodeEscapedJsonLayer(value: string) {
   const source = value.trim();
   if (!(source.startsWith('{\\"') || source.startsWith('[\\"') || source.includes('\\"schemaVersion\\"'))) {
     return null;
   }
   try {
-    const wrapped = '"' + source.replace(/\r/g, '\\r').replace(/\n/g, '\\n') + '"';
+    const wrapped = '"' + source.replace(/\r/g, "\\r").replace(/\n/g, "\\n") + '"';
     const decoded = JSON.parse(wrapped);
     return typeof decoded === "string" ? decoded : null;
   } catch {
@@ -181,18 +356,81 @@ function decodeEscapedJsonLayer(value: string) {
   }
 }
 
+function decodeUrlEncodedLayer(value: string) {
+  const source = value.trim();
+  if (!/%(?:7B|7D|5B|5D|22|27)/i.test(source)) return null;
+  try {
+    const decoded = decodeURIComponent(source);
+    return decoded !== source ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeStoredText(value: string): unknown {
+  let current: unknown = value.replace(/^\uFEFF/, "").trim();
+
+  for (let depth = 0; depth < 8 && typeof current === "string"; depth += 1) {
+    const normalized = stripCodeFence(current);
+    const htmlDecoded = normalized
+      .replace(/&quot;/g, '"')
+      .replace(/&#34;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, "&");
+
+    const escapedDecoded = decodeEscapedJsonLayer(htmlDecoded);
+    const urlDecoded = decodeUrlEncodedLayer(htmlDecoded);
+    const candidates: string[] = [];
+
+    for (const candidate of [
+      normalized,
+      htmlDecoded,
+      escapedDecoded,
+      urlDecoded,
+      extractStructuredSlice(normalized),
+      extractStructuredSlice(htmlDecoded),
+      escapedDecoded ? extractStructuredSlice(escapedDecoded) : null,
+      urlDecoded ? extractStructuredSlice(urlDecoded) : null,
+    ]) {
+      if (!candidate) continue;
+      for (const variant of [candidate, removeTrailingCommas(candidate)]) {
+        if (variant && !candidates.includes(variant)) candidates.push(variant);
+      }
+    }
+
+    let parsed: unknown = null;
+    let found = false;
+    for (const candidate of candidates) {
+      try {
+        parsed = JSON.parse(candidate);
+        found = true;
+        break;
+      } catch {
+        const pythonJson = pythonLiteralToJson(candidate);
+        if (!pythonJson) continue;
+        try {
+          parsed = JSON.parse(pythonJson);
+          found = true;
+          break;
+        } catch {}
+      }
+    }
+
+    if (!found) return current;
+    current = parsed;
+  }
+
+  return current;
+}
+
 function unwrapMemoryValue(value: unknown): unknown {
   let current = value;
   for (let depth = 0; depth < 10; depth += 1) {
     if (typeof current === "string") {
-      const text = current;
-      try { current = JSON.parse(text); continue; } catch {}
-      const escaped = decodeEscapedJsonLayer(text);
-      if (escaped !== null && escaped !== text) {
-        current = escaped;
-        continue;
-      }
-      return text;
+      const decoded = decodeStoredText(current);
+      if (decoded === current) return current;
+      current = decoded;
+      continue;
     }
     if (!current || typeof current !== "object" || Array.isArray(current)) return current;
     const record = current as Record<string, unknown>;
