@@ -90,16 +90,26 @@ test('a write without matching readback is not reported as saved',async()=>{cons
 for(const [options,status] of [[{signedIn:false},401],[{access:false},403]]){
  test('authentication and membership checks precede completion reads '+status,async()=>{const r=route(options);assert.equal((await r.post()).status,status);assert.equal(r.calls.length,0);});
 }
+function assertEasySpinSnapshot(h,stored){
+ assert.equal(JSON.stringify(h.newestCompletionSnapshot({data:{items:[{value:stored}]}})),JSON.stringify([{title:'Easy Spin'}]));
+}
 test('double-escaped Pickaxe history envelope remains readable',()=>{
  const {helpers:h}=route();
  const escaped='{\\"schemaVersion\\":2,\\"updatedAt\\":\\"2026-10-05T20:00:00.000Z\\",\\"entries\\":[{\\"title\\":\\"Easy Spin\\"}]}';
- assert.deepEqual(h.newestCompletionSnapshot({data:{items:[{value:escaped}]}}),[{title:'Easy Spin'}]);
+ assertEasySpinSnapshot(h,escaped);
 });
-test('fenced Pickaxe history envelope remains readable',()=>{
+test('known Pickaxe serialized history variants remain readable',()=>{
  const {helpers:h}=route();
+ const envelope={schemaVersion:2,updatedAt:'2026-10-05T20:00:00.000Z',entries:[{title:'Easy Spin'}]};
+ const json=JSON.stringify(envelope);
  const fence=String.fromCharCode(96,96,96);
- const stored='Saved workout history:\n'+fence+'json\n'+JSON.stringify({schemaVersion:2,updatedAt:'2026-10-05T20:00:00.000Z',entries:[{title:'Easy Spin'}]})+'\n'+fence;
- assert.deepEqual(h.newestCompletionSnapshot({data:{items:[{value:stored}]}}),[{title:'Easy Spin'}]);
+ const variants=[
+  'Saved workout history:\n'+fence+'json\n'+json+'\n'+fence,
+  json.replaceAll('&','&amp;').replaceAll('"','&quot;'),
+  encodeURIComponent(json),
+  "{'schemaVersion': 2, 'updatedAt': '2026-10-05T20:00:00.000Z', 'entries': [{'title': 'Easy Spin',},],}",
+ ];
+ variants.forEach(stored=>assertEasySpinSnapshot(h,stored));
 });
 
 test('newest history envelope wins and malformed payload is not empty history',()=>{
