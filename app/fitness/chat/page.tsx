@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
 import WorkoutHistoryList from "@/components/WorkoutHistoryList";
-import { withSingleNetworkRetry } from "@/lib/clientFetchRetry";
+import { withSingleNetworkRetry, withTransientAuthRetry } from "@/lib/clientFetchRetry";
 
 type Message = { role: "user" | "assistant"; text: string };
 type JsonRecord = Record<string, unknown>;
@@ -380,7 +380,7 @@ export default function FitnessChatPage() {
     if (!background) setPlanLoading(true);
     setPlanError("");
     try {
-      const response = await fetch("/api/fitness/chat", { method: "GET", cache: "no-store" });
+      const response = await withTransientAuthRetry(() => fetch("/api/fitness/chat", { method: "GET", cache: "no-store" }));
       const data = (await response.json()) as PlanResult;
       // An older GET must never overwrite a just-verified save or a newer GET.
       if (requestVersion !== planRequestVersion.current) return;
@@ -401,10 +401,12 @@ export default function FitnessChatPage() {
     setHistoryLoading(true);
     setHistoryError("");
     try {
-      const response = await fetch("/api/fitness/chat/history", {
-        method: "GET",
-        cache: "no-store",
-      });
+      const response = await withTransientAuthRetry(() =>
+        fetch("/api/fitness/chat/history", {
+          method: "GET",
+          cache: "no-store",
+        }),
+      );
       const data = (await response.json()) as HistoryResult;
       if (!response.ok || !data.ok) {
         setHistoryError(data.error || "Previous chats could not be loaded.");

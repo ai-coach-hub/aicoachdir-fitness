@@ -34,3 +34,36 @@ test("network-only completion retry does not retry a successful operation", asyn
   assert.equal(result, "saved");
   assert.equal(attempts, 1);
 });
+
+
+test("transient member auth retry retries 401 and returns the later authenticated response", async () => {
+  let mod = null;
+  try {
+    mod = await import("../lib/clientFetchRetry.ts");
+  } catch {}
+
+  assert.equal(typeof mod?.withTransientAuthRetry, "function");
+
+  let attempts = 0;
+  const response = await mod.withTransientAuthRetry(async () => {
+    attempts += 1;
+    return new Response("{}", { status: attempts === 1 ? 401 : 200 });
+  }, [0]);
+
+  assert.equal(response.status, 200);
+  assert.equal(attempts, 2);
+});
+
+test("transient member auth retry does not retry non-auth HTTP errors", async () => {
+  const mod = await import("../lib/clientFetchRetry.ts");
+  assert.equal(typeof mod?.withTransientAuthRetry, "function");
+
+  let attempts = 0;
+  const response = await mod.withTransientAuthRetry(async () => {
+    attempts += 1;
+    return new Response("{}", { status: 503 });
+  }, [0, 0]);
+
+  assert.equal(response.status, 503);
+  assert.equal(attempts, 1);
+});
