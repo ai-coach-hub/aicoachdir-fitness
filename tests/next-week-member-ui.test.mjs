@@ -48,6 +48,7 @@ function hub(fetchImpl) {
       if (name === 'next/link') return { __esModule: true, default: 'a' };
       if (name === '@clerk/nextjs') return { useClerk: () => ({ signOut: async () => {} }) };
       if (name === '@/components/WorkoutHistoryList') return { __esModule: true, default: 'workout-history' };
+      if (name === '@/lib/clientFetchRetry') return { withSingleNetworkRetry: (operation) => operation() };
       throw new Error('Unexpected import: ' + name);
     },
   });
