@@ -69,7 +69,7 @@ export default function FitnessMemberLoginClient({
               Open Fitness Coach
             </Link>
             <a
-              href="https://aicoachdir-budgeting.vercel.app"
+              href="/budgeting/launch"
               className="primary-button"
             >
               Open Budgeting Coach
