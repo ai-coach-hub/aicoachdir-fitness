@@ -298,22 +298,14 @@ export default function HomePage() {
                 <span className="coming-soon-badge">Coming Soon</span>
               </div>
               <div className="coming-soon-image-wrap">
-                {coach.customBudgetingArtwork ? (
-                  <div className="coming-soon-image coming-soon-budgeting-artwork" role="img" aria-label={coach.alt}>
-                    <span>AI Coaching</span>
-                    <strong>for Budgeting</strong>
-                    <small>Plan with clarity. Spend with purpose.</small>
-                  </div>
-                ) : (
-                  <Image
-                    src={coach.image}
-                    alt={coach.alt}
-                    width={1536}
-                    height={1024}
-                    sizes="(max-width: 900px) calc(100vw - 40px), 380px"
-                    className="coming-soon-image"
-                  />
-                )}
+                <Image
+                  src={coach.image}
+                  alt={coach.alt}
+                  width={1536}
+                  height={1024}
+                  sizes="(max-width: 900px) calc(100vw - 40px), 380px"
+                  className="coming-soon-image"
+                />
               </div>
               <div className="coming-soon-copy">
                 <h3>{coach.name}</h3>
