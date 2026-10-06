@@ -57,7 +57,7 @@ export default async function FitnessSubscribePage() {
     });
   } catch {
     return (
-      <SetupProblem message="We could not verify your current Fitness Coach access. No charge was attempted." />
+      <SetupProblem message="We could not verify your current AI Coach Directory membership. No charge was attempted." />
     );
   }
 
