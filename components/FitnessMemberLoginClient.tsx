@@ -69,7 +69,7 @@ export default function FitnessMemberLoginClient({
               Open Fitness Coach
             </Link>
             <a
-              href="/budgeting/launch"
+              href="/budgeting/launch?destination=coach"
               className="primary-button"
             >
               Open Budgeting Coach
