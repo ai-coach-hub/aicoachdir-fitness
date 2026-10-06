@@ -20,15 +20,24 @@ export default function LegacyMemberAccountPage() {
         className="login-config-card"
         aria-labelledby="legacy-member-heading"
       >
-        <p className="eyebrow">EXISTING FITNESS MEMBER</p>
+        <p className="eyebrow">RETURNING FITNESS MEMBER</p>
         <h1 id="legacy-member-heading">
-          Activate your AI Coach Directory login
+          Activate your existing member login
         </h1>
         <p>
-          If you already had Fitness Coach access through Pickaxe, create your
-          AI Coach Directory login with that same email. You will not be sent
-          through checkout just for creating this login.
+          Use the same email address you originally used for Fitness Coach.
+          This creates the newer AI Coach Directory sign-in and reconnects it
+          to your existing Fitness Coach membership.
         </p>
+
+        <div className="verification-reminder" role="note">
+          <strong>This is not a new subscription</strong>
+          <span>
+            You will not be sent through Stripe checkout just for activating
+            this login. Your existing Pickaxe membership, saved workouts, and
+            Fitness Coach identity remain tied to the same email.
+          </span>
+        </div>
 
         {!isLoaded ? (
           <p className="status-note">Loading account status…</p>
@@ -40,16 +49,16 @@ export default function LegacyMemberAccountPage() {
             </div>
 
             <div className="cta-row">
+              <Link href="/fitness/chat" className="primary-button">
+                Continue to Fitness Coach
+              </Link>
               <button
                 type="button"
-                className="primary-button"
+                className="secondary-button"
                 onClick={() => signOut({ redirectUrl: "/fitness/legacy-account" })}
               >
-                Sign out and activate a different member email
+                Use a different member email
               </button>
-              <Link href="/fitness/chat" className="secondary-button">
-                Continue with this account
-              </Link>
             </div>
           </>
         ) : (
@@ -65,10 +74,11 @@ export default function LegacyMemberAccountPage() {
             </div>
 
             <div className="verification-reminder" role="note">
-              <strong>Use your existing member email</strong>
+              <strong>Use your original Fitness Coach email</strong>
               <span>
-                Clerk may ask you to verify that email. This replaces the old
-                Pickaxe login; it does not create a second paid subscription.
+                Clerk may ask you to verify that email. After verification, the
+                Fitness Coach checks Pickaxe for the matching member and connects
+                the new login automatically.
               </span>
             </div>
           </>

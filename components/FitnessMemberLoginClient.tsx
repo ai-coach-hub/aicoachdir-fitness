@@ -36,17 +36,27 @@ export default function FitnessMemberLoginClient() {
             Use a different account
           </button>
         </div>
-
-        <p className="microcopy">
-          If you are trying to use a different existing Pickaxe member email,
-          choose “Use a different account” first.
-        </p>
       </>
     );
   }
 
   return (
     <>
+      <div className="verification-reminder" role="note">
+        <strong>Already used Fitness Coach before?</strong>
+        <span>
+          If your email is not recognized here, your older Fitness Coach account
+          may still be in Pickaxe and simply needs a one-time AI Coach Directory
+          login activation. You will not be charged again.
+        </span>
+      </div>
+
+      <div className="cta-row">
+        <Link href="/fitness/legacy-account" className="primary-button">
+          Activate my existing member login
+        </Link>
+      </div>
+
       <div style={{ display: "flex", justifyContent: "center", margin: "28px 0" }}>
         <SignIn
           routing="hash"
@@ -56,17 +66,15 @@ export default function FitnessMemberLoginClient() {
       </div>
 
       <div className="cta-row">
-        <Link href="/fitness/legacy-account" className="secondary-button">
-          First time using this member login?
-        </Link>
         <Link href="/fitness/chat" className="secondary-button">
           Back to Fitness Coach
         </Link>
       </div>
 
       <p className="microcopy">
-        Your AI Coach Directory sign-in connects you directly to your Fitness
-        Coach and saved workouts.
+        Newer AI Coach Directory members can sign in normally above. Returning
+        Pickaxe members only need to activate this login once using the same email
+        they originally used for Fitness Coach.
       </p>
     </>
   );
