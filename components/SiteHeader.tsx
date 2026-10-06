@@ -2,8 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 
 export default function SiteHeader({ compact = false }: { compact?: boolean }) {
-  const memberLoginUrl = "/fitness/login";
-
   return (
     <header className={compact ? "nav compact" : "nav"}>
       <Link href="/" className="brand brand-with-logo" aria-label="AI Coach Directory home">
@@ -24,8 +22,8 @@ export default function SiteHeader({ compact = false }: { compact?: boolean }) {
       <nav className="nav-links" aria-label="Primary navigation">
         <a href="/#how-it-works" className="nav-link-text">How it works</a>
         <Link href="/terms" className="nav-link-text">Terms</Link>
-        <Link href={memberLoginUrl} className="nav-member-login">Member Login</Link>
-        <Link href="/fitness/signup" className="nav-cta">Start Fitness Coach</Link>
+        <Link href="/fitness/signup" className="nav-coach-link">Fitness Coach</Link>
+        <a href="https://aicoachdir-budgeting.vercel.app" className="nav-coach-link">Budgeting Coach</a>
       </nav>
     </header>
   );

@@ -1494,3 +1494,35 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
     padding: 10px 10px 0;
   }
 }
+
+
+/* Equal-value coach navigation */
+.nav-coach-link {
+  border: 1px solid rgba(77, 226, 231, .34);
+  background: rgba(77, 226, 231, .07);
+  color: #e8feff;
+  border-radius: 999px;
+  min-height: 42px;
+  padding: 10px 17px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 780;
+  transition: .2s ease;
+}
+.nav-coach-link:hover {
+  background: rgba(77, 226, 231, .13);
+  border-color: rgba(77, 226, 231, .58);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 720px) {
+  .nav-links > a:not(.nav-coach-link) {
+    display: none;
+  }
+  .nav-coach-link {
+    min-height: 38px;
+    padding: 8px 11px;
+    font-size: 12px;
+  }
+}
