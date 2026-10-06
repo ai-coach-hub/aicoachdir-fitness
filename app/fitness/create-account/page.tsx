@@ -50,8 +50,8 @@ export default function FitnessCreateAccountPage() {
         <p className="eyebrow">NEW SUBSCRIBER · STEP 2 OF 3</p>
         <h1 id="create-account-heading">Create your AI Coach Directory account</h1>
         <p>
-          This is the only account you will use to return to your Fitness Coach
-          and My Workouts.
+          This is the only account you will use to access your Fitness Coach,
+          Budgeting Coach, My Workouts, and My Budget.
         </p>
 
         {!ready ? (
