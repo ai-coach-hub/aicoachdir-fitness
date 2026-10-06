@@ -17,7 +17,7 @@ test("Fitness chat API independently requires active membership", async () => {
 
 test("checkout fails closed if current membership cannot be verified", async () => {
   const text = await source("app/api/billing/create-checkout-session/route.ts");
-  assert.match(text, /could not verify your current Fitness Coach access/);
+  assert.match(text, /could not verify your current AI Coach Directory membership/);
   assert.match(text, /status: 503/);
 });
 
