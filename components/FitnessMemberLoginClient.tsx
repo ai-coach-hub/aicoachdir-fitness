@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { SignIn, useClerk, useUser } from "@clerk/nextjs";
 
-export default function FitnessMemberLoginClient() {
+type Props = {
+  hasAccess: boolean;
+  accessCheckFailed: boolean;
+};
+
+export default function FitnessMemberLoginClient({
+  hasAccess,
+  accessCheckFailed,
+}: Props) {
   const { isLoaded, isSignedIn, user } = useUser();
   const { signOut } = useClerk();
 
@@ -17,16 +25,80 @@ export default function FitnessMemberLoginClient() {
   }
 
   if (isSignedIn) {
+    if (accessCheckFailed) {
+      return (
+        <>
+          <div className="verification-reminder" role="status">
+            <strong>Membership verification is temporarily unavailable</strong>
+            <span>
+              Your account is signed in, but we could not confirm membership
+              access right now.
+            </span>
+          </div>
+
+          <div className="cta-row">
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => window.location.reload()}
+            >
+              Try Again
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => signOut({ redirectUrl: "/fitness/login" })}
+            >
+              Use a different account
+            </button>
+          </div>
+        </>
+      );
+    }
+
+    if (hasAccess) {
+      return (
+        <>
+          <div className="verification-reminder" role="status">
+            <strong>You are signed in</strong>
+            <span>{email || "Current AI Coach Directory account"}</span>
+          </div>
+
+          <div className="cta-row">
+            <Link href="/fitness/chat" className="primary-button">
+              Open Fitness Coach
+            </Link>
+            <a
+              href="https://aicoachdir-budgeting.vercel.app"
+              className="primary-button"
+            >
+              Open Budgeting Coach
+            </a>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => signOut({ redirectUrl: "/fitness/login" })}
+            >
+              Use a different account
+            </button>
+          </div>
+        </>
+      );
+    }
+
     return (
       <>
         <div className="verification-reminder" role="status">
-          <strong>You are already signed in</strong>
-          <span>{email || "Current AI Coach Directory account"}</span>
+          <strong>No active membership was found for this account</strong>
+          <span>
+            Use the same email tied to your existing membership, or review the
+            current membership option.
+          </span>
         </div>
 
         <div className="cta-row">
-          <Link href="/fitness/chat" className="primary-button">
-            Continue to Fitness Coach
+          <Link href="/fitness/signup" className="primary-button">
+            Review Membership
           </Link>
           <button
             type="button"
@@ -60,21 +132,21 @@ export default function FitnessMemberLoginClient() {
       <div style={{ display: "flex", justifyContent: "center", margin: "28px 0" }}>
         <SignIn
           routing="hash"
-          forceRedirectUrl="/fitness/chat"
-          signUpUrl="/fitness/legacy-account"
+          forceRedirectUrl="/fitness/login"
+          signUpUrl="/fitness/signup"
         />
       </div>
 
       <div className="cta-row">
-        <Link href="/fitness/chat" className="secondary-button">
-          Back to Fitness Coach
+        <Link href="/" className="secondary-button">
+          Back to AI Coach Directory
         </Link>
       </div>
 
       <p className="microcopy">
         Newer AI Coach Directory members can sign in normally above. Returning
-        Pickaxe members only need to activate this login once using the same email
-        they originally used for Fitness Coach.
+        Pickaxe Fitness members only need to activate this login once using the
+        same email they originally used for Fitness Coach.
       </p>
     </>
   );

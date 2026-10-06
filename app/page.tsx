@@ -116,7 +116,7 @@ export default function HomePage() {
             <div className="live-coach-feature">Coach chat + personalized workout planning</div>
             <div className="cta-row">
               <Link href="/fitness/signup" className="primary-button">Start Fitness Coach</Link>
-              <Link href={memberLoginUrl} className="secondary-button">Fitness Member Login</Link>
+              <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
             </div>
           </div>
         </article>
@@ -145,6 +145,7 @@ export default function HomePage() {
             <div className="live-coach-feature">Coach chat + detailed monthly budget tracking</div>
             <div className="cta-row">
               <a href="https://aicoachdir-budgeting.vercel.app" className="primary-button">Open Budgeting Coach</a>
+              <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
             </div>
           </div>
         </article>
