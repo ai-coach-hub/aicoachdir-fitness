@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export default function FitnessCheckoutCard() {
+export default function FitnessCheckoutCard({ destination = "fitness" }: { destination?: "fitness" | "budget-coach" }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [errorAction, setErrorAction] = useState<{
@@ -21,6 +21,7 @@ export default function FitnessCheckoutCard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
+        body: JSON.stringify({ destination }),
       });
       const data = (await response.json().catch(() => null)) as
         | {
@@ -83,7 +84,7 @@ export default function FitnessCheckoutCard() {
 
       <p className="microcopy center">
         Your subscription renews automatically until canceled. You will return
-        to your AI Coach Directory membership after checkout is confirmed.
+        to the coach you selected after checkout is confirmed.
       </p>
     </section>
   );
