@@ -1388,3 +1388,109 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   .workout-summary-strip > div + div { border-left: 0; border-top: 1px solid rgba(116,182,215,.14); }
   .schedule-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+
+/* Equal-value live coach presentation */
+.live-coach-hero {
+  max-width: 980px;
+  padding-bottom: 24px;
+}
+
+.live-coaches-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  margin: 0 0 54px;
+}
+
+.live-coach-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  border: 1px solid rgba(116, 182, 215, .24);
+  background:
+    radial-gradient(circle at 85% 10%, rgba(76, 132, 255, .09), transparent 19rem),
+    linear-gradient(145deg, rgba(12,25,42,.97), rgba(5,10,19,.99));
+  box-shadow: 0 26px 70px rgba(0,0,0,.24), inset 0 1px rgba(255,255,255,.035);
+}
+
+.live-coach-badge {
+  position: absolute;
+  z-index: 2;
+  top: 18px;
+  left: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 13px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #041008;
+  background: linear-gradient(105deg, var(--green-2), var(--green));
+  box-shadow: 0 8px 24px rgba(69, 174, 63, .2);
+}
+
+.live-coach-image-wrap {
+  padding: 14px 14px 0;
+}
+
+.live-coach-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.live-coach-copy {
+  padding: 26px 28px 30px;
+}
+
+.live-coach-copy h2 {
+  margin: 8px 0 12px;
+  font-size: clamp(28px, 3.5vw, 40px);
+  line-height: 1.06;
+  letter-spacing: -.04em;
+}
+
+.live-coach-copy > p:not(.eyebrow) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.live-coach-feature {
+  margin-top: 20px;
+  padding: 13px 15px;
+  border-radius: 14px;
+  border: 1px solid rgba(77, 226, 231, .18);
+  background: rgba(77, 226, 231, .055);
+  color: #eafcfd;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.live-coach-copy .cta-row {
+  margin-top: 20px;
+}
+
+@media (max-width: 900px) {
+  .live-coaches-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .live-coach-copy {
+    padding: 22px 20px 24px;
+  }
+  .live-coach-image-wrap {
+    padding: 10px 10px 0;
+  }
+}
