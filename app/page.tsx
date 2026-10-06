@@ -127,7 +127,7 @@ export default function HomePage() {
           </div>
           <div className="live-coach-image-wrap">
             <Image
-              src="/images/ai-coaching-for-budgeting.jpg"
+              src="/images/ai-coaching-for-budgeting.avif"
               alt="AI Coaching for Budgeting"
               width={1536}
               height={1024}
