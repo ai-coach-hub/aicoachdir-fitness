@@ -144,7 +144,7 @@ export default function HomePage() {
             </p>
             <div className="live-coach-feature">Coach chat + detailed monthly budget tracking</div>
             <div className="cta-row">
-              <Link href="/budget/coach" className="primary-button">Open Budgeting Coach</Link>
+              <Link href="/fitness/signup" className="primary-button">Start Budgeting Coach</Link>
               <Link href={memberLoginUrl} className="secondary-button">Budgeting Member Login</Link>
             </div>
           </div>
