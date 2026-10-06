@@ -39,8 +39,8 @@ function normalizeDestination(value: string) {
 }
 
 function destinationPath(destination: string) {
-  if (destination === "budget-coach") return "/budget/coach";
-  if (destination === "budget-tracker") return "/budget/tracker";
+  if (destination === "budget-coach") return "/budgeting/launch?destination=coach";
+  if (destination === "budget-tracker") return "/budgeting/launch?destination=tracker";
   if (destination === "fitness") return "/fitness/chat";
   return "";
 }
