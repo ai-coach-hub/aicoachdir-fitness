@@ -48,8 +48,9 @@ const upcomingCoaches = [
     name: "AI Coaching for Budgeting",
     tagline: "Budget with clarity. Spend with purpose.",
     description:
-      "A future budgeting-coaching experience focused on monthly planning, intentional spending, savings goals, and practical financial decision support.",
+      "Plan your monthly budget, track spending manually, organize categories, and use AI coaching for practical budgeting guidance.",
     image: "/images/ai-coaching-for-budgeting.jpg",
+    liveUrl: "https://aicoachdir-budgeting.vercel.app",
     alt: "AI Coaching for Budgeting preview artwork",
     customBudgetingArtwork: false,
   },
@@ -266,7 +267,7 @@ export default function HomePage() {
           {upcomingCoaches.map((coach) => (
             <article key={coach.name} className="coming-soon-card">
               <div className="coming-soon-status-row">
-                <span className="coming-soon-badge">Coming Soon</span>
+                <span className="coming-soon-badge">{"liveUrl" in coach ? "Available Now" : "Coming Soon"}</span>
               </div>
               <div className="coming-soon-image-wrap">
                 {coach.customBudgetingArtwork ? (
@@ -290,6 +291,9 @@ export default function HomePage() {
                 <h3>{coach.name}</h3>
                 <p className="coming-soon-tagline">{coach.tagline}</p>
                 <p>{coach.description}</p>
+                {"liveUrl" in coach && coach.liveUrl ? (
+                  <a href={coach.liveUrl} className="primary-button">Open Budgeting Coach</a>
+                ) : null}
               </div>
             </article>
           ))}
