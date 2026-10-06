@@ -153,7 +153,6 @@ export default function HomePage() {
 
       <section className="coach-offer" aria-labelledby="coach-offer-title">
         <div className="coach-identity">
-          <div className="coach-badge">2.0</div>
           <div>
             <p className="eyebrow compact-eyebrow">YOUR MEMBERSHIP</p>
             <h2 id="coach-offer-title">{plan.name}</h2>
