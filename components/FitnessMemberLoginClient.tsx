@@ -132,7 +132,7 @@ export default function FitnessMemberLoginClient({
         <SignIn
           routing="hash"
           forceRedirectUrl={loginReturnUrl}
-          signUpUrl="/fitness/signup"
+          signUpUrl={loginReturnUrl.includes("budget") ? "/fitness/signup?destination=budget-coach" : "/fitness/signup?destination=fitness"}
         />
       </div>
 
