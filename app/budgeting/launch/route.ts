@@ -58,7 +58,7 @@ export async function GET(request: Request) {
   }
 
   if (!active) {
-    return NextResponse.redirect(new URL(`/fitness/subscribe?destination=${destination === "tracker" ? "budget-coach" : "budget-coach"}`, request.url));
+    return NextResponse.redirect(new URL("/fitness/subscribe?destination=budget-coach", request.url));
   }
 
   if (!handoffSecret()) {
