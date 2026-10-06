@@ -194,7 +194,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
 
 
         <p className="microcopy center">
-          Step 2 creates your AI Coach Directory sign-in. Step 3 completes the secure Fitness Coach subscription.
+          Step 2 creates your AI Coach Directory sign-in. Step 3 completes the secure AI Coach Directory membership.
         </p>
       </div>
     </section>
