@@ -289,7 +289,7 @@ Prohibited conduct includes:
 
 The Services—including Company-developed text, coaching frameworks, prompts, compilations, software, interfaces, designs, graphics, logos, trademarks, directory organization, selection and arrangement, and other proprietary materials—are owned by or licensed to the Company and are protected by intellectual-property and other applicable laws.
 
-AI Coach Directory™ and the AI Coach Directory logo are trademarks and/or service marks claimed by KCB Integrative LLC. Use of the ™ symbol indicates a claim of trademark rights and is not a representation of federal registration. Other product names, company names, logos, and marks displayed through the Services may be the property of their respective owners.
+Other product names, company names, logos, and marks displayed through the Services may be the property of their respective owners.
 
 Subject to these Terms, the Company grants you a limited, revocable, nonexclusive, nontransferable, nonsublicensable license to access and use the Services for your own lawful personal or internal purposes.
 

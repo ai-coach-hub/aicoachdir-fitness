@@ -4,7 +4,7 @@ import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import styles from "./home.module.css";
 
-const homepageTitle = "AI Coach Directory™ | Specialized AI Coaching";
+const homepageTitle = "AI Coach Directory | Specialized AI Coaching";
 const homepageDescription =
   "Purpose-built AI coaching for fitness and budgeting, with specialized tools that help turn guidance into action.";
 
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 };
 
 const plan = {
-  name: "AI Fitness Coach 2.0",
+  name: "AI Coach Directory Membership",
   price: "$15",
   cadence: "monthly",
   uses: "400",
@@ -80,7 +80,7 @@ export default function HomePage() {
           className={`brand-showcase-logo ${styles.compactBrandLogo}`}
         />
         <div>
-          <p className="eyebrow">AI COACH DIRECTORY<span className="tm-mark">™</span></p>
+          <p className="eyebrow">AI COACH DIRECTORY</p>
           <h2>Coaching support powered by AI, built around your goals.</h2>
           <p>Choose the coaching experience that fits what you want to improve right now.</p>
         </div>
@@ -144,7 +144,7 @@ export default function HomePage() {
             </p>
             <div className="live-coach-feature">Coach chat + detailed monthly budget tracking</div>
             <div className="cta-row">
-              <a href="https://aicoachdir-budgeting.vercel.app" className="primary-button">Open Budgeting Coach</a>
+              <Link href="/budgeting/launch" className="primary-button">Open Budgeting Coach</Link>
               <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
             </div>
           </div>
@@ -155,9 +155,9 @@ export default function HomePage() {
         <div className="coach-identity">
           <div className="coach-badge">2.0</div>
           <div>
-            <p className="eyebrow compact-eyebrow">YOUR FITNESS COACH</p>
+            <p className="eyebrow compact-eyebrow">YOUR MEMBERSHIP</p>
             <h2 id="coach-offer-title">{plan.name}</h2>
-            <p>Personalized AI fitness guidance, workout plans, accountability, and progress support.</p>
+            <p>Access both the Fitness Coach with My Workouts and the Budgeting Coach with My Budget.</p>
           </div>
         </div>
         <div className="offer-stat">
@@ -167,7 +167,7 @@ export default function HomePage() {
         </div>
         <div className="offer-stat">
           <strong>{plan.uses}</strong>
-          <span> uses / month</span>
+          <span> shared AI uses / month</span>
         </div>
         <div className="offer-action">
           <Link href="/fitness/signup" className="primary-button">New Member — Review Terms</Link>
@@ -208,7 +208,7 @@ export default function HomePage() {
 
       <section className="coach-difference-section" aria-labelledby="coach-difference-title">
         <div className="coach-difference-heading">
-          <p className="eyebrow">WHY AI COACH DIRECTORY<span className="tm-mark">™</span></p>
+          <p className="eyebrow">WHY AI COACH DIRECTORY</p>
           <h2 id="coach-difference-title">
             General AI Can Answer Your Questions. <span>Our AI Is Built to Coach You.</span>
           </h2>
@@ -288,7 +288,7 @@ export default function HomePage() {
             <p className="eyebrow">COMING SOON</p>
             <h2 id="coming-soon-title">More AI coaching experiences are on the way.</h2>
             <p>
-              Fitness and Budgeting are available now. These additional coaching experiences are previews of what is coming next from AI Coach Directory™.
+              Fitness and Budgeting are available now. These additional coaching experiences are previews of what is coming next from AI Coach Directory.
             </p>
           </div>
         </div>
@@ -322,7 +322,7 @@ export default function HomePage() {
       <footer className="site-footer">
         <div className="footer-brand">
           <Image src="/images/ai-coach-directory-logo.jpg" alt="AI Coach Directory" width={58} height={58} sizes="58px" className="footer-logo" />
-          <span>KCB Integrative LLC · AI Coach Directory<span className="tm-mark">™</span></span>
+          <span>KCB Integrative LLC · AI Coach Directory</span>
         </div>
         <div className="footer-links">
           <Link href={memberLoginUrl}>Member Login</Link>
@@ -331,7 +331,7 @@ export default function HomePage() {
         </div>
 
         <p className="trademark-notice">
-          © 2026 KCB Integrative LLC. AI Coach Directory<span className="tm-mark">™</span> and the AI Coach Directory logo are trademarks/service marks claimed by KCB Integrative LLC. All rights reserved. Third-party marks belong to their respective owners.
+          © 2026 KCB Integrative LLC. All rights reserved. Third-party marks belong to their respective owners.
         </p>
       </footer>
     </main>

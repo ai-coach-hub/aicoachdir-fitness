@@ -15,7 +15,7 @@ export default function SiteHeader({ compact = false }: { compact?: boolean }) {
           className="brand-logo"
         />
         <span className="brand-text-wrap">
-          <span className="brand-title">AI Coach Directory<span className="tm-mark">™</span></span>
+          <span className="brand-title">AI Coach Directory</span>
           <span className="brand-company">KCB Integrative LLC</span>
         </span>
       </Link>
@@ -23,7 +23,7 @@ export default function SiteHeader({ compact = false }: { compact?: boolean }) {
         <a href="/#how-it-works" className="nav-link-text">How it works</a>
         <Link href="/terms" className="nav-link-text">Terms</Link>
         <Link href="/fitness/signup" className="nav-coach-link">Fitness Coach</Link>
-        <a href="https://aicoachdir-budgeting.vercel.app" className="nav-coach-link">Budgeting Coach</a>
+        <Link href="/budgeting/launch" className="nav-coach-link">Budgeting Coach</Link>
       </nav>
     </header>
   );
