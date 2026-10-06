@@ -43,12 +43,26 @@ function SetupProblem({ message }: { message: string }) {
   );
 }
 
-export default async function FitnessSubscribePage() {
+type SubscribePageProps = {
+  searchParams: Promise<{ destination?: string | string[] }>;
+};
+
+export default async function FitnessSubscribePage({ searchParams }: SubscribePageProps) {
+  const params = await searchParams;
+  const rawDestination = Array.isArray(params.destination)
+    ? params.destination[0]
+    : params.destination;
+  const destination = rawDestination === "budget-coach" ? "budget-coach" : "fitness";
+  const loginUrl = `/fitness/login?destination=${destination}`;
+  const signupUrl = `/fitness/signup?destination=${destination}`;
+  const activeDestination = destination === "budget-coach"
+    ? "/budgeting/launch?destination=coach"
+    : "/fitness/chat";
   const user = await currentUser();
-  if (!user) redirect("/fitness/login");
+  if (!user) redirect(loginUrl);
 
   const email = primaryEmail(user);
-  if (!email) redirect("/fitness/login");
+  if (!email) redirect(loginUrl);
 
   let alreadyActive = false;
   try {
@@ -62,12 +76,12 @@ export default async function FitnessSubscribePage() {
   }
 
   if (alreadyActive) {
-    redirect("/fitness/chat");
+    redirect(activeDestination);
   }
 
   const cookieStore = await cookies();
   const acceptanceId = cookieStore.get(TERMS_COOKIE)?.value || "";
-  if (!UUID_PATTERN.test(acceptanceId)) redirect("/fitness/signup");
+  if (!UUID_PATTERN.test(acceptanceId)) redirect(signupUrl);
 
   try {
     const sql = await ensureTermsAcceptanceSchema();
@@ -94,7 +108,7 @@ export default async function FitnessSubscribePage() {
   return (
     <main className="signup-shell">
       <SiteHeader compact />
-      <FitnessCheckoutCard />
+      <FitnessCheckoutCard destination={destination} />
     </main>
   );
 }
