@@ -6,8 +6,6 @@ import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BUDGETING_ORIGIN = "https://aicoachdir-budgeting.vercel.app";
-
 function primaryEmail(user: Awaited<ReturnType<typeof currentUser>>) {
   if (!user) return "";
   const primary = user.emailAddresses.find(
@@ -60,8 +58,12 @@ export async function GET(request: Request) {
     });
   }
 
+  const destination = new URL(request.url).searchParams.get("destination") === "tracker"
+    ? "tracker"
+    : "coach";
   const expires = String(Date.now() + 5 * 60 * 1000);
-  const target = new URL("/access", BUDGETING_ORIGIN);
+  const target = new URL("/budget/access", request.url);
+  target.searchParams.set("destination", destination);
   target.searchParams.set("email", email);
   target.searchParams.set("expires", expires);
   target.searchParams.set("signature", signHandoff(email, expires));
