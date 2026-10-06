@@ -11,7 +11,7 @@ import {
 export const dynamic = "force-dynamic";
 
 type SuccessPageProps = {
-  searchParams: Promise<{ session_id?: string | string[] }>;
+  searchParams: Promise<{ session_id?: string | string[]; destination?: string | string[] }>;
 };
 
 function primaryEmail(user: Awaited<ReturnType<typeof currentUser>>) {
@@ -40,13 +40,21 @@ export default async function FitnessCheckoutSuccessPage({
   if (!email) redirect("/fitness/login");
 
   const params = await searchParams;
+  const rawDestination = Array.isArray(params.destination)
+    ? params.destination[0]
+    : params.destination;
+  const destination = rawDestination === "budget-coach" ? "budget-coach" : "fitness";
+  const destinationPath = destination === "budget-coach"
+    ? "/budgeting/launch?destination=coach"
+    : "/fitness/chat";
+
   const rawSessionId = Array.isArray(params.session_id)
     ? params.session_id[0]
     : params.session_id;
   const sessionId = String(rawSessionId || "").trim();
 
   if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) {
-    redirect("/fitness/subscribe");
+    redirect(`/fitness/subscribe?destination=${destination}`);
   }
 
   let accessConfirmed = false;
@@ -110,7 +118,7 @@ export default async function FitnessCheckoutSuccessPage({
   }
 
   if (accessConfirmed) {
-    redirect("/fitness/chat");
+    redirect(destinationPath);
   }
 
   return (
@@ -124,7 +132,7 @@ export default async function FitnessCheckoutSuccessPage({
           yet. Do not submit another payment.
         </p>
         <div className="cta-row">
-          <a href="/fitness/chat" className="primary-button">
+          <a href={destinationPath} className="primary-button">
             Check Membership
           </a>
         </div>
