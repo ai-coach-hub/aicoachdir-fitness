@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: "We could not verify your current Fitness Coach access. No charge was attempted.",
+        error: "We could not verify your current AI Coach Directory membership. No charge was attempted.",
       },
       { status: 503 },
     );
