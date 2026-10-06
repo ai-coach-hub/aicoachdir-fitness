@@ -111,7 +111,7 @@ export async function POST(request: Request) {
         ok: false,
         error:
           "Your signed-in email must match the email used for Terms acceptance.",
-        actionUrl: "/fitness/signup",
+        actionUrl: `/fitness/signup?destination=${destinationQuery}`,
         actionLabel: "Review Terms with This Account",
       },
       { status: 409 },
