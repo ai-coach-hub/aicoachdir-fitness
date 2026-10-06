@@ -10,11 +10,11 @@ test("both live coach start buttons use the same membership signup flow", async 
   const page = await source("app/page.tsx");
   assert.match(
     page,
-    /href="\/fitness\/signup" className="primary-button">Start Fitness Coach/,
+    /href="\/fitness\/signup\?destination=fitness" className="primary-button">Start Fitness Coach/,
   );
   assert.match(
     page,
-    /href="\/fitness\/signup" className="primary-button">Start Budgeting Coach/,
+    /href="\/fitness\/signup\?destination=budget-coach" className="primary-button">Start Budgeting Coach/,
   );
   assert.match(page, /destination=fitness/);
   assert.match(page, /destination=budget-coach/);
@@ -33,6 +33,6 @@ test("fitness coach and My Workouts remain protected by active membership", asyn
   const layout = await source("app/fitness/chat/layout.tsx");
   assert.match(layout, /currentUser/);
   assert.match(layout, /memberHasFitnessAccess/);
-  assert.match(layout, /redirect\("\/fitness\/login"\)/);
+  assert.match(layout, /redirect\("\/fitness\/login\?destination=fitness"\)/);
   assert.match(layout, /redirect\("\/fitness\/subscribe"\)/);
 });
