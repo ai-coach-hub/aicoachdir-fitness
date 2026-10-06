@@ -18,10 +18,10 @@ export default async function FitnessChatLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await currentUser();
-  if (!user) redirect("/fitness/login");
+  if (!user) redirect("/fitness/login?destination=fitness");
 
   const email = primaryEmail(user);
-  if (!email) redirect("/fitness/login");
+  if (!email) redirect("/fitness/login?destination=fitness");
 
   let active = false;
   try {

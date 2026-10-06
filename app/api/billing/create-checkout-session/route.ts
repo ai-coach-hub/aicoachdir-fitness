@@ -26,6 +26,21 @@ function primaryEmail(user: Awaited<ReturnType<typeof currentUser>>) {
 }
 
 export async function POST(request: Request) {
+  let requestedDestination = "fitness";
+  try {
+    const payload = (await request.json()) as { destination?: unknown };
+    if (payload?.destination === "budget-coach") requestedDestination = "budget-coach";
+  } catch {
+    // Default to Fitness when no destination was supplied.
+  }
+
+  const destinationUrl = requestedDestination === "budget-coach"
+    ? "/budgeting/launch?destination=coach"
+    : "/fitness/chat";
+  const destinationQuery = requestedDestination === "budget-coach"
+    ? "budget-coach"
+    : "fitness";
+
   const user = await currentUser();
   const email = primaryEmail(user);
 
@@ -42,13 +57,13 @@ export async function POST(request: Request) {
         fallbackToPickaxeList: false,
       })
     ) {
-      return NextResponse.json({ ok: true, alreadyActive: true, url: "/fitness/chat" });
+      return NextResponse.json({ ok: true, alreadyActive: true, url: destinationUrl });
     }
   } catch {
     return NextResponse.json(
       {
         ok: false,
-        error: "We could not verify your current Fitness Coach access. No charge was attempted.",
+        error: "We could not verify your current AI Coach Directory membership. No charge was attempted.",
       },
       { status: 503 },
     );
@@ -73,7 +88,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         error: "Please review and accept the Terms before subscribing.",
-        actionUrl: "/fitness/signup",
+        actionUrl: `/fitness/signup?destination=${destinationQuery}`,
         actionLabel: "Review & Accept Terms",
       },
       { status: 409 },
@@ -96,7 +111,7 @@ export async function POST(request: Request) {
         ok: false,
         error:
           "Your signed-in email must match the email used for Terms acceptance.",
-        actionUrl: "/fitness/signup",
+        actionUrl: `/fitness/signup?destination=${destinationQuery}`,
         actionLabel: "Review Terms with This Account",
       },
       { status: 409 },
@@ -114,8 +129,8 @@ export async function POST(request: Request) {
     body.set("line_items[0][quantity]", "1");
     body.set("customer_email", email);
     body.set("client_reference_id", user.id);
-    body.set("success_url", `${origin}/fitness/checkout/success?session_id={CHECKOUT_SESSION_ID}`);
-    body.set("cancel_url", `${origin}/fitness/subscribe`);
+    body.set("success_url", `${origin}/fitness/checkout/success?session_id={CHECKOUT_SESSION_ID}&destination=${destinationQuery}`);
+    body.set("cancel_url", `${origin}/fitness/subscribe?destination=${destinationQuery}`);
     body.set("metadata[member_email]", email);
     body.set("metadata[clerk_user_id]", user.id);
     body.set("metadata[terms_acceptance_id]", acceptanceId);

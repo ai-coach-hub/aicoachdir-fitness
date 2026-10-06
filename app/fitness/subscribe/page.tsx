@@ -22,7 +22,8 @@ function primaryEmail(user: Awaited<ReturnType<typeof currentUser>>) {
     .toLowerCase();
 }
 
-function SetupProblem({ message }: { message: string }) {
+function SetupProblem({ message, destination = "fitness" }: { message: string; destination?: "fitness" | "budget-coach" }) {
+  const query = `?destination=${destination}`;
   return (
     <main className="signup-shell">
       <SiteHeader compact />
@@ -31,10 +32,10 @@ function SetupProblem({ message }: { message: string }) {
         <h1>We need to reconnect one step.</h1>
         <p>{message}</p>
         <div className="cta-row">
-          <Link href="/fitness/signup" className="primary-button">
+          <Link href={`/fitness/signup${query}`} className="primary-button">
             Restart Subscription Setup
           </Link>
-          <Link href="/fitness/login" className="secondary-button">
+          <Link href={`/fitness/login${query}`} className="secondary-button">
             Member Login
           </Link>
         </div>
@@ -43,12 +44,26 @@ function SetupProblem({ message }: { message: string }) {
   );
 }
 
-export default async function FitnessSubscribePage() {
+type SubscribePageProps = {
+  searchParams: Promise<{ destination?: string | string[] }>;
+};
+
+export default async function FitnessSubscribePage({ searchParams }: SubscribePageProps) {
+  const params = await searchParams;
+  const rawDestination = Array.isArray(params.destination)
+    ? params.destination[0]
+    : params.destination;
+  const destination = rawDestination === "budget-coach" ? "budget-coach" : "fitness";
+  const loginUrl = `/fitness/login?destination=${destination}`;
+  const signupUrl = `/fitness/signup?destination=${destination}`;
+  const activeDestination = destination === "budget-coach"
+    ? "/budgeting/launch?destination=coach"
+    : "/fitness/chat";
   const user = await currentUser();
-  if (!user) redirect("/fitness/login");
+  if (!user) redirect(loginUrl);
 
   const email = primaryEmail(user);
-  if (!email) redirect("/fitness/login");
+  if (!email) redirect(loginUrl);
 
   let alreadyActive = false;
   try {
@@ -57,17 +72,17 @@ export default async function FitnessSubscribePage() {
     });
   } catch {
     return (
-      <SetupProblem message="We could not verify your current Fitness Coach access. No charge was attempted." />
+      <SetupProblem destination={destination} message="We could not verify your current AI Coach Directory membership. No charge was attempted." />
     );
   }
 
   if (alreadyActive) {
-    redirect("/fitness/chat");
+    redirect(activeDestination);
   }
 
   const cookieStore = await cookies();
   const acceptanceId = cookieStore.get(TERMS_COOKIE)?.value || "";
-  if (!UUID_PATTERN.test(acceptanceId)) redirect("/fitness/signup");
+  if (!UUID_PATTERN.test(acceptanceId)) redirect(signupUrl);
 
   try {
     const sql = await ensureTermsAcceptanceSchema();
@@ -82,19 +97,19 @@ export default async function FitnessSubscribePage() {
     const acceptedEmail = String(rows[0]?.email || "").trim().toLowerCase();
     if (!acceptedEmail || acceptedEmail !== email) {
       return (
-        <SetupProblem message="Your signed-in email does not match the email used for Terms acceptance. Please restart with the same email." />
+        <SetupProblem destination={destination} message="Your signed-in email does not match the email used for Terms acceptance. Please restart with the same email." />
       );
     }
   } catch {
     return (
-      <SetupProblem message="We could not verify your Terms acceptance. No charge was attempted." />
+      <SetupProblem destination={destination} message="We could not verify your Terms acceptance. No charge was attempted." />
     );
   }
 
   return (
     <main className="signup-shell">
       <SiteHeader compact />
-      <FitnessCheckoutCard />
+      <FitnessCheckoutCard destination={destination} />
     </main>
   );
 }

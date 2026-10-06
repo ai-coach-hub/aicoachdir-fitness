@@ -27,14 +27,24 @@ function signHandoff(email: string, expires: string) {
 }
 
 export async function GET(request: Request) {
+  const destination =
+    new URL(request.url).searchParams.get("destination") === "tracker"
+      ? "tracker"
+      : "coach";
+  const loginUrl = new URL("/fitness/login", request.url);
+  loginUrl.searchParams.set(
+    "destination",
+    destination === "tracker" ? "budget-tracker" : "budget-coach",
+  );
+
   const user = await currentUser();
   if (!user) {
-    return NextResponse.redirect(new URL("/fitness/login", request.url));
+    return NextResponse.redirect(loginUrl);
   }
 
   const email = primaryEmail(user);
   if (!email) {
-    return NextResponse.redirect(new URL("/fitness/login", request.url));
+    return NextResponse.redirect(loginUrl);
   }
 
   let active = false;
@@ -48,7 +58,7 @@ export async function GET(request: Request) {
   }
 
   if (!active) {
-    return NextResponse.redirect(new URL("/fitness/subscribe", request.url));
+    return NextResponse.redirect(new URL("/fitness/subscribe?destination=budget-coach", request.url));
   }
 
   if (!handoffSecret()) {
@@ -58,9 +68,6 @@ export async function GET(request: Request) {
     });
   }
 
-  const destination = new URL(request.url).searchParams.get("destination") === "tracker"
-    ? "tracker"
-    : "coach";
   const expires = String(Date.now() + 5 * 60 * 1000);
   const target = new URL("/budget/access", request.url);
   target.searchParams.set("destination", destination);
