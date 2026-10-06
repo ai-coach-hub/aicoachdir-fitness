@@ -106,7 +106,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
       <div className="plan-summary" aria-label="Subscription summary">
         <div><span>Plan</span><strong>{FITNESS_PLAN}</strong></div>
         <div><span>Price</span><strong>$15 / month</strong></div>
-        <div><span>Included usage</span><strong>{FITNESS_INCLUDED_USES} uses / month</strong></div>
+        <div><span>Included usage</span><strong>{FITNESS_INCLUDED_USES} shared AI uses / month</strong></div>
         <div><span>Renewal</span><strong>Automatic until canceled</strong></div>
       </div>
 
