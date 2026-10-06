@@ -6,11 +6,13 @@ import { SignIn, useClerk, useUser } from "@clerk/nextjs";
 type Props = {
   hasAccess: boolean;
   accessCheckFailed: boolean;
+  loginReturnUrl: string;
 };
 
 export default function FitnessMemberLoginClient({
   hasAccess,
   accessCheckFailed,
+  loginReturnUrl,
 }: Props) {
   const { isLoaded, isSignedIn, user } = useUser();
   const { signOut } = useClerk();
@@ -47,7 +49,7 @@ export default function FitnessMemberLoginClient({
             <button
               type="button"
               className="secondary-button"
-              onClick={() => signOut({ redirectUrl: "/fitness/login" })}
+              onClick={() => signOut({ redirectUrl: loginReturnUrl })}
             >
               Use a different account
             </button>
@@ -68,16 +70,13 @@ export default function FitnessMemberLoginClient({
             <Link href="/fitness/chat" className="primary-button">
               Open Fitness Coach
             </Link>
-            <a
-              href="/budgeting/launch"
-              className="primary-button"
-            >
+            <Link href="/budget/coach" className="primary-button">
               Open Budgeting Coach
-            </a>
+            </Link>
             <button
               type="button"
               className="secondary-button"
-              onClick={() => signOut({ redirectUrl: "/fitness/login" })}
+              onClick={() => signOut({ redirectUrl: loginReturnUrl })}
             >
               Use a different account
             </button>
@@ -103,7 +102,7 @@ export default function FitnessMemberLoginClient({
           <button
             type="button"
             className="secondary-button"
-            onClick={() => signOut({ redirectUrl: "/fitness/login" })}
+            onClick={() => signOut({ redirectUrl: loginReturnUrl })}
           >
             Use a different account
           </button>
@@ -132,7 +131,7 @@ export default function FitnessMemberLoginClient({
       <div style={{ display: "flex", justifyContent: "center", margin: "28px 0" }}>
         <SignIn
           routing="hash"
-          forceRedirectUrl="/fitness/login"
+          forceRedirectUrl={loginReturnUrl}
           signUpUrl="/fitness/signup"
         />
       </div>
