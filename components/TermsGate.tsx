@@ -12,7 +12,7 @@ import {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export default function TermsGate({ children }: { children: ReactNode }) {
+export default function TermsGate({ children, destination = "fitness" }: { children: ReactNode; destination?: "fitness" | "budget-coach" }) {
   const scroller = useRef<HTMLDivElement | null>(null);
   const [reachedBottom, setReachedBottom] = useState(false);
   const [agreed, setAgreed] = useState(false);
@@ -86,7 +86,7 @@ export default function TermsGate({ children }: { children: ReactNode }) {
         // Browser storage is only a secondary convenience. The server record already exists.
       }
 
-      window.location.assign("/fitness/create-account");
+      window.location.assign(`/fitness/create-account?destination=${destination}`);
     } catch {
       setSaveError("We couldn't record your agreement. Please try again. You have not been charged.");
       setIsSaving(false);
