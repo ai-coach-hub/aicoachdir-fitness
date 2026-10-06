@@ -4,9 +4,9 @@ import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import styles from "./home.module.css";
 
-const homepageTitle = "AI Coach Directory™ | Personalized AI Fitness Coaching";
+const homepageTitle = "AI Coach Directory™ | Specialized AI Coaching";
 const homepageDescription =
-  "Personalized AI fitness coaching with workout planning, accountability, and progress support tailored to your goals, schedule, and available equipment.";
+  "Purpose-built AI coaching for fitness and budgeting, with specialized tools that help turn guidance into action.";
 
 // Canonical and social URLs resolve against metadataBase in app/layout.tsx.
 export const metadata: Metadata = {
@@ -45,16 +45,6 @@ const plan = {
 
 const upcomingCoaches = [
   {
-    name: "AI Coaching for Budgeting",
-    tagline: "Budget with clarity. Spend with purpose.",
-    description:
-      "Plan your monthly budget, track spending manually, organize categories, and use AI coaching for practical budgeting guidance.",
-    image: "/images/ai-coaching-for-budgeting.jpg",
-    liveUrl: "https://aicoachdir-budgeting.vercel.app",
-    alt: "AI Coaching for Budgeting preview artwork",
-    customBudgetingArtwork: false,
-  },
-  {
     name: "AI Coaching for Life",
     tagline: "Find Balance, Purpose, and Happiness.",
     description:
@@ -92,33 +82,71 @@ export default function HomePage() {
         <div>
           <p className="eyebrow">AI COACH DIRECTORY<span className="tm-mark">™</span></p>
           <h2>Coaching support powered by AI, built around your goals.</h2>
-          <p>AI Fitness Coach 2.0 is part of AI Coach Directory™ from KCB Integrative LLC.</p>
+          <p>Choose the coaching experience that fits what you want to improve right now.</p>
         </div>
       </section>
 
-      <section className="hero-copy-section">
-        <p className="eyebrow">AI FITNESS COACH</p>
-        <h1>Get fit. Get motivated. <span>Get results.</span></h1>
+      <section className="hero-copy-section live-coach-hero">
+        <p className="eyebrow">SPECIALIZED AI COACHING</p>
+        <h1>Two live coaches. <span>Two ways to move forward.</span></h1>
         <p className="lede">
-          Personalized AI fitness guidance, workout planning, accountability, and progress support designed to help you build momentum one step at a time.
+          Start with fitness or budgeting. Each coach is purpose-built for its area and paired with a practical tool that helps you put the coaching into action.
         </p>
-        <div className="cta-row">
-          <Link href="/fitness/signup" className="primary-button">Start AI Fitness Coach</Link>
-          <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
-        </div>
       </section>
 
-      <section className="fitness-visual" aria-label="AI Coaching for Fitness">
-        <Image
-          src="/images/ai-coaching-for-fitness.jpg"
-          alt="AI Coaching for Fitness promotional artwork"
-          width={1536}
-          height={1024}
-          loading="eager"
-          preload={false}
-          sizes="(max-width: 720px) calc(100vw - 24px), (max-width: 1180px) calc(100vw - 40px), 1180px"
-          className="fitness-hero-image"
-        />
+      <section className="live-coaches-grid" aria-label="Available AI coaches">
+        <article className="live-coach-card">
+          <span className="live-coach-badge">Available Now</span>
+          <div className="live-coach-image-wrap">
+            <Image
+              src="/images/ai-coaching-for-fitness.jpg"
+              alt="AI Coaching for Fitness"
+              width={1536}
+              height={1024}
+              loading="eager"
+              sizes="(max-width: 900px) calc(100vw - 24px), 560px"
+              className="live-coach-image"
+            />
+          </div>
+          <div className="live-coach-copy">
+            <p className="eyebrow">AI COACHING FOR FITNESS</p>
+            <h2>Fitness coaching with My Workouts built in.</h2>
+            <p>
+              Get personalized guidance, workout planning, accountability, and adjustments based on your goals, schedule, preferences, and available equipment.
+            </p>
+            <div className="live-coach-feature">Coach chat + personalized workout planning</div>
+            <div className="cta-row">
+              <Link href="/fitness/signup" className="primary-button">Start Fitness Coach</Link>
+              <Link href={memberLoginUrl} className="secondary-button">Fitness Member Login</Link>
+            </div>
+          </div>
+        </article>
+
+        <article className="live-coach-card">
+          <span className="live-coach-badge">Available Now</span>
+          <div className="live-coach-image-wrap">
+            <Image
+              src="/images/ai-coaching-for-budgeting.jpg"
+              alt="AI Coaching for Budgeting"
+              width={1536}
+              height={1024}
+              loading="eager"
+              sizes="(max-width: 900px) calc(100vw - 24px), 560px"
+              className="live-coach-image"
+            />
+          </div>
+          <div className="live-coach-copy">
+            <p className="eyebrow">AI COACHING FOR BUDGETING</p>
+            <h2>Budget coaching with a monthly tracker built in.</h2>
+            <p>
+              Plan monthly spending, organize categories, track transactions manually, and get practical coaching to help you make clearer financial decisions.
+            </p>
+            <div className="live-coach-feature">Coach chat + detailed monthly budget tracking</div>
+            <div className="cta-row">
+              <a href="https://aicoachdir-budgeting.vercel.app" className="primary-button">Open Budgeting Coach</a>
+            </div>
+          </div>
+        </article>
       </section>
 
       <section className="coach-offer" aria-labelledby="coach-offer-title">
@@ -258,7 +286,7 @@ export default function HomePage() {
             <p className="eyebrow">COMING SOON</p>
             <h2 id="coming-soon-title">More AI coaching experiences are on the way.</h2>
             <p>
-              AI Fitness Coach 2.0 remains the live featured offer. These upcoming coaching experiences are shown as previews so visitors can see what’s coming next from AI Coach Directory™.
+              Fitness and Budgeting are available now. These additional coaching experiences are previews of what is coming next from AI Coach Directory™.
             </p>
           </div>
         </div>
@@ -267,7 +295,7 @@ export default function HomePage() {
           {upcomingCoaches.map((coach) => (
             <article key={coach.name} className="coming-soon-card">
               <div className="coming-soon-status-row">
-                <span className="coming-soon-badge">{"liveUrl" in coach ? "Available Now" : "Coming Soon"}</span>
+                <span className="coming-soon-badge">Coming Soon</span>
               </div>
               <div className="coming-soon-image-wrap">
                 {coach.customBudgetingArtwork ? (
@@ -291,9 +319,6 @@ export default function HomePage() {
                 <h3>{coach.name}</h3>
                 <p className="coming-soon-tagline">{coach.tagline}</p>
                 <p>{coach.description}</p>
-                {"liveUrl" in coach && coach.liveUrl ? (
-                  <a href={coach.liveUrl} className="primary-button">Open Budgeting Coach</a>
-                ) : null}
               </div>
             </article>
           ))}
