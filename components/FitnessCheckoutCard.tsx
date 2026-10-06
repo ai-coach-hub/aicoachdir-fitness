@@ -55,10 +55,10 @@ export default function FitnessCheckoutCard() {
   return (
     <section className="login-config-card" aria-labelledby="fitness-checkout-heading">
       <p className="eyebrow">NEW SUBSCRIBER · STEP 3 OF 3</p>
-      <h1 id="fitness-checkout-heading">Complete your Fitness Coach membership</h1>
+      <h1 id="fitness-checkout-heading">Complete your AI Coach Directory membership</h1>
       <p>
         You are signed into AI Coach Directory. Continue to secure checkout for
-        the $15/month AI Fitness Coach 2.0 membership with 400 uses per month.
+        the $15/month AI Coach Directory membership, which currently includes Fitness and Budgeting with 400 shared AI uses per month.
       </p>
 
       <button
@@ -83,7 +83,7 @@ export default function FitnessCheckoutCard() {
 
       <p className="microcopy center">
         Your subscription renews automatically until canceled. You will return
-        directly to Coach + My Workouts after checkout is confirmed.
+        to your AI Coach Directory membership after checkout is confirmed.
       </p>
     </section>
   );
