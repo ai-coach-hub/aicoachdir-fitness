@@ -22,7 +22,8 @@ function primaryEmail(user: Awaited<ReturnType<typeof currentUser>>) {
     .toLowerCase();
 }
 
-function SetupProblem({ message }: { message: string }) {
+function SetupProblem({ message, destination = "fitness" }: { message: string; destination?: "fitness" | "budget-coach" }) {
+  const query = `?destination=${destination}`;
   return (
     <main className="signup-shell">
       <SiteHeader compact />
@@ -31,10 +32,10 @@ function SetupProblem({ message }: { message: string }) {
         <h1>We need to reconnect one step.</h1>
         <p>{message}</p>
         <div className="cta-row">
-          <Link href="/fitness/signup" className="primary-button">
+          <Link href={`/fitness/signup${query}`} className="primary-button">
             Restart Subscription Setup
           </Link>
-          <Link href="/fitness/login" className="secondary-button">
+          <Link href={`/fitness/login${query}`} className="secondary-button">
             Member Login
           </Link>
         </div>
@@ -71,7 +72,7 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
     });
   } catch {
     return (
-      <SetupProblem message="We could not verify your current AI Coach Directory membership. No charge was attempted." />
+      <SetupProblem destination={destination} message="We could not verify your current AI Coach Directory membership. No charge was attempted." />
     );
   }
 
@@ -96,12 +97,12 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
     const acceptedEmail = String(rows[0]?.email || "").trim().toLowerCase();
     if (!acceptedEmail || acceptedEmail !== email) {
       return (
-        <SetupProblem message="Your signed-in email does not match the email used for Terms acceptance. Please restart with the same email." />
+        <SetupProblem destination={destination} message="Your signed-in email does not match the email used for Terms acceptance. Please restart with the same email." />
       );
     }
   } catch {
     return (
-      <SetupProblem message="We could not verify your Terms acceptance. No charge was attempted." />
+      <SetupProblem destination={destination} message="We could not verify your Terms acceptance. No charge was attempted." />
     );
   }
 
