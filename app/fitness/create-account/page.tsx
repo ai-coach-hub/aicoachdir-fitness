@@ -21,6 +21,7 @@ function acceptedEmail() {
 }
 
 export default function FitnessCreateAccountPage() {
+  const destination = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("destination") === "budget-coach" ? "budget-coach" : "fitness";
   const { isLoaded, isSignedIn } = useUser();
   const [email, setEmail] = useState("");
   const [ready, setReady] = useState(false);
@@ -29,13 +30,13 @@ export default function FitnessCreateAccountPage() {
     if (!isLoaded) return;
 
     if (isSignedIn) {
-      window.location.replace("/fitness/subscribe");
+      window.location.replace(`/fitness/subscribe?destination=${destination}`);
       return;
     }
 
     const value = acceptedEmail();
     if (!value) {
-      window.location.replace("/fitness/signup");
+      window.location.replace(`/fitness/signup?destination=${destination}`);
       return;
     }
 
@@ -61,8 +62,8 @@ export default function FitnessCreateAccountPage() {
             <SignUp
               routing="hash"
               initialValues={{ emailAddress: email }}
-              forceRedirectUrl="/fitness/subscribe"
-              signInUrl="/fitness/login"
+              forceRedirectUrl={`/fitness/subscribe?destination=${destination}`}
+              signInUrl={`/fitness/login?destination=${destination}`}
             />
           </div>
         )}
@@ -77,7 +78,7 @@ export default function FitnessCreateAccountPage() {
         </div>
 
         <div className="cta-row">
-          <Link href="/fitness/signup" className="secondary-button">
+          <Link href={`/fitness/signup?destination=${destination}`} className="secondary-button">
             Back to Terms
           </Link>
         </div>
