@@ -1,1 +1,1 @@
-export const TERMS_VERSION = "fitness-2026-08-25-v6-privacy-data-notice";
+export const TERMS_VERSION = "membership-2026-10-06-v7-fitness-budgeting";
