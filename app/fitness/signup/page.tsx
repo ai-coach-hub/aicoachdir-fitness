@@ -13,7 +13,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function FitnessSignupPage() {
+type SignupPageProps = {
+  searchParams: Promise<{ destination?: string | string[] }>;
+};
+
+export default async function FitnessSignupPage({ searchParams }: SignupPageProps) {
+  const params = await searchParams;
+  const rawDestination = Array.isArray(params.destination)
+    ? params.destination[0]
+    : params.destination;
+  const destination = rawDestination === "budget-coach" ? "budget-coach" : "fitness";
+  const destinationQuery = `?destination=${destination}`;
   return (
     <main className="signup-shell">
       <SiteHeader compact />
@@ -33,10 +43,10 @@ export default function FitnessSignupPage() {
           <h2>Returning members can go straight to sign in.</h2>
           <p>You do not need to repeat the new-subscription Terms flow just to access your existing AI Coach Directory membership.</p>
         </div>
-        <Link href="/fitness/login" className="secondary-button returning-login-button">Member Login</Link>
+        <Link href={`/fitness/login${destinationQuery}`} className="secondary-button returning-login-button">Member Login</Link>
       </section>
 
-      <TermsGate>
+      <TermsGate destination={destination}>
         <TermsDocument />
       </TermsGate>
 
@@ -46,7 +56,7 @@ export default function FitnessSignupPage() {
           <span>KCB Integrative LLC · AI Coach Directory</span>
         </div>
         <div className="footer-links">
-          <Link href="/fitness/login">Member Login</Link>
+          <Link href={`/fitness/login${destinationQuery}`}>Member Login</Link>
           <Link href="/terms">Open full Terms page</Link>
         </div>
 
