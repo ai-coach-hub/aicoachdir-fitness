@@ -70,7 +70,7 @@ export default function FitnessMemberLoginClient({
             <Link href="/fitness/chat" className="primary-button">
               Open Fitness Coach
             </Link>
-            <Link href="/budget/coach" className="primary-button">
+            <Link href="/budgeting/launch?destination=coach" className="primary-button">
               Open Budgeting Coach
             </Link>
             <button
@@ -96,7 +96,7 @@ export default function FitnessMemberLoginClient({
         </div>
 
         <div className="cta-row">
-          <Link href="/fitness/signup" className="primary-button">
+          <Link href={loginReturnUrl.includes("budget") ? "/fitness/signup?destination=budget-coach" : "/fitness/signup?destination=fitness"} className="primary-button">
             Review Membership
           </Link>
           <button
