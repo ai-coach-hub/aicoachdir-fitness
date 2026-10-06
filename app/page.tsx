@@ -96,7 +96,6 @@ export default function HomePage() {
 
       <section className="live-coaches-grid" aria-label="Available AI coaches">
         <article className="live-coach-card">
-          <span className="live-coach-badge">Available Now</span>
           <div className="live-coach-image-wrap">
             <Image
               src="/images/ai-coaching-for-fitness.jpg"
@@ -123,7 +122,9 @@ export default function HomePage() {
         </article>
 
         <article className="live-coach-card">
-          <span className="live-coach-badge">Available Now</span>
+          <div className="live-coach-status-row">
+            <span className="live-coach-badge">Available Now</span>
+          </div>
           <div className="live-coach-image-wrap">
             <Image
               src="/images/ai-coaching-for-budgeting.jpg"
