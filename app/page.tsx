@@ -87,10 +87,10 @@ export default function HomePage() {
       </section>
 
       <section className="hero-copy-section live-coach-hero">
-        <p className="eyebrow">SPECIALIZED AI COACHING</p>
-        <h1>Two live coaches. <span>Two ways to move forward.</span></h1>
+        <p className="eyebrow">ONE MEMBERSHIP · MULTIPLE COACHES</p>
+        <h1>Specialized AI coaching. <span>One membership.</span></h1>
         <p className="lede">
-          Start with fitness or budgeting. Each coach is purpose-built for its area and paired with a practical tool that helps you put the coaching into action.
+          Choose the coach you need and use purpose-built tools alongside your conversations — including My Workouts for Fitness and My Budget for Budgeting.
         </p>
       </section>
 
@@ -174,37 +174,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section aria-labelledby="connected-coaching-title">
-        <div className="coach-difference-heading">
-          <p className="eyebrow">MORE THAN A FITNESS CHAT</p>
-          <h2 id="connected-coaching-title">Coaching and workouts that work together.</h2>
-        </div>
-
-        <div className="feature-grid">
-          <article>
-            <div className="icon">01</div>
-            <h2>Chat with your coach</h2>
-            <p>
-              Talk through your goals, schedule, preferences, available equipment, nutrition habits, progress, and anything that needs to change along the way.
-            </p>
-          </article>
-          <article>
-            <div className="icon">02</div>
-            <h2>Use My Workouts</h2>
-            <p>
-              See the workouts your coach builds for you, organized into a clear weekly schedule. Plans can be tailored to your goals, schedule, environment, and available equipment—whether you’re training at home, in a gym, outdoors, or somewhere else.
-            </p>
-          </article>
-          <article>
-            <div className="icon">03</div>
-            <h2>Keep everything connected</h2>
-            <p>
-              Your conversations with your coach can help shape and adjust your workout plan as your goals, schedule, abilities, and circumstances change.
-            </p>
-          </article>
-        </div>
-      </section>
-
       <section className="coach-difference-section" aria-labelledby="coach-difference-title">
         <div className="coach-difference-heading">
           <p className="eyebrow">WHY AI COACH DIRECTORY</p>
@@ -250,21 +219,21 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="feature-grid" id="how-it-works">
+      <section className="feature-grid" id="how-it-works" aria-label="How AI Coach Directory works">
         <article>
           <div className="icon">01</div>
-          <h2>Start with your goals</h2>
-          <p>Share your current fitness level, schedule, preferences, and what you want to accomplish.</p>
+          <h2>Choose your coach</h2>
+          <p>Start with the area you want to improve and work with a coach built specifically for that kind of support.</p>
         </article>
         <article>
           <div className="icon">02</div>
-          <h2>Build a practical plan</h2>
-          <p>Use AI-generated coaching to organize workouts, habits, motivation, and progress check-ins around your needs.</p>
+          <h2>Use coaching + tools</h2>
+          <p>Chat with your coach and use the purpose-built tools that come with that coaching experience.</p>
         </article>
         <article>
           <div className="icon">03</div>
           <h2>Keep moving forward</h2>
-          <p>Return for accountability, adjustments, encouragement, and ideas as your goals and circumstances change.</p>
+          <p>Return for guidance, adjustments, accountability, and practical next steps as your needs change.</p>
         </article>
       </section>
 
