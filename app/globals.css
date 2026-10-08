@@ -728,6 +728,19 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
   border-color: rgba(255,255,255,.30);
   background: rgba(255,255,255,.14);
 }
+.member-billing-link {
+  align-self: center;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.member-billing-link:hover,
+.member-billing-link:focus-visible {
+  color: var(--text);
+}
+
 .member-hub-actions button,
 .member-hub-tabs button,
 .member-chat-panel button,
