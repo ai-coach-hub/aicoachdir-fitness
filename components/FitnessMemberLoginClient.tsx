@@ -143,9 +143,9 @@ export default function FitnessMemberLoginClient({
       </div>
 
       <p className="microcopy">
-        Newer AI Coach Directory members can sign in normally above. Returning
-        Pickaxe Fitness members only need to activate this login once using the
-        same email they originally used for Fitness Coach.
+        All members can use the same sign-in above. If you already subscribe,
+        use the same email you originally registered with. You will not be
+        charged again just for connecting your login.
       </p>
     </>
   );
