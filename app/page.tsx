@@ -295,6 +295,7 @@ export default function HomePage() {
         <div className="footer-links">
           <Link href={memberLoginUrl}>Member Login</Link>
           <Link href="/terms">Terms & Conditions</Link>
+          <Link href="/manage-subscription">Manage Subscription</Link>
           <Link href="/fitness/signup">New Subscription</Link>
         </div>
 
