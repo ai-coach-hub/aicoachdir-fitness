@@ -84,7 +84,8 @@ export default function FitnessCheckoutCard({ destination = "fitness" }: { desti
 
       <p className="microcopy center">
         Your subscription renews automatically until canceled. You will return
-        to the coach you selected after checkout is confirmed.
+        to the coach you selected after checkout is confirmed. Cancel anytime from
+        Manage membership in your member area, or by emailing Ai.coach.hub.domain@gmail.com.
       </p>
     </section>
   );
