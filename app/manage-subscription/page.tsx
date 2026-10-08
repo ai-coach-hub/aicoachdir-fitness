@@ -40,9 +40,9 @@ export default async function ManageSubscriptionPage() {
             <button className="secondary-button" type="submit">Open secure billing management</button>
           </form>
         ) : (
-          <p>{lookupFailed ? "We couldn't load your billing details right now." : "This membership may use our earlier billing system."} Please contact support to manage or cancel your subscription.</p>
+          <p>{lookupFailed ? "We couldn't load your billing details right now." : "We need to confirm your billing account before opening secure billing management."} Please contact support to manage or cancel your subscription. You do not need to purchase another membership.</p>
         )}
-        <p>Need help or subscribed through an earlier system? Email <a href={`mailto:${supportEmail}?subject=Subscription%20cancellation%20request`}>{supportEmail}</a>. We will help you cancel without requiring you to search the Terms.</p>
+        <p>Need help with your subscription? Contact support: Email <a href={`mailto:${supportEmail}?subject=Subscription%20cancellation%20request`}>{supportEmail}</a>. We will help you cancel without requiring you to search the Terms.</p>
         <p><Link href="/">Back to home</Link></p>
       </section>
     </main>

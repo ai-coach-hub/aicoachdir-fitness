@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {resolveVerifiedBillingLink} from '../lib/memberBillingLinkCore.mjs';
+const email='member@example.com';
+const website={email,clerkUserId:'user_123',customerId:'cus_123',subscriptionId:'sub_123',status:'active',source:'website',verifiedClerkUserId:'user_123'};
+const pickaxe={email,clerkUserId:'user_123',customerId:'cus_abc',subscriptionId:'sub_abc',status:'active',source:'pickaxe',pickaxeUserId:'pu_123',stripeStudioUserId:'pu_123',verifiedPickaxeEmail:email};
+test('matching Clerk-owned website subscription links',()=>{assert.equal(resolveVerifiedBillingLink({email,clerkUserId:'user_123',candidates:[website]}).outcome,'linked')});
+test('matching Pickaxe user id AND both verified emails links',()=>{assert.equal(resolveVerifiedBillingLink({email,clerkUserId:'user_123',candidates:[pickaxe]}).outcome,'linked')});
+test('Pickaxe subscriber with email only is not linked',()=>{const {pickaxeUserId,stripeStudioUserId,...unsafe}=pickaxe;assert.notEqual(resolveVerifiedBillingLink({email,clerkUserId:'user_123',candidates:[unsafe]}).outcome,'linked')});
+test('Pickaxe user ID mismatch rejected',()=>{assert.notEqual(resolveVerifiedBillingLink({email,clerkUserId:'user_123',candidates:[{...pickaxe,stripeStudioUserId:'different'}]}).outcome,'linked')});
+test('Clerk user ID mismatch rejected',()=>{assert.notEqual(resolveVerifiedBillingLink({email,clerkUserId:'user_999',candidates:[website]}).outcome,'linked')});
+test('Two customers fail closed',()=>{assert.equal(resolveVerifiedBillingLink({email,clerkUserId:'user_123',candidates:[website,{...website,customerId:'cus_456',subscriptionId:'sub_456'}]}).outcome,'ambiguous')});
+test('Canceled subscription does not authorize new billing link',()=>{assert.notEqual(resolveVerifiedBillingLink({email,clerkUserId:'user_123',candidates:[{...website,status:'canceled'}]}).outcome,'linked')});
+test('Canceled at period end retains eligibility only while active before end',()=>{const c={...pickaxe,cancelAtPeriodEnd:true,currentPeriodEnd:2000};assert.equal(resolveVerifiedBillingLink({email,clerkUserId:'user_123',candidates:[c],now:1999}).outcome,'linked');assert.notEqual(resolveVerifiedBillingLink({email,clerkUserId:'user_123',candidates:[c],now:2000}).outcome,'linked')});
+test('Changed or unverified Pickaxe email cannot link',()=>{assert.notEqual(resolveVerifiedBillingLink({email,clerkUserId:'user_123',candidates:[{...pickaxe,verifiedPickaxeEmail:'other@example.com'}]}).outcome,'linked')});
