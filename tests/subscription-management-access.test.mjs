@@ -12,8 +12,9 @@ test("subscription management is reachable discreetly from public footer and sig
 test("billing portal is only created for the authenticated member's saved Stripe customer", async () => {
   const portal = await source("app/api/billing/customer-portal/route.ts");
   assert.match(portal, /currentUser\(/);
-  assert.match(portal, /getFitnessMembership\(/);
-  assert.match(portal, /stripe_customer_id/);
+  assert.match(portal, /resolveMemberBillingCustomer\(email, user\.id\)/);
+  assert.match(portal, /billing\.outcome !== "linked"/);
+  assert.match(portal, /form\.set\("customer", billing\.customerId\)/);
   assert.match(portal, /\/billing_portal\/sessions/);
   assert.doesNotMatch(portal, /searchParams\.get\(["']customer/);
 });
