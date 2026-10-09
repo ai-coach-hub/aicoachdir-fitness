@@ -62,7 +62,8 @@ export async function resolveMemberBillingCustomer(email: string, clerkUserId: s
       pickaxe,
       studioId: EXPECTED_STUDIO_ID,
     });
-    if (outcome.outcome !== "linked" || !outcome.customerId || !outcome.subscriptionId) return {outcome:outcome.outcome};
+    if (outcome.outcome !== "linked") return {outcome:outcome.outcome};
+    if (!outcome.customerId || !outcome.subscriptionId) return {outcome:"unlinked"};
     // A Stripe-paid website member must agree with the customer's locally stored ownership.
     if (outcome.source === "website" && (
       String(membership?.stripe_customer_id || "") !== outcome.customerId ||
