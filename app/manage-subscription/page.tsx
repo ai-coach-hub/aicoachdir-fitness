@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import SiteHeader from "@/components/SiteHeader";
-import { getFitnessMembership } from "@/lib/fitnessMembershipDb";
+import { resolveMemberBillingCustomer } from "@/lib/memberBillingLookup";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -20,8 +20,9 @@ export default async function ManageSubscriptionPage() {
   let lookupFailed = false;
   if (email) {
     try {
-      const member = await getFitnessMembership(email);
-      hasStripeBilling = !!member?.stripe_customer_id;
+      const billing = await resolveMemberBillingCustomer(email, user!.id);
+      hasStripeBilling = billing.outcome === "linked";
+      lookupFailed = billing.outcome === "unavailable";
     } catch {
       lookupFailed = true;
     }

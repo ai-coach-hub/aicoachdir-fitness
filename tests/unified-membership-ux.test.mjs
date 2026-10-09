@@ -15,6 +15,7 @@ test("existing subscriber sign-in never advertises a second paid subscription",a
 });
 test("verified match helper never uses email alone to expose portal",async()=>{
  const portal=await source("app/api/billing/customer-portal/route.ts");
- assert.match(portal,/getFitnessMembership\(/);
+ assert.match(portal,/resolveMemberBillingCustomer\(email, user\.id\)/);
+ assert.match(portal,/billing\.outcome !== "linked"/);
  assert.doesNotMatch(portal,/searchParams\.get\(["']customer/);
 });
