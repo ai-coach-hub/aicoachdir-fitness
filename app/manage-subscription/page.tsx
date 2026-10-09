@@ -22,6 +22,7 @@ export default async function ManageSubscriptionPage() {
     try {
       const billing = await resolveMemberBillingCustomer(email, user!.id);
       hasStripeBilling = billing.outcome === "linked";
+      lookupFailed = billing.outcome === "unavailable";
     } catch {
       lookupFailed = true;
     }
