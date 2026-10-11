@@ -2,7 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { ensureTermsAcceptanceSchema } from "@/lib/termsAcceptanceDb";
-import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
+import { getFitnessMembership, memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
 import {
   ensureStripeBillingResources,
   stripeConfigured,
@@ -127,7 +127,13 @@ export async function POST(request: Request) {
     body.set("mode", "subscription");
     body.set("line_items[0][price]", priceId);
     body.set("line_items[0][quantity]", "1");
-    body.set("customer_email", email);
+    const existingMembership = await getFitnessMembership(email);
+    const existingCustomerId = String(existingMembership?.stripe_customer_id || "");
+    if (/^cus_[a-zA-Z0-9]+$/.test(existingCustomerId)) {
+      body.set("customer", existingCustomerId);
+    } else {
+      body.set("customer_email", email);
+    }
     body.set("client_reference_id", user.id);
     body.set("success_url", `${origin}/fitness/checkout/success?session_id={CHECKOUT_SESSION_ID}&destination=${destinationQuery}`);
     body.set("cancel_url", `${origin}/fitness/subscribe?destination=${destinationQuery}`);
