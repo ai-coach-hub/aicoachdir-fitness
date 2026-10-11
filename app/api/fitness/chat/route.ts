@@ -2204,6 +2204,49 @@ export async function GET() {
   }
 }
 
+type DriverResult = { ok: boolean; text: string } | undefined | void;
+type SettledRace<R> = { relay: R | null; clarification: string };
+
+// A driver answer is shown as a clarification only if it asks something and claims no save.
+function clarificationFromDriver(result: DriverResult): string {
+  const draft = (result && result.text) || "";
+  if (result && result.ok && draft.includes("?") &&
+      !/\b(?:saved|synced|updated|completed)\b/i.test(draft) &&
+      !/APPLICATION [A-Z -]+RULES/.test(draft)) {
+    return draft.trim();
+  }
+  return "";
+}
+
+async function settleWorkoutSaveRace<R extends { finalDelivery?: string }>(options: {
+  pendingRelay: Promise<R>;
+  driver: Promise<DriverResult>;
+  lateRelayWindowMs?: number;
+}): Promise<SettledRace<R>> {
+  const { pendingRelay, driver, lateRelayWindowMs = 4_000 } = options;
+  const first = await Promise.race([
+    pendingRelay.then((result) => ({ kind: "relay" as const, result })),
+    driver.then((result) => ({ kind: "driver" as const, result })),
+  ]);
+
+  if (first.kind === "relay") {
+    if (first.result && first.result.finalDelivery) return { relay: first.result, clarification: "" };
+    // The poll saw no save within its window. The coach may still be writing a clarifying question:
+    // wait for it (the driver is bounded by its own timeout) rather than discard that answer.
+    return { relay: first.result, clarification: clarificationFromDriver(await driver) };
+  }
+
+  // The driver answered first. A short read-only consistency window costs no model generation and is
+  // not a retry of the save. Plain completion prose is never a save receipt.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const lateRelay = await Promise.race([
+    pendingRelay,
+    new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), lateRelayWindowMs); }),
+  ]);
+  if (timer) clearTimeout(timer);
+  return { relay: lateRelay, clarification: clarificationFromDriver(first.result) };
+}
+
 export async function POST(request: Request) {
   const user = await currentUser();
   const memberEmail = primaryEmailForUser(user);
@@ -2613,30 +2656,9 @@ export async function POST(request: Request) {
       [SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID],
       priorActionRunIds,
     );
-    const firstMutationResult = await Promise.race([
-      pendingRelay.then((result) => ({ kind: "relay" as const, result })),
-      mutationDriverPromise.then((result) => ({ kind: "driver" as const, result })),
-    ]);
-    let clarification = "";
-    if (firstMutationResult.kind === "relay") {
-      relay = firstMutationResult.result;
-    } else {
-      // A short read-only consistency window costs no model generation and is
-      // not a retry of the save. Plain completion prose is never a save receipt.
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const lateRelay = await Promise.race([
-        pendingRelay,
-        new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), 4_000); }),
-      ]);
-      if (timer) clearTimeout(timer);
-      if (lateRelay) relay = lateRelay;
-      const draft = firstMutationResult.result?.text || "";
-      if (firstMutationResult.result?.ok && draft.includes("?") &&
-          !/\b(?:saved|synced|updated|completed)\b/i.test(draft) &&
-          !/APPLICATION [A-Z -]+RULES/.test(draft)) {
-        clarification = draft.trim();
-      }
-    }
+    const settled = await settleWorkoutSaveRace({ pendingRelay, driver: mutationDriverPromise });
+    if (settled.relay) relay = settled.relay;
+    const clarification = settled.clarification;
     mutationPollAbort.abort();
     mutationCompletionAbort.abort();
     await Promise.race([
