@@ -55,11 +55,11 @@ export default function FitnessCheckoutCard({ destination = "fitness" }: { desti
 
   return (
     <section className="login-config-card" aria-labelledby="fitness-checkout-heading">
-      <p className="eyebrow">NEW SUBSCRIBER · STEP 3 OF 3</p>
-      <h1 id="fitness-checkout-heading">Complete your AI Coach Directory membership</h1>
+      <p className="eyebrow">MEMBERSHIP · SECURE CHECKOUT</p>
+      <h1 id="fitness-checkout-heading">Confirm your AI Coach Directory membership</h1>
       <p>
-        You are signed into AI Coach Directory. Continue to secure checkout for
-        the $15/month AI Coach Directory membership, which currently includes Fitness and Budgeting with 400 shared AI uses per month.
+        Your existing sign-in will be kept. Continue to secure checkout for
+        the $15/month AI Coach Directory membership, which currently includes Fitness and Budgeting with 400 shared AI uses per month. If you are returning after cancellation, your existing account stays the same.
       </p>
 
       <button
