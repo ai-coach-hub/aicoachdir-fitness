@@ -3,7 +3,7 @@ import {
   grantFitnessAccess,
   revokeFitnessAccess,
 } from "@/lib/pickaxeAccess";
-import { saveFitnessMembership } from "@/lib/fitnessMembershipDb";
+import { getFitnessMembership, saveFitnessMembership } from "@/lib/fitnessMembershipDb";
 import {
   stripeSubscriptionIsActive,
   verifyStripeWebhook,
@@ -54,6 +54,19 @@ async function setAccess(args: {
     });
 
     await grantFitnessAccess(args.email);
+    return;
+  }
+
+  // Stripe can deliver events out of order. A cancellation from an older
+  // subscription must never revoke access restored by a newer subscription.
+  const current = await getFitnessMembership(args.email);
+  const currentSubscriptionId = String(current?.stripe_subscription_id || "");
+  if (
+    current?.access_active === true &&
+    currentSubscriptionId &&
+    args.subscriptionId &&
+    currentSubscriptionId !== args.subscriptionId
+  ) {
     return;
   }
 
