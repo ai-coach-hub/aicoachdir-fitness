@@ -97,7 +97,7 @@ export default function FitnessMemberLoginClient({
 
         <div className="cta-row">
           <Link href={loginReturnUrl.includes("budget") ? "/fitness/signup?destination=budget-coach" : "/fitness/signup?destination=fitness"} className="primary-button">
-            Review Membership
+            Reactivate Membership
           </Link>
           <button
             type="button"
