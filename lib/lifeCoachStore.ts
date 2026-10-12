@@ -48,17 +48,22 @@ export async function recallLifeContext(member: string, currentId: string, query
   const terms=(query.toLowerCase().match(/[a-z0-9]{4,}/g)||[])
    .filter(w=>!["what","when","where","with","that","this","about","have","previous","remember","discussed","before","last","time","conversation","goal","coach"].includes(w))
    .slice(0,5);
-  const rows=terms.length
+  // General "what did I tell you earlier?" requests have no topic keyword.
+  // Retrieve recent member statements for those requests, and fall back to them
+  // when keyword matching finds nothing. This is a read-only DB lookup.
+  const isRecallQuestion=/\\b(earlier|previous(?:ly)?|last (?:chat|conversation|time)|remember|told you|did i (?:say|tell)|we discussed)\\b/i.test(query);
+  const rows=terms.length&&!isRecallQuestion
     ? await sql`SELECT body,created_at FROM life_chat_messages
         WHERE member_id=${member} AND conversation_id<>${currentId}
         AND role='user'
         AND EXISTS(SELECT 1 FROM unnest(${terms}::text[]) term
            WHERE lower(body) LIKE '%' || term || '%')
         ORDER BY created_at DESC,id DESC LIMIT 4`
-    : await sql`SELECT body,created_at FROM life_chat_messages
+    : [];
+  const relevant=rows.length?rows:await sql`SELECT body,created_at FROM life_chat_messages
         WHERE member_id=${member} AND conversation_id<>${currentId}
         AND role='user' ORDER BY created_at DESC,id DESC LIMIT 4`;
-  return rows.map(r=>`[${String(r.created_at).slice(0,10)}] Member: ${String(r.body).slice(0,450)}`).join("\n").slice(0,2200);
+  return relevant.map(r=>`[${String(r.created_at).slice(0,10)}] Member: ${String(r.body).slice(0,450)}`).join("\n").slice(0,2200);
 }
 export async function saveLifeTurn(member: string,id: string,question: string,answer: string) {
   if(!validId(id)) throw new Error("Invalid Life Coach thread");
