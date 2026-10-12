@@ -25,7 +25,7 @@ export function cleanLifeCoachText(input: string): string {
       .replace(/[ \t]{2,}/g, " ")
       .trim();
     if (/^Week starting:\s*\[(?:Date|Start date)\]\s*$/i.test(line)) return "";
-    if (/^Tracking:\s*(?:[☐☑☒]|\[[ xX]\])\s*(?:Completed|Done)?\s*$/i.test(line)) return "";
+    if (/^Tracking:\s*(?:(?:[☐☑☒]|\[[ xX]\])\s*)?(?:Completed|Done)?\s*$/i.test(line)) return "";
     if (/^Notes:\s*$/i.test(line)) return "";
     return line;
   });
