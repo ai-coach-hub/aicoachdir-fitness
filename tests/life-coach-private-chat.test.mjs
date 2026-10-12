@@ -38,3 +38,17 @@ test("private Life Coach page never sends testers into paid Fitness login",()=>{
  assert.ok(page.includes("/sign-in?redirect_url="));
  assert.ok(page.includes("lifeTester()"));
 });
+
+test("cross-chat recall queries fall back to recent stored member statements",()=>{
+ const store=load("lib/lifeCoachStore.ts");
+ const api=load("app/api/life/chat/route.ts");
+ assert.match(store,/isRecallQuestion/);
+ assert.match(store,/rows.length\\?rows:/);
+ assert.match(store,/conversation_id<>\\$\\{currentId\\}/);
+ assert.match(api,/Do not say there is no earlier conversation/);
+});
+test("Life Coach chat labels do not render an escaped newline",()=>{
+ const ui=load("app/life/LifeChat.tsx");
+ assert.ok(ui.includes('marginTop:4'));
+ assert.ok(!ui.includes('}</strong>\\\\n{m.text}'));
+});
