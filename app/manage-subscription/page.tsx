@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import SiteHeader from "@/components/SiteHeader";
-import { getFitnessMembership } from "@/lib/fitnessMembershipDb";
+import { getFitnessMembership, memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
+import { linkVerifiedLegacyStripeMembership } from "@/lib/legacyStripeMembership";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -14,13 +15,23 @@ const supportEmail = "Ai.coach.hub.domain@gmail.com";
 
 export default async function ManageSubscriptionPage() {
   const user = await currentUser();
-  const email = user?.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)?.emailAddress
-    || user?.emailAddresses[0]?.emailAddress || "";
+  const primaryAddress = user?.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)
+    || user?.emailAddresses[0];
+  const email = primaryAddress?.emailAddress || "";
+  // A billing link is created only from a Clerk-verified email.
+  const emailVerified = primaryAddress?.verification?.status === "verified";
   let hasStripeBilling = false;
   let lookupFailed = false;
   if (email) {
     try {
-      const member = await getFitnessMembership(email);
+      let member = await getFitnessMembership(email);
+      if (emailVerified && user && (!member || (member.access_active === true && String(member.clerk_user_id || "") !== user.id))) {
+        await memberHasFitnessAccess(email, user.id);
+        member = await getFitnessMembership(email);
+      }
+      if (emailVerified && user && member?.access_active === true && !member.stripe_customer_id) {
+        member = await linkVerifiedLegacyStripeMembership(email, user.id);
+      }
       hasStripeBilling = !!member?.stripe_customer_id;
     } catch {
       lookupFailed = true;
