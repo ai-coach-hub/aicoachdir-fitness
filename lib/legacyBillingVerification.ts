@@ -51,7 +51,7 @@ export async function discoverVerifiedHistoricalBilling(email: string) {
   const memberEmail = billingEmail(email);
   if (!memberEmail) return null;
   const identity = pickaxeMemberId(
-    await getPickaxeUser(memberEmail, { fallbackToList: false }),
+    await getPickaxeUser(memberEmail),
     memberEmail,
   );
   if (!identity) return null;
