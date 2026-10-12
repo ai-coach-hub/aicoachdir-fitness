@@ -56,8 +56,7 @@ export async function POST(request: Request) {
     params.set("cancel_at_period_end", "false");
     await stripeRequest(
       `/subscriptions/${encodeURIComponent(live.subscriptionId)}`,
-      { method: "POST", body: params,
-        idempotencyKey: `resume-renewal-${live.subscriptionId}-${user.id}` },
+      { method: "POST", body: params },
     );
 
     const verified = await getVerifiedSubscription({
