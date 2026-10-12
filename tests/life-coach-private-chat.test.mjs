@@ -102,7 +102,7 @@ test("Life Coach tenant SQL stays member-scoped and memory sources are bounded",
 test("memory replies happen before any Pickaxe request, with source tag",()=>{
  const route=load("app/api/life/chat/route.ts");
  const direct=route.indexOf("const direct=lifeMemoryReply(message,memories)");
- const reply=route.indexOf('source:"saved-private-history"');
+ const reply=route.indexOf('source:"saved-private-history"',direct);
  const token=route.indexOf("process.env.PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN");
  const provider=route.indexOf('await fetch("https://api.pickaxe.co');
  assert.ok(direct>0 && reply>direct && token>reply && provider>token);
@@ -121,4 +121,14 @@ test("Life Coach chat labels display without escaped newlines",()=>{
  const ui=load("app/life/LifeChat.tsx");
  assert.ok(ui.includes("marginTop:4"));
  assert.ok(!ui.includes('}</strong>\\n{m.text}'));
+});
+
+test("natural what-is-my-goal question also uses verified memory without model",()=>{
+ const {lifeMemoryReply}=lifeLogic();
+ assert.ok(lifeMemoryReply("What's my goal?",[goal]).includes("time management"));
+});
+test("false memory denial is not changed for unrelated questions",()=>{
+ const {guardLifeMemoryDenial}=lifeLogic();
+ const provider="I don't have access to previous conversations.";
+ assert.equal(guardLifeMemoryDenial(provider,"How can I protect my privacy?",[goal]),provider);
 });
