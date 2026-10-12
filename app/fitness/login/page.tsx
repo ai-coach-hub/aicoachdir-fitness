@@ -3,7 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import FitnessMemberLoginClient from "@/components/FitnessMemberLoginClient";
-import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
+import { getFitnessMembership, memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
 
 export const dynamic = "force-dynamic";
 
@@ -58,10 +58,16 @@ export default async function MemberLoginPage({
 
   let hasAccess = false;
   let accessCheckFailed = false;
+  let paymentNeedsAttention = false;
 
   if (user && email) {
     try {
       hasAccess = await memberHasFitnessAccess(email, user.id);
+      if (!hasAccess) {
+        const member = await getFitnessMembership(email);
+        paymentNeedsAttention = ["past_due", "unpaid", "incomplete", "paused"]
+          .includes(String(member?.stripe_status || ""));
+      }
     } catch {
       accessCheckFailed = true;
     }
@@ -94,6 +100,7 @@ export default async function MemberLoginPage({
 
         <FitnessMemberLoginClient
           hasAccess={hasAccess}
+          paymentNeedsAttention={paymentNeedsAttention}
           accessCheckFailed={accessCheckFailed}
           loginReturnUrl={loginReturnUrl}
         />
