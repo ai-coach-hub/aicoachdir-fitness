@@ -5,6 +5,7 @@ import SiteHeader from "@/components/SiteHeader";
 import {
   getFitnessMembership,
   memberHasFitnessAccess,
+  rebindVerifiedMembershipLogin,
   refreshLinkedMembershipStatus,
 } from "@/lib/fitnessMembershipDb";
 import { linkVerifiedLegacyStripeMembership } from "@/lib/legacyStripeMembership";
@@ -38,6 +39,10 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
   if (email && user && emailVerified) {
     try {
       let member = await getFitnessMembership(email);
+      if (member?.stripe_customer_id && member.stripe_subscription_id &&
+          String(member.clerk_user_id || "") !== user.id) {
+        member = (await rebindVerifiedMembershipLogin(email, user.id)) || member;
+      }
       if (!member || (member.access_active === true && String(member.clerk_user_id || "") !== user.id)) {
         await memberHasFitnessAccess(email, user.id);
         member = await getFitnessMembership(email);
