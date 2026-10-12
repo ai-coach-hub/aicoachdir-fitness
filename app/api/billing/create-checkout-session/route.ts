@@ -5,6 +5,7 @@ import {
   getFitnessMembership,
   memberHasFitnessAccess,
   saveFitnessMembership,
+  restoreVerifiedHistoricalBillingForMember,
 } from "@/lib/fitnessMembershipDb";
 import { grantFitnessAccess } from "@/lib/pickaxeAccess";
 import { reserveCheckout, rememberCheckoutSession } from "@/lib/stripeCheckoutReservations";
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    await restoreVerifiedHistoricalBillingForMember(email, user.id);
     if (await memberHasFitnessAccess(email, user.id, { fallbackToPickaxeList: false })) {
       return NextResponse.json(
         { ok: true, alreadyActive: true, url: destinationUrl },
