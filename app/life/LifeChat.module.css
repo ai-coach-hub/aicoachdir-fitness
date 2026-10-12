@@ -64,3 +64,17 @@
   .chatPanel { padding: 14px; min-height: 64vh; }
   .messageLog { min-height: 220px; max-height: 60vh; }
 }
+
+/* Show coaching plans as readable paragraphs instead of raw Markdown. */
+.coachReply { display: block; }
+.replyLine { display: block; white-space: pre-wrap; line-height: 1.6; }
+.replyHeading {
+  display: block;
+  margin: 15px 0 6px;
+  font-size: 1.02rem;
+  line-height: 1.35;
+  font-weight: 760;
+  color: #f1fff3;
+}
+.replyHeading:first-child { margin-top: 2px; }
+.replySpacer { display: block; height: 8px; }
