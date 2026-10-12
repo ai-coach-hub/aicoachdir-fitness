@@ -3,7 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import FitnessCheckoutCard from "@/components/FitnessCheckoutCard";
 import SiteHeader from "@/components/SiteHeader";
-import { getFitnessMembership, memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
+import { getFitnessMembership, memberHasFitnessAccess, refreshLinkedMembershipStatus } from "@/lib/fitnessMembershipDb";
 import { getVerifiedSubscription } from "@/lib/stripeMembershipState";
 import { currentMembershipTermsId } from "@/lib/currentMembershipTerms";
 
@@ -77,8 +77,10 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
     redirect(activeDestination);
   }
 
-  // Payment failures are repaired on the EXISTING subscription, not by
-  // creating another recurring charge.
+  // Recoverable subscriptions return to their existing Stripe billing.
+  // A payment fixed moments ago is refreshed immediately, without checkout.
+  let recoveredPaidAccess = false;
+  let recoveryNeedsPayment = false;
   try {
     const member = await getFitnessMembership(email);
     if (member?.stripe_customer_id && member?.stripe_subscription_id) {
@@ -87,20 +89,19 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
         subscriptionId: String(member.stripe_subscription_id),
         memberEmail: email,
       });
-      if (live?.state === "recoverable") {
-        redirect("/manage-subscription");
+      if (live?.state === "recoverable") recoveryNeedsPayment = true;
+      if (live?.state === "active" || live?.state === "canceling") {
+        const synced = await refreshLinkedMembershipStatus(email, { force: true });
+        recoveredPaidAccess = synced?.access_active === true;
       }
     }
-  } catch (error) {
-    // next/navigation redirect throws intentionally; don't intercept it.
-    if (error && typeof error === "object" && "digest" in error &&
-        String((error as { digest?: unknown }).digest || "").startsWith("NEXT_REDIRECT")) {
-      throw error;
-    }
+  } catch {
     return (
       <SetupProblem destination={destination} message="We could not verify your existing billing details. No charge was attempted." />
     );
   }
+  if (recoveredPaidAccess) redirect(activeDestination);
+  if (recoveryNeedsPayment) redirect("/manage-subscription");
 
   let acceptanceId = "";
   try {
