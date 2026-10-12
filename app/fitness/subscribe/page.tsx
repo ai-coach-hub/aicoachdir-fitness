@@ -3,7 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import FitnessCheckoutCard from "@/components/FitnessCheckoutCard";
 import SiteHeader from "@/components/SiteHeader";
-import { getFitnessMembership, memberHasFitnessAccess, refreshLinkedMembershipStatus } from "@/lib/fitnessMembershipDb";
+import { getFitnessMembership, memberHasFitnessAccess, refreshLinkedMembershipStatus, restoreVerifiedHistoricalBillingForMember } from "@/lib/fitnessMembershipDb";
 import { getVerifiedSubscription } from "@/lib/stripeMembershipState";
 import { currentMembershipTermsId } from "@/lib/currentMembershipTerms";
 
@@ -64,6 +64,13 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
 
   let alreadyActive = false;
   try {
+    const verifiedPrimary = user.emailAddresses.find((item) => item.id === user.primaryEmailAddressId);
+    if (verifiedPrimary?.verification?.status !== "verified") {
+      return (
+        <SetupProblem destination={destination} message="Please verify your account email before managing a subscription." />
+      );
+    }
+    await restoreVerifiedHistoricalBillingForMember(email, user.id);
     alreadyActive = await memberHasFitnessAccess(email, user.id, {
       fallbackToPickaxeList: false,
     });
