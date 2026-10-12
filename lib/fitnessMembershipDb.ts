@@ -247,7 +247,17 @@ async function reconcileLegacyPaidMembership(email: string, clerkUserId?: string
     ? new Date(String(current.last_legacy_verified_at)).getTime() : 0;
   if (checked > Date.now() - 24 * 60 * 60 * 1000) return current;
 
-  const verified = await discoverVerifiedHistoricalBilling(email);
+  let verified: Awaited<ReturnType<typeof discoverVerifiedHistoricalBilling>>;
+  try {
+    verified = await discoverVerifiedHistoricalBilling(email);
+  } catch (error) {
+    // Never lock out a previously active grandfathered member because Stripe
+    // or Pickaxe had a temporary read/permission outage.
+    console.error("[membership] historical billing verification deferred", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return current;
+  }
   const sql = await ensureFitnessMembershipSchema();
   if (!verified) {
     await sql`
@@ -314,12 +324,28 @@ export async function refreshLinkedMembershipStatus(
     return existing;
   }
 
-  const live = await getVerifiedSubscription({
-    customerId: String(existing.stripe_customer_id),
-    subscriptionId: String(existing.stripe_subscription_id),
-    memberEmail,
-  });
-  if (!live) throw new Error("Unable to verify linked Stripe subscription.");
+  let live: Awaited<ReturnType<typeof getVerifiedSubscription>>;
+  try {
+    live = await getVerifiedSubscription({
+      customerId: String(existing.stripe_customer_id),
+      subscriptionId: String(existing.stripe_subscription_id),
+      memberEmail,
+    });
+  } catch (error) {
+    if (existing.access_active === true) {
+      // A transient Stripe read failure must not eject someone who was
+      // already paid. The signed webhook still handles cancellation events.
+      console.error("[membership] Stripe recheck deferred for active member", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return existing;
+    }
+    throw error;
+  }
+  if (!live || live.state === "unknown") {
+    if (existing.access_active === true) return existing;
+    throw new Error("Unable to verify linked Stripe subscription.");
+  }
 
   const active = stripeSubscriptionIsActive(live.status);
   const sql = await ensureFitnessMembershipSchema();
