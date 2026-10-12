@@ -144,3 +144,66 @@ test("Life Coach chat fits narrow screens and supports low-friction typing",()=>
  assert.ok(ui.includes("styles.chatPanel"));
  assert.ok(ui.includes("styles.threadList"));
 });
+
+
+function formattingLogic() {
+ const js=ts.transpileModule(load("lib/lifeCoachFormatting.ts"),{
+  compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}
+ }).outputText;
+ const sandbox={exports:{}};
+ runInNewContext(js,sandbox);
+ return sandbox.exports;
+}
+test("Life Coach seven-day plans display without Markdown symbols and fake fields",()=>{
+ const {cleanLifeCoachText,isLifeCoachSectionHeading}=formattingLogic();
+ const original=[
+  "# Your 7-Day Time-Management Action Plan",
+  "**Goal:** Improve my time management",
+  "**Week starting:** [Date]",
+  "**Overall approach:** One action each day.",
+  "---",
+  "## Day 1: List Your Time Wasters",
+  "**Action:** Spend 10 minutes noting distractions.",
+  "- **What:** Identify 3–5 activities that consume time.",
+  "- **When:** After lunch.",
+  "**Tracking:** ☐ Completed",
+  "**Notes:**",
+  "---",
+  "## Day 2: Protect One Time Block",
+  "- **What:** Silence your phone for 30 minutes.",
+  "**Tracking:** ☐ Completed"
+ ].join("\n");
+ const cleaned=cleanLifeCoachText(original);
+ assert.ok(cleaned.includes("Your 7-Day Time-Management Action Plan"));
+ assert.ok(cleaned.includes("Goal: Improve my time management"));
+ assert.ok(cleaned.includes("Day 1: List Your Time Wasters"));
+ assert.ok(cleaned.includes("Action: Spend 10 minutes noting distractions."));
+ assert.ok(cleaned.includes("What: Identify 3–5 activities"));
+ assert.ok(cleaned.includes("When: After lunch"));
+ assert.ok(cleaned.includes("Day 2: Protect One Time Block"));
+ for(const marker of ["**","##","---","[Date]","Tracking:","Notes:","☐"]){
+  assert.ok(!cleaned.includes(marker),"unexpected symbol/template: "+marker);
+ }
+ assert.ok(isLifeCoachSectionHeading("Day 2: Protect One Time Block"));
+ assert.ok(!isLifeCoachSectionHeading("When: After lunch"));
+});
+test("escaped Markdown is normalized and clean replies remain unchanged",()=>{
+ const {cleanLifeCoachText}=formattingLogic();
+ const raw="\\*\\*Goal:\\*\\* Make daily progress.\n\\#\\# Day 1: Start small\n\\*\\*Action:\\*\\* Try for \\~2 minutes.";
+ const cleaned=cleanLifeCoachText(raw);
+ assert.ok(cleaned.includes("Goal: Make daily progress."));
+ assert.ok(cleaned.includes("Day 1: Start small"));
+ assert.ok(cleaned.includes("Action: Try for ~2 minutes."));
+ assert.ok(!cleaned.includes("**"));
+ assert.equal(cleanLifeCoachText(cleaned),cleaned);
+ assert.equal(cleanLifeCoachText("My #1 goal is learning 2+2."),"My #1 goal is learning 2+2.");
+});
+test("API cleans new model replies and UI cleans old replies, without altering user messages",()=>{
+ const api=load("app/api/life/chat/route.ts");
+ const ui=load("app/life/LifeChat.tsx");
+ assert.ok(api.includes("cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories))"));
+ assert.ok(ui.includes("cleanLifeCoachText(text)"));
+ assert.ok(ui.includes('m.role==="assistant"?<CoachResponse text={m.text}/>:m.text'));
+ assert.ok(api.includes("await saveLifeTurn(member,id,message,answer)"));
+ assert.ok(api.includes("return json({ok:true,response:answer,conversationId:id"));
+});
