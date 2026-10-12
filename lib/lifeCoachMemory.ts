@@ -6,13 +6,13 @@ const memoryReference = /\b(?:earlier|previous(?:ly)?|past|last (?:time|chat|con
 const goalStatement = /\b(?:my goal|my priority|i want to|i plan to|i aim to|i(?:'d| would) like to|i(?:'m| am) (?:trying|working|planning) to|i(?:'m| am) working on)\b/i;
 const memoryQuestion = /\b(?:what|which|remind|recall|remember|tell me|do you know|did i|did we)\b/i;
 const progressQuestion = /\b(?:progress|help me|how (?:can|do) i|let's|can we|work on|continue|next step|pick up|move forward|follow up|getting started)\b/i;
-const requiresSpecialCare = /\b(?:suicid(?:al|e)|self[- ]?harm|kill myself|hurting myself|overdose|starv(?:e|ing)|purging|abus(?:e|ive)|danger to myself)\b/i;
+const requiresSpecialCare = /\b(?:suicid(?:al|e)|self[- ]?harm|kill myself|hurt(?:ing)? myself|overdose|starv(?:e|ing)|purging|abus(?:e|ive)|danger to myself)\b/i;
 const wantsDetailedPlan = /\b(?:write|draft|design|build|create|detailed|comprehensive|7[- ]?day|weekly schedule|month[- ]?long)\b/i;
 const filler = /^(?:ok(?:ay)?|thanks|thank you|yes|no|great|hello|hi|got it|sounds good)[.! ]*$/i;
 const topicWords = new Set(["what","which","where","when","have","with","from","about","this","that","were","your","mine","ours","goal","goals","plan","plans","habit","habits","priority","priorities","earlier","previous","last","time","chat","conversation","remember","discussed","talked","tell","told","said","mentioned","help","progress","make","could","would","like","please","more","into","them","today","can","you","the","for","and","how","did","was"]);
 
 export function isLifeRecallQuestion(query: string): boolean {
-  return memoryReference.test(query) && (memoryQuestion.test(query) || progressQuestion.test(query));
+  return (memoryReference.test(query) && (memoryQuestion.test(query) || progressQuestion.test(query))) || /\b(?:what(?:\x27s| is| was) my (?:goal|goals|priority|plan)|what goals have i set|which goal did i)\b/i.test(query);
 }
 export function lifeMemoryIntent(query: string): LifeMemoryIntent {
   if (!isLifeRecallQuestion(query)) return null;
@@ -56,7 +56,7 @@ export function lifeMemoryReply(query: string, entries: LifeMemoryEntry[]): stri
   return first+"\n\nWe can start with one small, practical action toward it. Pick something achievable in 10–15 minutes and decide when you'll do it. Which first step feels realistic?";
 }
 export function guardLifeMemoryDenial(answer: string, query: string, entries: LifeMemoryEntry[]): string {
-  if (!entries.length || !memoryReference.test(query)) return answer;
+  if (!entries.length || !isLifeRecallQuestion(query)) return answer;
   const falseDenial=/\b(?:can'?t|cannot|don'?t|do not|unable to|no)\b.{0,70}\b(?:access|recall|remember|retrieve|see|look up|have)\b.{0,95}\b(?:past|earlier|previous|prior|other|history|conversation|chat|messages)\b/i;
   if (!falseDenial.test(answer)) return answer;
   const fact=selectLifeMemories(query,entries,1)[0];
