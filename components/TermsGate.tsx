@@ -1,7 +1,8 @@
 "use client";
 
+import { useUser } from "@clerk/nextjs";
 import type { ChangeEvent, ReactNode } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FITNESS_INCLUDED_USES,
   FITNESS_PLAN,
@@ -14,6 +15,9 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function TermsGate({ children, destination = "fitness" }: { children: ReactNode; destination?: "fitness" | "budget-coach" }) {
   const scroller = useRef<HTMLDivElement | null>(null);
+  const filledFromLogin = useRef(false);
+  const { isSignedIn, user } = useUser();
+  const signedInEmail = user?.primaryEmailAddress?.emailAddress || "";
   const [reachedBottom, setReachedBottom] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [email, setEmail] = useState("");
@@ -21,6 +25,13 @@ export default function TermsGate({ children, destination = "fitness" }: { child
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
+
+  useEffect(() => {
+    if (isSignedIn && signedInEmail && !filledFromLogin.current) {
+      filledFromLogin.current = true;
+      setEmail((current) => current || signedInEmail);
+    }
+  }, [isSignedIn, signedInEmail]);
 
   const normalizedEmail = email.trim().toLowerCase();
   const emailIsValid =
@@ -86,7 +97,11 @@ export default function TermsGate({ children, destination = "fitness" }: { child
         // Browser storage is only a secondary convenience. The server record already exists.
       }
 
-      window.location.assign(`/fitness/create-account?destination=${destination}`);
+      window.location.assign(
+        isSignedIn
+          ? `/fitness/subscribe?destination=${destination}`
+          : `/fitness/create-account?destination=${destination}`
+      );
     } catch {
       setSaveError("We couldn't record your agreement. Please try again. You have not been charged.");
       setIsSaving(false);
@@ -96,7 +111,7 @@ export default function TermsGate({ children, destination = "fitness" }: { child
   return (
     <section className="terms-card">
       <div className="terms-heading">
-        <p className="eyebrow">NEW SUBSCRIBER · STEP 1 OF 3</p>
+        <p className="eyebrow">{isSignedIn ? "MEMBERSHIP REACTIVATION" : "NEW SUBSCRIBER · STEP 1 OF 3"}</p>
         <h1>Review the Terms & Conditions</h1>
         <p>
           Read the complete terms below. The agreement checkbox unlocks only after you scroll to the end.
@@ -176,8 +191,10 @@ export default function TermsGate({ children, destination = "fitness" }: { child
         )}
 
         <div className="verification-reminder" role="note" aria-label="Verification email reminder">
-          <strong>First-time signup reminder</strong>
-          <span>After you create your AI Coach Directory account, look for the verification email. If you do not see it within a few minutes, please check your Spam or Junk folder.</span>
+          <strong>{isSignedIn ? "Your existing login will be reused" : "First-time signup reminder"}</strong>
+          <span>{isSignedIn
+            ? "You will not need to create another account. Your existing workouts and coach history stay associated with this email."
+            : "After you create your AI Coach Directory account, look for the verification email. If you do not see it within a few minutes, please check your Spam or Junk folder."}</span>
         </div>
 
         {saveError && (
@@ -189,12 +206,14 @@ export default function TermsGate({ children, destination = "fitness" }: { child
           disabled={!reachedBottom || !agreed || !emailIsValid || isSaving}
           onClick={continueToSignup}
         >
-          {isSaving ? "Recording Your Agreement…" : "Continue to Create Your Account"}
+          {isSaving ? "Recording Your Agreement…" : isSignedIn ? "Continue to Reactivate Membership" : "Continue to Create Your Account"}
         </button>
 
 
         <p className="microcopy center">
-          Step 2 creates your AI Coach Directory sign-in. Step 3 completes the secure AI Coach Directory membership.
+          {isSignedIn
+            ? "Next, your existing account will continue to secure billing verification without another signup."
+            : "Step 2 creates your AI Coach Directory sign-in. Step 3 completes the secure AI Coach Directory membership."}
         </p>
       </div>
     </section>

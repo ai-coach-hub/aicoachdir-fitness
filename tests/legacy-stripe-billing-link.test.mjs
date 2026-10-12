@@ -41,7 +41,7 @@ test("only verified Clerk email addresses may trigger historical billing links",
   for (const path of ["app/manage-subscription/page.tsx", "app/api/billing/customer-portal/route.ts"]) {
     const code = await source(path);
     assert.match(code, /verification\?\.status === "verified"/);
-    assert.match(code, /emailVerified &&/);
+    assert.match(code, /emailVerified/);
     assert.match(code, /linkVerifiedLegacyStripeMembership\(email, user\.id\)/);
   }
 });

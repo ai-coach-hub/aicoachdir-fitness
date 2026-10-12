@@ -1,16 +1,13 @@
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import FitnessCheckoutCard from "@/components/FitnessCheckoutCard";
 import SiteHeader from "@/components/SiteHeader";
-import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
-import { ensureTermsAcceptanceSchema } from "@/lib/termsAcceptanceDb";
+import { getFitnessMembership, memberHasFitnessAccess, refreshLinkedMembershipStatus, restoreVerifiedHistoricalBillingForMember } from "@/lib/fitnessMembershipDb";
+import { getVerifiedSubscription } from "@/lib/stripeMembershipState";
+import { currentMembershipTermsId } from "@/lib/currentMembershipTerms";
 
 export const dynamic = "force-dynamic";
-
-const TERMS_COOKIE = "fitness_terms_acceptance";
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function primaryEmail(user: Awaited<ReturnType<typeof currentUser>>) {
   if (!user) return "";
@@ -67,6 +64,13 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
 
   let alreadyActive = false;
   try {
+    const verifiedPrimary = user.emailAddresses.find((item) => item.id === user.primaryEmailAddressId);
+    if (verifiedPrimary?.verification?.status !== "verified") {
+      return (
+        <SetupProblem destination={destination} message="Please verify your account email before managing a subscription." />
+      );
+    }
+    await restoreVerifiedHistoricalBillingForMember(email, user.id);
     alreadyActive = await memberHasFitnessAccess(email, user.id, {
       fallbackToPickaxeList: false,
     });
@@ -80,31 +84,41 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
     redirect(activeDestination);
   }
 
-  const cookieStore = await cookies();
-  const acceptanceId = cookieStore.get(TERMS_COOKIE)?.value || "";
-  if (!UUID_PATTERN.test(acceptanceId)) redirect(signupUrl);
-
+  // Recoverable subscriptions return to their existing Stripe billing.
+  // A payment fixed moments ago is refreshed immediately, without checkout.
+  let recoveredPaidAccess = false;
+  let recoveryNeedsPayment = false;
   try {
-    const sql = await ensureTermsAcceptanceSchema();
-    const rows = await sql`
-      SELECT email
-      FROM terms_acceptances
-      WHERE id = ${acceptanceId}::uuid
-        AND accepted_at >= NOW() - INTERVAL '1 hour'
-      LIMIT 1
-    `;
-
-    const acceptedEmail = String(rows[0]?.email || "").trim().toLowerCase();
-    if (!acceptedEmail || acceptedEmail !== email) {
-      return (
-        <SetupProblem destination={destination} message="Your signed-in email does not match the email used for Terms acceptance. Please restart with the same email." />
-      );
+    const member = await getFitnessMembership(email);
+    if (member?.stripe_customer_id && member?.stripe_subscription_id) {
+      const live = await getVerifiedSubscription({
+        customerId: String(member.stripe_customer_id),
+        subscriptionId: String(member.stripe_subscription_id),
+        memberEmail: email,
+      });
+      if (live?.state === "recoverable") recoveryNeedsPayment = true;
+      if (live?.state === "active" || live?.state === "canceling") {
+        const synced = await refreshLinkedMembershipStatus(email, { force: true });
+        recoveredPaidAccess = synced?.access_active === true;
+      }
     }
   } catch {
     return (
-      <SetupProblem destination={destination} message="We could not verify your Terms acceptance. No charge was attempted." />
+      <SetupProblem destination={destination} message="We could not verify your existing billing details. No charge was attempted." />
     );
   }
+  if (recoveredPaidAccess) redirect(activeDestination);
+  if (recoveryNeedsPayment) redirect("/manage-subscription");
+
+  let acceptanceId = "";
+  try {
+    acceptanceId = await currentMembershipTermsId(email);
+  } catch {
+    return (
+      <SetupProblem destination={destination} message="We could not verify your current Terms acceptance. No charge was attempted." />
+    );
+  }
+  if (!acceptanceId) redirect(signupUrl);
 
   return (
     <main className="signup-shell">
