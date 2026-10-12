@@ -1,5 +1,6 @@
 "use client";
 import {FormEvent,useEffect,useRef,useState} from "react";
+import styles from "./LifeChat.module.css";
 type Msg={role:"user"|"assistant";text:string};
 type Thread={id:string;title:string;updatedAt:string};
 const intros=[
@@ -16,11 +17,19 @@ export default function LifeChat(){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const end=useRef<HTMLDivElement>(null);
- const [intro]=useState(()=>intros[Math.floor(Math.random()*intros.length)]);
+ const [intro,setIntro]=useState(intros[0]);
+ useEffect(()=>setIntro(intros[Math.floor(Math.random()*intros.length)]),[]);
  const loadThreads=async()=>{try{const r=await fetch("/api/life/chat",{cache:"no-store"});const j=await r.json();if(j.ok)setThreads(j.threads||[]);}catch{}};
  useEffect(()=>{void loadThreads();},[]);
  useEffect(()=>{end.current?.scrollIntoView({block:"end",behavior:"smooth"});},[messages,busy]);
- const open=async(nextId:string)=>{if(busy)return;setError("");const r=await fetch("/api/life/chat?id="+encodeURIComponent(nextId));const j=await r.json();if(j.ok){setId(nextId);setMessages(j.messages||[]);}else setError(j.error||"Could not open this chat.");};
+ const open=async(nextId:string)=>{if(busy)return;setError("");
+  try {
+   const r=await fetch("/api/life/chat?id="+encodeURIComponent(nextId),{cache:"no-store"});
+   const j=await r.json();
+   if(j.ok){setId(nextId);setMessages(j.messages||[]);}
+   else setError(j.error||"Could not open this chat.");
+  }catch{setError("Could not open this chat.");}
+ };
  async function send(e:FormEvent){
   e.preventDefault();const message=input.trim();if(!message||busy)return;
   setBusy(true);setError("");setMessages(a=>[...a,{role:"user",text:message}]);setInput("");
@@ -30,23 +39,25 @@ export default function LifeChat(){
    setId(j.conversationId);setMessages(a=>[...a,{role:"assistant",text:j.response}]);await loadThreads();
   }catch(ex){setError(ex instanceof Error?ex.message:"Request failed.");setInput(message);setMessages(a=>a.slice(0,-1));}finally{setBusy(false);}
  }
- return <section style={{marginTop:24,display:"grid",gridTemplateColumns:"minmax(180px,260px) minmax(0,1fr)",gap:20}}>
-  <aside style={{padding:16,border:"1px solid var(--border)",borderRadius:18}}>
+ return <section className={styles.layout}>
+  <aside className={styles.history} aria-label="Previous Life Coach conversations">
    <h3>Previous chats</h3>
-   <button type="button" onClick={()=>{setId("");setMessages([]);setError("");}} style={{marginBottom:12,padding:10,borderRadius:10}}>New Chat</button>
-   {threads.map(t=><button key={t.id} type="button" onClick={()=>void open(t.id)} style={{display:"block",width:"100%",textAlign:"left",padding:10,marginBottom:7,borderRadius:9,background:t.id===id?"#1b3440":"#0c1c2b",color:"white",border:"1px solid #2b4055"}}>{t.title}</button>)}
+   <button className={styles.newButton} type="button" disabled={busy} onClick={()=>{setId("");setMessages([]);setError("");}}>New Chat</button>
+   <div className={styles.threadList}>
+    {threads.map(t=><button key={t.id} className={styles.threadButton} type="button" disabled={busy} aria-pressed={t.id===id} onClick={()=>void open(t.id)} style={{background:t.id===id?"#1b3440":"#0c1c2b"}}>{t.title}</button>)}
+   </div>
   </aside>
-  <div style={{border:"1px solid var(--border)",borderRadius:18,padding:20,minHeight:"70vh",display:"flex",flexDirection:"column",gap:12}}>
-   <h1 style={{fontSize:30,margin:0}}>AI Coaching for Life</h1>
+  <div className={styles.chatPanel}>
+   <h1 style={{margin:0}}>AI Coaching for Life</h1>
    <p style={{color:"var(--muted)",margin:0}}>Private test • goals, habits and accountability</p>
-   <div role="log" aria-live="polite" style={{flex:1,overflowY:"auto",minHeight:250,maxHeight:"60vh"}}>
-    {!messages.length&&<p style={{color:"var(--muted)"}}>{intro}</p>}
-    {messages.map((m,i)=><p key={i} style={{whiteSpace:"pre-wrap",lineHeight:1.6,padding:12,background:m.role==="user"?"#17323b":"#101d2a",borderRadius:12}}><strong>{m.role==="user"?"You":"Life Coach"}</strong><span style={{display:"block",marginTop:4}}>{m.text}</span></p>)}
+   <div role="log" aria-live="polite" className={styles.messageLog}>
+    {!messages.length&&!input.trim()&&<p style={{color:"var(--muted)"}}>{intro}</p>}
+    {messages.map((m,i)=><p key={i} className={styles.message} style={{background:m.role==="user"?"#17323b":"#101d2a"}}><strong>{m.role==="user"?"You":"Life Coach"}</strong><span style={{display:"block",marginTop:4}}>{m.text}</span></p>)}
     {busy&&<p>Coach is working…</p>}<div ref={end}/>
    </div>
    {error&&<p role="alert" style={{color:"#ffd39d"}}>{error}</p>}
-   <form onSubmit={send} style={{display:"flex",gap:10}}>
-    <input aria-label="Message Life Coach" placeholder="Tell me what you'd like to work on…" value={input} onChange={e=>setInput(e.target.value)} maxLength={6000} style={{flex:1,minWidth:0,borderRadius:12,padding:14}}/>
+   <form onSubmit={send} className={styles.compose}>
+    <input aria-label="Message Life Coach" placeholder="Tell me what you'd like to work on…" value={input} onChange={e=>setInput(e.target.value)} maxLength={6000}/>
     <button disabled={busy||!input.trim()} type="submit" className="primary-button">Send</button>
    </form>
   </div>
