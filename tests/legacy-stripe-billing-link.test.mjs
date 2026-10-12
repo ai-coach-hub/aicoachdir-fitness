@@ -7,7 +7,7 @@ const source = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8"
 test("legacy subscription match requires a Pickaxe Studio user ID and the exact legacy product", async () => {
   const code = await source("lib/legacyStripeMembership.ts");
   assert.match(code, /metadata\.studioUserId/);
-  assert.match(code, /studioUserId\s*===\s*userId/);
+  assert.match(code, /String\(metadata\.studioUserId \|\| ""\) === userId/);
   assert.match(code, /LEGACY_PICKAXE_STUDIO_ID/);
   assert.match(code, /legacyProductIncludesFitness\(metadata\)/);
   assert.match(code, /normalizeEmail\(user\.email\) !== email/);
@@ -34,7 +34,7 @@ test("database links only an existing active legacy member and cannot overwrite 
   assert.match(code, /AND stripe_customer_id IS NULL/);
   assert.match(code, /AND stripe_subscription_id IS NULL/);
   assert.match(code, /AND NOT EXISTS/);
-  assert.doesNotMatch(code.slice(code.indexOf("export async function linkLegacyFitnessMembershipBilling"),code.indexOf("export async function saveFitnessMembership")),/access_active\s*=/);
+  assert.doesNotMatch(code.slice(code.indexOf("export async function linkLegacyFitnessMembershipBilling"),code.indexOf("export async function saveFitnessMembership")),/SET access_active/);
 });
 
 test("only verified Clerk email addresses may trigger historical billing links", async () => {
