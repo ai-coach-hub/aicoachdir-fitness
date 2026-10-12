@@ -24,6 +24,8 @@ function mockLifeEnvironment(){
  let serial=0;
  let signedInMember=null;
  let providerCalls=0;
+ let mockProviderEnabled=false;
+ let lastProviderRequest=null;
  const fakeSql=async(parts,...values)=>{
   const query=parts.join(" ? ").trim();
   traces.push({query,values});
@@ -83,7 +85,15 @@ function mockLifeEnvironment(){
  },{
   process:{env},Request,Response,URL,AbortSignal,
   crypto:{randomUUID:()=>"ffffffff-1111-2222-3333-444444444444"},
-  fetch:async()=>{providerCalls++;throw Error("This privacy test must not call Pickaxe");}
+  fetch:async(url,options)=>{
+   providerCalls++;
+   if(!mockProviderEnabled)throw Error("This privacy test must not call Pickaxe");
+   assert.equal(url,"https://api.pickaxe.co/v1/completions");
+   lastProviderRequest=JSON.parse(options.body);
+   return new Response(JSON.stringify({response:"Here is your practical coaching plan."}),{
+    status:200,headers:{"Content-Type":"application/json"}
+   });
+  }
  });
  const apiGet=async(path)=>{
   const res=await route.GET(new Request("https://private.test/api/life/chat"+path));
@@ -97,7 +107,9 @@ function mockLifeEnvironment(){
  };
  return {store,threads,messages,traces,apiGet,apiPost,
   signIn:(id)=>{signedInMember=id},
-  providerCalls:()=>providerCalls
+  providerCalls:()=>providerCalls,
+  enableMockProvider:()=>{mockProviderEnabled=true},
+  providerPayload:()=>lastProviderRequest
  };
 }
 const memberA="test-clerk-member-a";
@@ -213,4 +225,36 @@ test("private Preview access requires a verified primary, allowlisted Clerk emai
  currentUser=account(memberA,"a@example.test");
  processStub.env.VERCEL_ENV="production";
  assert.equal(await module.lifeTester(),null);
+});
+
+test("detailed coaching sends Pickaxe only the authenticated member's history and identity",async()=>{
+ const e=mockLifeEnvironment();
+ await e.store.saveLifeTurn(memberA,threadA,factA,"A's progress notes");
+ await e.store.saveLifeTurn(memberB,threadB,factB,"B's progress notes");
+ e.enableMockProvider();
+ e.signIn(memberB);
+ const request={
+  message:"Build a detailed weekly plan based on the goal I shared earlier.",
+  memberId:memberA,userId:memberA
+ };
+ const resultB=await e.apiPost(request);
+ assert.equal(resultB.status,200);
+ assert.equal(resultB.data.source,"coach");
+ assert.equal(e.providerCalls(),1);
+ const payloadB=e.providerPayload();
+ assert.equal(payloadB.userId,memberB);
+ assert.ok(payloadB.message.includes(factB));
+ assert.ok(!payloadB.message.includes(factA));
+ assert.ok(!payloadB.message.includes("A's progress notes"));
+ assert.ok(!payloadB.message.includes(memberA));
+ assert.notEqual(payloadB.conversationId,threadA);
+ e.signIn(memberA);
+ const resultA=await e.apiPost(request);
+ assert.equal(resultA.status,200);
+ const payloadA=e.providerPayload();
+ assert.equal(payloadA.userId,memberA);
+ assert.ok(payloadA.message.includes(factA));
+ assert.ok(!payloadA.message.includes(factB));
+ assert.ok(!payloadA.message.includes(memberB));
+ assert.equal(e.providerCalls(),2);
 });
