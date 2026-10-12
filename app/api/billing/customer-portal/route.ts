@@ -1,6 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { getFitnessMembership, memberHasFitnessAccess, rebindVerifiedMembershipLogin } from "@/lib/fitnessMembershipDb";
+import { getFitnessMembership, memberHasFitnessAccess, rebindVerifiedMembershipLogin, restoreVerifiedHistoricalBillingForMember } from "@/lib/fitnessMembershipDb";
 import { linkVerifiedLegacyStripeMembership } from "@/lib/legacyStripeMembership";
 import { stripeRequest } from "@/lib/stripeServer";
 
@@ -25,6 +25,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (emailVerified) await restoreVerifiedHistoricalBillingForMember(email, user.id);
     let membership = await getFitnessMembership(email);
     if (emailVerified && membership?.stripe_customer_id &&
         membership.stripe_subscription_id &&
