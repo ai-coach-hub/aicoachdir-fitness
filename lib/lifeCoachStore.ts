@@ -44,7 +44,7 @@ export async function readLifeThread(member: string, id: string): Promise<LifeMe
   return rows.map(r=>({role:r.role as LifeMessage["role"],text:String(r.body),createdAt:String(r.created_at)}));
 }
 export function isLifeRecallQuestion(query: string) {
-  return /\\b(earlier|previous(?:ly)?|last (?:chat|conversation|time)|remember|told you|did i (?:say|tell)|we discussed)\\b/i.test(query);
+  return /\b(earlier|previous(?:ly)?|last (?:chat|conversation|time)|remember|told you|did i (?:say|tell)|we discussed)\b/i.test(query);
 }
 
 export async function recallLifeStatements(member: string, currentId: string, query: string) {
