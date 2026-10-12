@@ -1,3 +1,4 @@
+import { isLifeRecallQuestion, selectLifeMemories } from "./lifeCoachMemory";
 import { neon } from "@neondatabase/serverless";
 
 export type LifeMessage = { role: "user" | "assistant"; text: string; createdAt: string };
@@ -43,33 +44,31 @@ export async function readLifeThread(member: string, id: string): Promise<LifeMe
     WHERE member_id=${member} AND conversation_id=${id} ORDER BY id ASC LIMIT 200`;
   return rows.map(r=>({role:r.role as LifeMessage["role"],text:String(r.body),createdAt:String(r.created_at)}));
 }
-export function isLifeRecallQuestion(query: string) {
-  return /\b(earlier|previous(?:ly)?|last (?:chat|conversation|time)|remember|told you|did i (?:say|tell)|we discussed)\b/i.test(query);
-}
-
+// Look up previous messages belonging to this authenticated Clerk member only.
+// Filter out repetitive memory-quiz questions, prioritize original member goals,
+// and never make a second model call to synthesize a memory summary.
 export async function recallLifeStatements(member: string, currentId: string, query: string) {
-  const sql = await db();
-  const terms = (query.toLowerCase().match(/[a-z0-9]{4,}/g) || [])
-    .filter(w => !["what","when","where","with","that","this","about","have","previous","remember","discussed","before","last","time","conversation","goal","coach","earlier","tell","told"].includes(w))
-    .slice(0,5);
-  const matching = terms.length && !isLifeRecallQuestion(query)
+  const sql=await db();
+  const goalQuery=/\b(?:goal|goals|priority)\b/i.test(query);
+  const rows=goalQuery
     ? await sql`SELECT body,created_at FROM life_chat_messages
-        WHERE member_id=${member} AND conversation_id<>${currentId}
-        AND role='user' AND EXISTS(SELECT 1 FROM unnest(${terms}::text[]) term
-          WHERE lower(body) LIKE '%' || term || '%')
-        ORDER BY created_at DESC,id DESC LIMIT 12`
-    : [];
-  const rows = matching.length ? matching : await sql`SELECT body,created_at FROM life_chat_messages
-    WHERE member_id=${member} AND conversation_id<>${currentId}
-    AND role='user' ORDER BY created_at DESC,id DESC LIMIT 24`;
-  const isRecall = isLifeRecallQuestion(query);
-  const substantive = rows.filter(r => !isLifeRecallQuestion(String(r.body)));
-  const selected = isRecall ? (substantive.length ? substantive : rows) : rows;
-  return selected.slice(0,4).map(r=>({text:String(r.body).slice(0,450),date:String(r.created_at).slice(0,10)}));
+       WHERE member_id=${member} AND conversation_id<>${currentId} AND role='user'
+       AND (lower(body) LIKE '%my goal%' OR lower(body) LIKE '%my priority%'
+         OR lower(body) LIKE '%i want to%' OR lower(body) LIKE '%i plan to%'
+         OR lower(body) LIKE '%i am trying%' OR lower(body) LIKE '%i aim to%'
+         OR lower(body) LIKE '%i would like%' OR lower(body) LIKE '%i\'m working%')
+       ORDER BY id DESC LIMIT 40`
+    : await sql`SELECT body,created_at FROM life_chat_messages
+       WHERE member_id=${member} AND conversation_id<>${currentId} AND role='user'
+       ORDER BY id DESC LIMIT 80`;
+  const entries=rows.map(row=>({text:String(row.body).slice(0,450),date:String(row.created_at).slice(0,10)}));
+  // Retain the helper as an explicit check for historical-query semantics.
+  if(isLifeRecallQuestion(query)) return selectLifeMemories(query,entries);
+  return selectLifeMemories(query,entries);
 }
 export async function recallLifeContext(member: string, currentId: string, query: string) {
   const statements=await recallLifeStatements(member,currentId,query);
-  return statements.map(r=>`[${r.date}] Member: ${r.text}`).join("\n").slice(0,2200);
+  return statements.map(row=>"["+row.date+"] Member: "+row.text).join("\n").slice(0,1450);
 }
 export async function saveLifeTurn(member: string,id: string,question: string,answer: string) {
   if(!validId(id)) throw new Error("Invalid Life Coach thread");
