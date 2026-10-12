@@ -116,7 +116,7 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
               <>
                 <p><strong>Subscription ended.</strong> You can rejoin using this same account. Your saved coaching records remain associated with this login.</p>
                 <div className="cta-row">
-                  <Link href="/fitness/signup?destination=fitness" className="primary-button">Reactivate Membership</Link>
+                  <Link href="/fitness/subscribe?destination=fitness" className="primary-button">Reactivate Membership</Link>
                 </div>
               </>
             ) : null}
