@@ -67,3 +67,13 @@ test("explicit goal recall uses a no-model route for the tested question",()=>{
  assert.ok(route.includes("await recallLifeStatements(member,id,message)"));
  assert.ok(route.indexOf("await recallLifeStatements(member,id,message)")<route.indexOf('await fetch("https://api.pickaxe.co'));
 });
+
+test("GET recall proof is private, read-only and never calls Pickaxe",()=>{
+ const route=load("app/api/life/chat/route.ts");
+ const get=route.slice(route.indexOf("export async function GET"),route.indexOf("export async function POST"));
+ assert.ok(get.includes('params.get("recall")==="goal"'));
+ assert.ok(get.includes('recallLifeStatements(member,""'));
+ assert.ok(get.includes('source:"saved-private-history"'));
+ assert.ok(!get.includes("api.pickaxe.co"));
+ assert.ok(!get.includes("saveLifeTurn"));
+});
