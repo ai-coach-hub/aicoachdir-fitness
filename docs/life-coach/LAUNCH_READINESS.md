@@ -30,7 +30,7 @@ Do not merge this PR, promote a deployment, add a homepage Life Coach CTA, creat
 - The code currently uses shared memberHasFitnessAccess() for live Fitness/Budgeting. That method must NOT be bolted onto Life Coach as an implicit free entitlement until product/plan allocation is approved.
 - Do not claim unused tracker page visits consume AI credits. Distinguish chat/model requests from non-AI page views; verify total-usage metering across coach providers before sharing a new allowance.
 
-The preliminary three-bundle / nine-tier option matrix is documented separately in BUNDLES_AND_ACCESS_DRAFT.md; it does not approve any price or entitlement.
+The newer pricing direction is a single all-coach membership with four usage tiers (Starter, Standard, Plus, Pro). See ../membership/FOUR_TIER_ALL_ACCESS_PLAN.md. The older nine-combination bundle document is retained only as historical context; no prices or usage allowances are approved.
 
 ## Stripe catalog inventory - read-only inspection, not a pricing decision
 
