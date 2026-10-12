@@ -132,3 +132,15 @@ test("false memory denial is not changed for unrelated questions",()=>{
  const provider="I don't have access to previous conversations.";
  assert.equal(guardLifeMemoryDenial(provider,"How can I protect my privacy?",[goal]),provider);
 });
+
+test("Life Coach chat fits narrow screens and supports low-friction typing",()=>{
+ const css=load("app/life/LifeChat.module.css");
+ const ui=load("app/life/LifeChat.tsx");
+ assert.ok(css.includes("@media (max-width: 760px)"));
+ assert.ok(css.includes("grid-template-columns: minmax(0, 1fr)"));
+ assert.ok(css.includes("overflow-x: auto"));
+ assert.ok(ui.includes("!messages.length&&!input.trim()"));
+ assert.ok(ui.includes("disabled={busy}"));
+ assert.ok(ui.includes("styles.chatPanel"));
+ assert.ok(ui.includes("styles.threadList"));
+});
