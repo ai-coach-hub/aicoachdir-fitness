@@ -11,9 +11,6 @@ export function cleanLifeCoachText(input: string): string {
   const output = lines.map((source) => {
     let line = source.trim();
     if (/^(?:[-*_]\s*){3,}$/.test(line) || /^\x60{3,}/.test(line)) return "";
-    if (/^Week starting:\s*\[(?:Date|Start date)\]\s*$/i.test(line)) return "";
-    if (/^Tracking:\s*(?:[☐☑☒]|\[[ xX]\])\s*(?:Completed|Done)?\s*$/i.test(line)) return "";
-    if (/^Notes:\s*$/i.test(line)) return "";
     line = line
       .replace(/^#{1,6}\s+/, "")
       .replace(/^>\s+/, "")
@@ -27,6 +24,9 @@ export function cleanLifeCoachText(input: string): string {
       .replace(/[☐☑☒]/g, "")
       .replace(/[ \t]{2,}/g, " ")
       .trim();
+    if (/^Week starting:\s*\[(?:Date|Start date)\]\s*$/i.test(line)) return "";
+    if (/^Tracking:\s*(?:[☐☑☒]|\[[ xX]\])\s*(?:Completed|Done)?\s*$/i.test(line)) return "";
+    if (/^Notes:\s*$/i.test(line)) return "";
     return line;
   });
   return output.join("\n").replace(/\n{3,}/g, "\n\n").trim();
