@@ -3,7 +3,8 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import FitnessCheckoutCard from "@/components/FitnessCheckoutCard";
 import SiteHeader from "@/components/SiteHeader";
-import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
+import { getFitnessMembership, memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
+import { getVerifiedSubscription } from "@/lib/stripeMembershipState";
 import { currentMembershipTermsId } from "@/lib/currentMembershipTerms";
 
 export const dynamic = "force-dynamic";
@@ -74,6 +75,31 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
 
   if (alreadyActive) {
     redirect(activeDestination);
+  }
+
+  // Payment failures are repaired on the EXISTING subscription, not by
+  // creating another recurring charge.
+  try {
+    const member = await getFitnessMembership(email);
+    if (member?.stripe_customer_id && member?.stripe_subscription_id) {
+      const live = await getVerifiedSubscription({
+        customerId: String(member.stripe_customer_id),
+        subscriptionId: String(member.stripe_subscription_id),
+        memberEmail: email,
+      });
+      if (live?.state === "recoverable") {
+        redirect("/manage-subscription");
+      }
+    }
+  } catch (error) {
+    // next/navigation redirect throws intentionally; don't intercept it.
+    if (error && typeof error === "object" && "digest" in error &&
+        String((error as { digest?: unknown }).digest || "").startsWith("NEXT_REDIRECT")) {
+      throw error;
+    }
+    return (
+      <SetupProblem destination={destination} message="We could not verify your existing billing details. No charge was attempted." />
+    );
   }
 
   let acceptanceId = "";
