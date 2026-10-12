@@ -1,3 +1,9 @@
+# HISTORICAL DRAFT - SUPERSEDED
+
+This document preserves a former nine-combination bundle option for reference only. The selected planning direction is now **four all-access usage tiers**: Starter, Standard, Plus, Pro. See [Four-Tier All-Access Membership Plan](../membership/FOUR_TIER_ALL_ACCESS_PLAN.md). No bundle or price is approved for publication or checkout.
+
+---
+
 # AI Coach Directory - Draft Bundle and Entitlement Matrix
 
 Status: REVIEW DRAFT ONLY. Not a pricing approval, Stripe change, or production entitlement. Updated 2026-10-12.
