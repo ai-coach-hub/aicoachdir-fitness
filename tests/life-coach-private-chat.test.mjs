@@ -19,7 +19,7 @@ test("all conversation SQL scopes membership to the Clerk user",()=>{
  for(const method of ["listLifeThreads","readLifeThread","recallLifeContext","saveLifeTurn"])assert.match(store,new RegExp("function "+method));
  assert.ok((store.match(/member_id=\$\{member\}/g)||[]).length>=4);
  assert.match(store,/conversation_id<>\$\{currentId\}/);
- assert.match(store,/LIMIT 4/);
+ assert.match(store,/LIMIT 24/);
 });
 test("public coach cards and paid subscription logic were not changed in this PR",()=>{
  const api=load("app/api/life/chat/route.ts");
