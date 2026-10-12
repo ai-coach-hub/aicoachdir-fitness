@@ -2,10 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 const load=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
-test("life chat is private by default and requires Clerk tester ID",()=>{
+test("life chat is private by default and requires verified Clerk email",()=>{
  const access=load("lib/lifeCoachAccess.ts"),api=load("app/api/life/chat/route.ts");
  assert.match(access,/currentUser\(/);
- assert.match(access,/LIFE_COACH_TESTER_IDS/);
+ assert.match(access,/LIFE_COACH_TESTER_EMAILS/);
+ assert.match(access,/verification\\?\\.status !== "verified"/);
+ assert.match(access,/VERCEL_ENV !== "preview"/);
  assert.match(access,/ids\.includes\(user\.id\)/);
  assert.match(api,/if\(!member\)return json/);
  assert.match(api,/PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN/);
