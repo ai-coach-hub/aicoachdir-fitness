@@ -11,6 +11,50 @@ Replace the earlier proposal for three bundles x three tiers (nine choices) with
 
 This is a *design direction*, not a decision on exact prices, AI allowances, overages, or changes to existing customers.
 
+## Historical owner-provided pricing reference (from screenshot)
+
+The owner supplied a screenshot of an **earlier nine-option bundle concept**. Preserve these values as a historical pricing **reference**, not as live SKU entitlements or approved margins:
+
+| Earlier package | Earlier tier | Proposed monthly price | Proposed monthly uses | Estimated AI cost in screenshot |
+| --- | --- | ---: | ---: | ---: |
+| Budget | Starter | $5 | 100 | $2.30 |
+| Budget | Growth | $10 | 200 | $4.60 |
+| Budget | Elite | $15 | 300 | $6.90 |
+| Life/Fitness | Starter | $8 | 100 | $2.30 |
+| Life/Fitness | Growth | $15 | 200 | $4.60 |
+| Life/Fitness | Elite | $20 | 400 | $9.20 |
+| All 4 Coaches | Starter | $15 | 100 | $2.30 |
+| All 4 Coaches | Growth | $25 | 200 | $4.60 |
+| All 4 Coaches | Elite | $30 | 400 | $9.20 |
+
+**Cost assumption: $0.023 per counted use** ($2.30 per 100 uses) uniformly across all coach types. This is *not* validated contemporary Pickaxe cost data, and the model/provider/tool mix can make some coach requests far more expensive. The image itself cautions that the figures exclude Stripe fees, Pickaxe/Vercel overhead, taxes, etc. The commentary below the image flags that All Four Elite at $30/400 may make Growth at $25/200 unappealing: $5 more buys 200 extra uses. Do not infer any alternative price from cropped commentary.
+
+The historical range also matters for customer acquisition: Budget started at $5 and Life/Fitness at $8. Replacing bundles with all-access should keep an attainable entry price, even though all-access has different operating cost risks.
+
+### Initial four-tier scenario to evaluate (not approved)
+
+Use the historical screenshot as a benchmark, smoothing the progression and replacing package restrictions with **all available coaches in every tier**.
+
+| Proposed tier | Illustrative monthly price | Illustrative total monthly AI uses | Hypothetical AI cost at $0.023/use | Gross amount before all other fees and overhead |
+| --- | ---: | ---: | ---: | ---: |
+| Starter | $9 | 100 | $2.30 | $6.70 |
+| Standard | $15 | 200 | $4.60 | $10.40 |
+| Plus | $25 | 400 | $9.20 | $15.80 |
+| Pro | $35 | 600 | $13.80 | $21.20 |
+
+**These are illustrative only.** Prices, use limits, and the $0.023 assumption must be reevaluated after metering and provider-cost evidence. In particular, the current publicly offered $15/400 deal must not silently become $15/200: retain the original allowance and terms for current subscribers unless the owner approves a lawful and clearly communicated transition. Do not silently expand the old subscription to new coaches either; decide grandfathered coach access explicitly.
+
+### Cost sensitivity at the *entire cap* (before processing fees and fixed costs)
+
+| Hypothetical actual provider cost per AI use | Starter 100 | Standard 200 | Plus 400 | Pro 600 |
+| --- | ---: | ---: | ---: | ---: |
+| $0.023 (original screenshot) | $2.30 | $4.60 | $9.20 | $13.80 |
+| $0.05 | $5.00 | $10.00 | $20.00 | $30.00 |
+| $0.10 | $10.00 | $20.00 | $40.00 | $60.00 |
+| $0.19 (illustrative expensive-request sensitivity, NOT an established average) | $19.00 | $38.00 | $76.00 | $114.00 |
+
+Even at $0.05 per use, these sample tiers leave only $4, $5, $5 and $5 respectively **before** fees and overhead at full utilization. At $0.10 they are uneconomic. Actual margins depend on request mix, member use distribution, upstream multi-call actions, retries, and fixed platform fees. **Do not publish the candidate prices until measured economics support them.**
+
 ## Clear customer-facing differentiation
 
 | Tier | Intended member | Currently launched coaches | Monthly AI allowance | Monthly price |
