@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { runInNewContext } from "node:vm";
 import {readFileSync} from "node:fs";
 const load=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 test("life chat is private by default and requires verified Clerk email",()=>{
@@ -53,4 +54,24 @@ test("Life Coach chat labels do not render an escaped newline",()=>{
  const ui=load("app/life/LifeChat.tsx");
  assert.ok(ui.includes('marginTop:4'));
  assert.ok(!ui.includes('}</strong>\\\\n{m.text}'));
+});
+
+test("actual Life Coach regexes recognize the exact cross-conversation goal question",()=>{
+ const route=load("app/api/life/chat/route.ts");
+ const store=load("lib/lifeCoachStore.ts");
+ const routeLiteral=route.match(/if \((\/[^\n]+\/i)\.test\(message\)\)/)?.[1];
+ const recallLiteral=store.match(/return (\/[^\n]+\/i)\.test\(query\);/)?.[1];
+ const goalLiteral=route.match(/saved\.find\(entry=>(\/[^\n]+\/i)\.test\(entry\.text\)\)/)?.[1];
+ assert.ok(routeLiteral,"direct no-model recall matcher must exist");
+ assert.ok(recallLiteral,"past-conversation matcher must exist");
+ assert.ok(goalLiteral,"saved-goal matcher must exist");
+ const direct=runInNewContext(routeLiteral);
+ const recall=runInNewContext(recallLiteral);
+ const goal=runInNewContext(goalLiteral);
+ assert.equal(direct.test("What goal did I tell you about earlier?"),true);
+ assert.equal(direct.test("Can you create a daily schedule?"),false);
+ assert.equal(recall.test("What goal did I tell you about earlier?"),true);
+ assert.equal(recall.test("My goal this month is to improve my time management."),false);
+ assert.equal(goal.test("My goal this month is to improve my time management."),true);
+ assert.equal(goal.test("What goal did I tell you about earlier?"),false);
 });
