@@ -143,5 +143,9 @@ export async function checkCheckoutRisk(
       }
     }
   }
-  return recoverable || { kind: "clear", customerId: saved };
+  // Reuse one uniquely verified historical billing customer on a return
+  // instead of creating a second Stripe customer with the same login.
+  const priorCustomerId = customers.length === 1
+    ? stripeId(customers[0].id, "cus") : "";
+  return recoverable || { kind: "clear", customerId: saved || priorCustomerId };
 }
