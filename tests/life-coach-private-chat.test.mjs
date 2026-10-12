@@ -8,7 +8,7 @@ test("life chat is private by default and requires verified Clerk email",()=>{
  assert.match(access,/LIFE_COACH_TESTER_EMAILS/);
  assert.ok(access.includes('primary.verification?.status !== "verified"'));
  assert.match(access,/VERCEL_ENV !== "preview"/);
- assert.match(access,/ids\.includes\(user\.id\)/);
+ assert.ok(access.includes("allowed.includes(email)"));
  assert.match(api,/if\(!member\)return json/);
  assert.match(api,/PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN/);
 });
