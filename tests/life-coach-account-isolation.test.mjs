@@ -36,7 +36,9 @@ function mockLifeEnvironment(){
    return [];
   }
   if(query.startsWith("INSERT INTO life_chat_messages")){
-   const [member,conversation_id,role,body]=values;
+   const [member,conversation_id,body]=values;
+   const role=query.includes("'user'")?"user":query.includes("'assistant'")?"assistant":"";
+   if(!role)throw Error("Missing fixture role");
    if(!threads.some(t=>t.member_id===member&&t.id===conversation_id))throw Error("Tenant FK violated");
    messages.push({id:++serial,member_id:member,conversation_id,role,body,created_at:new Date().toISOString()});
    return [];
@@ -110,6 +112,7 @@ test("two separate Clerk owners cannot list, read, or recall each other's saved 
  await e.store.saveLifeTurn(memberA,threadA,factA,"Let's work on time management.");
  await e.store.saveLifeTurn(memberB,threadB,factB,"Let's work on painting.");
  assert.equal(e.messages.length,4);
+ assert.equal(e.messages.filter(m=>m.role==="user").length,2);
  const listA=await e.store.listLifeThreads(memberA);
  const listB=await e.store.listLifeThreads(memberB);
  assert.equal(listA.length,1);
