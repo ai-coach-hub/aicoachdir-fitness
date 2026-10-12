@@ -43,7 +43,7 @@ test("cross-chat recall queries fall back to recent stored member statements",()
  const store=load("lib/lifeCoachStore.ts");
  const api=load("app/api/life/chat/route.ts");
  assert.match(store,/isRecallQuestion/);
- assert.match(store,/rows.length\\?rows:/);
+ assert.ok(store.includes("rows.length?rows:"));
  assert.match(store,/conversation_id<>\\$\\{currentId\\}/);
  assert.match(api,/Do not say there is no earlier conversation/);
 });
