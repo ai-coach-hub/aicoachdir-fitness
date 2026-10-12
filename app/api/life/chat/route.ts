@@ -15,7 +15,13 @@ export async function GET(request:Request) {
  const member=await lifeTester();
  if(!member)return json({ok:false,error:"Private Life Coach access is required."},403);
  try {
-  const id=new URL(request.url).searchParams.get("id");
+  const params=new URL(request.url).searchParams;
+  if(params.get("recall")==="goal") {
+   const saved=await recallLifeStatements(member,"", "What goal did I tell you about earlier?");
+   const goal=saved.find(entry=>/\b(my goal|i want to|i(?:\x27d| would) like to|i aim to|my priority)\b/i.test(entry.text));
+   return json({ok:true,source:"saved-private-history",found:Boolean(goal),response:goal ? `Earlier, you told me: "${goal.text}".` : "No earlier goal found."});
+  }
+  const id=params.get("id");
   if(id) {
    const messages=await readLifeThread(member,id);
    return messages===null?json({ok:false,error:"Conversation not found."},404):json({ok:true,messages});
