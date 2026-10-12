@@ -43,27 +43,33 @@ export async function readLifeThread(member: string, id: string): Promise<LifeMe
     WHERE member_id=${member} AND conversation_id=${id} ORDER BY id ASC LIMIT 200`;
   return rows.map(r=>({role:r.role as LifeMessage["role"],text:String(r.body),createdAt:String(r.created_at)}));
 }
-export async function recallLifeContext(member: string, currentId: string, query: string) {
+export function isLifeRecallQuestion(query: string) {
+  return /\\b(earlier|previous(?:ly)?|last (?:chat|conversation|time)|remember|told you|did i (?:say|tell)|we discussed)\\b/i.test(query);
+}
+
+export async function recallLifeStatements(member: string, currentId: string, query: string) {
   const sql = await db();
-  const terms=(query.toLowerCase().match(/[a-z0-9]{4,}/g)||[])
-   .filter(w=>!["what","when","where","with","that","this","about","have","previous","remember","discussed","before","last","time","conversation","goal","coach"].includes(w))
-   .slice(0,5);
-  // General "what did I tell you earlier?" requests have no topic keyword.
-  // Retrieve recent member statements for those requests, and fall back to them
-  // when keyword matching finds nothing. This is a read-only DB lookup.
-  const isRecallQuestion=/\\b(earlier|previous(?:ly)?|last (?:chat|conversation|time)|remember|told you|did i (?:say|tell)|we discussed)\\b/i.test(query);
-  const rows=terms.length&&!isRecallQuestion
+  const terms = (query.toLowerCase().match(/[a-z0-9]{4,}/g) || [])
+    .filter(w => !["what","when","where","with","that","this","about","have","previous","remember","discussed","before","last","time","conversation","goal","coach","earlier","tell","told"].includes(w))
+    .slice(0,5);
+  const matching = terms.length && !isLifeRecallQuestion(query)
     ? await sql`SELECT body,created_at FROM life_chat_messages
         WHERE member_id=${member} AND conversation_id<>${currentId}
-        AND role='user'
-        AND EXISTS(SELECT 1 FROM unnest(${terms}::text[]) term
-           WHERE lower(body) LIKE '%' || term || '%')
-        ORDER BY created_at DESC,id DESC LIMIT 4`
+        AND role='user' AND EXISTS(SELECT 1 FROM unnest(${terms}::text[]) term
+          WHERE lower(body) LIKE '%' || term || '%')
+        ORDER BY created_at DESC,id DESC LIMIT 12`
     : [];
-  const relevant=rows.length?rows:await sql`SELECT body,created_at FROM life_chat_messages
-        WHERE member_id=${member} AND conversation_id<>${currentId}
-        AND role='user' ORDER BY created_at DESC,id DESC LIMIT 4`;
-  return relevant.map(r=>`[${String(r.created_at).slice(0,10)}] Member: ${String(r.body).slice(0,450)}`).join("\n").slice(0,2200);
+  const rows = matching.length ? matching : await sql`SELECT body,created_at FROM life_chat_messages
+    WHERE member_id=${member} AND conversation_id<>${currentId}
+    AND role='user' ORDER BY created_at DESC,id DESC LIMIT 24`;
+  const isRecall = isLifeRecallQuestion(query);
+  const substantive = rows.filter(r => !isLifeRecallQuestion(String(r.body)));
+  const selected = isRecall ? (substantive.length ? substantive : rows) : rows;
+  return selected.slice(0,4).map(r=>({text:String(r.body).slice(0,450),date:String(r.created_at).slice(0,10)}));
+}
+export async function recallLifeContext(member: string, currentId: string, query: string) {
+  const statements=await recallLifeStatements(member,currentId,query);
+  return statements.map(r=>`[${r.date}] Member: ${r.text}`).join("\n").slice(0,2200);
 }
 export async function saveLifeTurn(member: string,id: string,question: string,answer: string) {
   if(!validId(id)) throw new Error("Invalid Life Coach thread");
