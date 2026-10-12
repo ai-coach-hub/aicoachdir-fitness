@@ -26,6 +26,6 @@ test("public coach cards and paid subscription logic were not changed in this PR
 
 test("life coach database is isolated from shared membership storage",()=>{
  const store=load("lib/lifeCoachStore.ts");
- assert.match(store,/process\\.env\\.LIFE_COACH_DATABASE_URL/);
- assert.doesNotMatch(store,/process\\.env\\.(DATABASE_URL|POSTGRES_URL|STORAGE_URL)/);
+ assert.ok(store.includes("process.env.LIFE_COACH_DATABASE_URL"));
+ for(const forbidden of ["process.env.DATABASE_URL","process.env.POSTGRES_URL","process.env.STORAGE_URL"])assert.ok(!store.includes(forbidden));
 });
