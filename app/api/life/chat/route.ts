@@ -1,3 +1,4 @@
+import { cleanLifeCoachText } from "@/lib/lifeCoachFormatting";
 import { lifeMemoryReply, guardLifeMemoryDenial, isLifeRecallQuestion } from "@/lib/lifeCoachMemory";
 import { lifeTester } from "@/lib/lifeCoachAccess";
 import { listLifeThreads,readLifeThread,recallLifeContext,recallLifeStatements,saveLifeTurn } from "@/lib/lifeCoachStore";
@@ -82,7 +83,7 @@ export async function POST(request:Request) {
   if(payload?.success===false)return json({ok:false,error:"Life Coach could not complete that request."},502);
   const rawAnswer=resultText(payload);
   if(!rawAnswer)return json({ok:false,error:"Life Coach returned no response."},502);
-  const answer=guardLifeMemoryDenial(rawAnswer,message,memories);
+  const answer=cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories));
   await saveLifeTurn(member,id,message,answer);
   return json({ok:true,response:answer,conversationId:id,source:"coach"});
  }catch{return json({ok:false,error:"Life Coach reply or storage was unavailable. Your message may not have been saved."},503);}
