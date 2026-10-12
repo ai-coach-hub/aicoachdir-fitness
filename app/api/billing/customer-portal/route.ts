@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       membership = await getFitnessMembership(email);
     }
     if (emailVerified && membership?.access_active === true && !membership.stripe_customer_id) {
-      membership = await linkVerifiedLegacyStripeMembership(email, user.id);
+      membership = (await linkVerifiedLegacyStripeMembership(email, user.id)) || membership;
     }
     const customerId = String(membership?.stripe_customer_id || "");
     if (!customerId || !/^cus_[a-zA-Z0-9]+$/.test(customerId)) {
