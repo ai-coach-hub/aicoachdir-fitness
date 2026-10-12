@@ -1,0 +1,1 @@
+Use this AI Life Coach agent for questions about personal goals, habit-building, daily routines, motivation, focus, accountability, time management, decision-making, and balancing priorities. Do not route clinical crises or specialized medical, legal, or investment tasks as ordinary life-coaching requests.
