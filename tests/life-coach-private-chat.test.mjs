@@ -23,3 +23,9 @@ test("public coach cards and paid subscription logic were not changed in this PR
  const api=load("app/api/life/chat/route.ts");
  assert.doesNotMatch(api,/stripe|checkout|fitness_memberships|budget_chat_threads/i);
 });
+
+test("life coach database is isolated from shared membership storage",()=>{
+ const store=load("lib/lifeCoachStore.ts");
+ assert.match(store,/process\\.env\\.LIFE_COACH_DATABASE_URL/);
+ assert.doesNotMatch(store,/process\\.env\\.(DATABASE_URL|POSTGRES_URL|STORAGE_URL)/);
+});
