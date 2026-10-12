@@ -5,8 +5,8 @@ export type LifeThread = { id: string; title: string; updatedAt: string };
 const validId = (id: string) => /^life-coach-[a-zA-Z0-9_-]{8,90}$/.test(id);
 
 function database() {
-  const url = process.env.STORAGE_URL || process.env.DATABASE_URL || process.env.POSTGRES_URL;
-  if (!url) throw new Error("Life Coach storage is not configured");
+  const url = process.env.LIFE_COACH_DATABASE_URL;
+  if (!url) throw new Error("Private Life Coach database is not configured");
   return neon(url);
 }
 async function db() {
