@@ -44,7 +44,7 @@ test("cross-chat recall queries fall back to recent stored member statements",()
  const api=load("app/api/life/chat/route.ts");
  assert.match(store,/isRecallQuestion/);
  assert.ok(store.includes("rows.length?rows:"));
- assert.match(store,/conversation_id<>\\$\\{currentId\\}/);
+ assert.ok(store.includes("conversation_id<>${currentId}"));
  assert.match(api,/Do not say there is no earlier conversation/);
 });
 test("Life Coach chat labels do not render an escaped newline",()=>{
