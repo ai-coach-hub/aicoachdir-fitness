@@ -1,3 +1,4 @@
+import ts from "typescript";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { runInNewContext } from "node:vm";
@@ -20,7 +21,8 @@ test("all conversation SQL scopes membership to the Clerk user",()=>{
  for(const method of ["listLifeThreads","readLifeThread","recallLifeContext","saveLifeTurn"])assert.match(store,new RegExp("function "+method));
  assert.ok((store.match(/member_id=\$\{member\}/g)||[]).length>=4);
  assert.match(store,/conversation_id<>\$\{currentId\}/);
- assert.match(store,/LIMIT 24/);
+ assert.match(store,/LIMIT 80/);
+ assert.match(store,/LIMIT 40/);
 });
 test("public coach cards and paid subscription logic were not changed in this PR",()=>{
  const api=load("app/api/life/chat/route.ts");
@@ -40,40 +42,83 @@ test("private Life Coach page never sends testers into paid Fitness login",()=>{
  assert.ok(page.includes("lifeTester()"));
 });
 
-test("recall uses only earlier substantive member statements",()=>{
+
+function lifeLogic(){
+ const js=ts.transpileModule(load("lib/lifeCoachMemory.ts"),{
+  compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}
+ }).outputText;
+ const sandbox={exports:{}};
+ runInNewContext(js,sandbox);
+ return sandbox.exports;
+}
+const goal={text:"My goal this month is to improve my time management.",date:"2026-10-12"};
+const failedQuiz={text:"What goal did I tell you about earlier?",date:"2026-10-12"};
+
+test("exact previous-goal question gets grounded answer without doubled punctuation",()=>{
+ const {lifeMemoryReply}=lifeLogic();
+ assert.equal(lifeMemoryReply("What goal did I tell you about earlier?",[failedQuiz,goal]),
+  'You previously told me: “My goal this month is to improve my time management.”');
+});
+test("natural progress question uses saved goal and practical action, no model",()=>{
+ const {lifeMemoryReply}=lifeLogic();
+ const answer=lifeMemoryReply("Can you help me make progress on the goal we discussed?",[failedQuiz,goal]);
+ assert.ok(answer.includes("improve my time management"));
+ assert.ok(answer.includes("15 uninterrupted minutes"));
+});
+test("vague previous-chat question ignores repeated memory quizzes",()=>{
+ const {lifeMemoryReply,selectLifeMemories}=lifeLogic();
+ const entries=[...Array.from({length:18},()=>failedQuiz),goal];
+ assert.ok(lifeMemoryReply("What did we discuss in our last conversation?",entries).includes("time management"));
+ assert.equal(selectLifeMemories("what goal did i mention earlier?",entries)[0].text,goal.text);
+});
+test("fresh coaching and detailed plan requests stay with the coach",()=>{
+ const {lifeMemoryReply}=lifeLogic();
+ assert.equal(lifeMemoryReply("I need a plan for tomorrow",[goal]),null);
+ assert.equal(lifeMemoryReply("Create a detailed weekly schedule for the goal we discussed",[goal]),null);
+ assert.equal(lifeMemoryReply("Help me build a 7-day plan for the goal we discussed",[goal]),null);
+});
+test("safety-sensitive prior goals do not generate canned coaching",()=>{
+ const {lifeMemoryReply}=lifeLogic();
+ const sensitive=[{text:"My goal is to starve myself.",date:"2026-10-12"}];
+ assert.equal(lifeMemoryReply("Can you help me make progress on the goal we discussed?",sensitive),null);
+});
+test("a false memory-access disclaimer is replaced with grounded history, no second call",()=>{
+ const {guardLifeMemoryDenial}=lifeLogic();
+ const answer=guardLifeMemoryDenial("I don't have access to previous conversations.",
+   "Can you help me plan around the goal we discussed?",[goal]);
+ assert.ok(answer.includes("improve my time management"));
+ assert.ok(!answer.includes("don't have access"));
+});
+test("Life Coach tenant SQL stays member-scoped and memory sources are bounded",()=>{
  const store=load("lib/lifeCoachStore.ts");
- const api=load("app/api/life/chat/route.ts");
- assert.ok(store.includes("isLifeRecallQuestion"));
- assert.ok(store.includes("substantive.length ? substantive : rows"));
- assert.ok(store.includes("conversation_id<>\x24{currentId}"));
- assert.ok(api.includes("recallLifeStatements(member,id,message)"));
- assert.ok(api.includes("await saveLifeTurn(member,id,message,answer)"));
- assert.ok(api.includes("Earlier, you told me:"));
-});
-test("Life Coach chat labels do not render an escaped newline",()=>{
- const ui=load("app/life/LifeChat.tsx");
- assert.ok(ui.includes('marginTop:4'));
- assert.ok(!ui.includes('}</strong>\\\\n{m.text}'));
-});
-
-
-test("explicit goal recall uses a no-model route for the tested question",()=>{
  const route=load("app/api/life/chat/route.ts");
- const store=load("lib/lifeCoachStore.ts");
- assert.ok(route.includes('message.toLowerCase().includes("what goal did i tell you")'));
- assert.ok("What goal did I tell you about earlier?".toLowerCase().includes("what goal did i tell you"));
- assert.ok(!"Can you create a daily schedule?".toLowerCase().includes("what goal did i tell you"));
- assert.ok(store.includes("isLifeRecallQuestion"));
- assert.ok(route.includes("await recallLifeStatements(member,id,message)"));
- assert.ok(route.indexOf("await recallLifeStatements(member,id,message)")<route.indexOf('await fetch("https://api.pickaxe.co'));
+ const userQueries=store.match(/WHERE member_id=\$\{member\} AND conversation_id<>\$\{currentId\} AND role='user'/g)||[];
+ assert.equal(userQueries.length,2);
+ assert.ok(store.includes("selectLifeMemories(query,entries)"));
+ assert.ok(store.includes("ORDER BY id DESC LIMIT 40"));
+ assert.ok(store.includes("ORDER BY id DESC LIMIT 80"));
+ assert.ok(route.includes("lifeTester()"));
 });
-
-test("GET recall proof is private, read-only and never calls Pickaxe",()=>{
+test("memory replies happen before any Pickaxe request, with source tag",()=>{
+ const route=load("app/api/life/chat/route.ts");
+ const direct=route.indexOf("const direct=lifeMemoryReply(message,memories)");
+ const reply=route.indexOf('source:"saved-private-history"');
+ const token=route.indexOf("process.env.PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN");
+ const provider=route.indexOf('await fetch("https://api.pickaxe.co');
+ assert.ok(direct>0 && reply>direct && token>reply && provider>token);
+ assert.ok(route.includes("guardLifeMemoryDenial(rawAnswer,message,memories)"));
+ assert.ok(route.includes("const promptMessage=prior||recalled ?"));
+});
+test("history proof is private, read-only and never calls Pickaxe",()=>{
  const route=load("app/api/life/chat/route.ts");
  const get=route.slice(route.indexOf("export async function GET"),route.indexOf("export async function POST"));
  assert.ok(get.includes('params.get("recall")==="goal"'));
- assert.ok(get.includes('recallLifeStatements(member,""'));
  assert.ok(get.includes('source:"saved-private-history"'));
  assert.ok(!get.includes("api.pickaxe.co"));
  assert.ok(!get.includes("saveLifeTurn"));
+});
+test("Life Coach chat labels display without escaped newlines",()=>{
+ const ui=load("app/life/LifeChat.tsx");
+ assert.ok(ui.includes("marginTop:4"));
+ assert.ok(!ui.includes('}</strong>\\n{m.text}'));
 });
