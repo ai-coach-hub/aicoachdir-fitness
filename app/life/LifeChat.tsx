@@ -41,7 +41,7 @@ export default function LifeChat(){
    <p style={{color:"var(--muted)",margin:0}}>Private test • goals, habits and accountability</p>
    <div role="log" aria-live="polite" style={{flex:1,overflowY:"auto",minHeight:250,maxHeight:"60vh"}}>
     {!messages.length&&<p style={{color:"var(--muted)"}}>{intro}</p>}
-    {messages.map((m,i)=><p key={i} style={{whiteSpace:"pre-wrap",lineHeight:1.6,padding:12,background:m.role==="user"?"#17323b":"#101d2a",borderRadius:12}}><strong>{m.role==="user"?"You":"Life Coach"}</strong>\n{m.text}</p>)}
+    {messages.map((m,i)=><p key={i} style={{whiteSpace:"pre-wrap",lineHeight:1.6,padding:12,background:m.role==="user"?"#17323b":"#101d2a",borderRadius:12}}><strong>{m.role==="user"?"You":"Life Coach"}</strong><span style={{display:"block",marginTop:4}}>{m.text}</span></p>)}
     {busy&&<p>Coach is working…</p>}<div ref={end}/>
    </div>
    {error&&<p role="alert" style={{color:"#ffd39d"}}>{error}</p>}
