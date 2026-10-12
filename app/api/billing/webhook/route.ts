@@ -3,8 +3,13 @@ import {
   grantFitnessAccess,
   revokeFitnessAccess,
 } from "@/lib/pickaxeAccess";
-import { getFitnessMembership, saveFitnessMembership } from "@/lib/fitnessMembershipDb";
 import {
+  getFitnessMembership,
+  getFitnessMembershipBySubscriptionId,
+  saveFitnessMembership,
+} from "@/lib/fitnessMembershipDb";
+import {
+  stripeRequest,
   stripeSubscriptionIsActive,
   verifyStripeWebhook,
 } from "@/lib/stripeServer";
@@ -38,6 +43,19 @@ async function setAccess(args: {
   eventType: string;
   eventId: string;
 }) {
+  // Subscription events can arrive late or out of order. Never let an older
+  // subscription replace or revoke a newer membership that is already active.
+  const current = await getFitnessMembership(args.email);
+  const currentSubscriptionId = String(current?.stripe_subscription_id || "");
+  if (
+    current?.access_active === true &&
+    currentSubscriptionId &&
+    args.subscriptionId &&
+    currentSubscriptionId !== args.subscriptionId
+  ) {
+    return;
+  }
+
   if (args.active) {
     // Stripe is the payment source of truth. Persist paid access first so a
     // temporary Pickaxe provisioning failure cannot send a paid member back
@@ -54,19 +72,6 @@ async function setAccess(args: {
     });
 
     await grantFitnessAccess(args.email);
-    return;
-  }
-
-  // Stripe can deliver events out of order. A cancellation from an older
-  // subscription must never revoke access restored by a newer subscription.
-  const current = await getFitnessMembership(args.email);
-  const currentSubscriptionId = String(current?.stripe_subscription_id || "");
-  if (
-    current?.access_active === true &&
-    currentSubscriptionId &&
-    args.subscriptionId &&
-    currentSubscriptionId !== args.subscriptionId
-  ) {
     return;
   }
 
@@ -109,25 +114,33 @@ export async function POST(request: Request) {
 
   try {
     if (eventType === "checkout.session.completed") {
-      const email =
-        metadataEmail(object) ||
-        string(record(object.customer_details).email).trim().toLowerCase();
+      const email = metadataEmail(object);
       const subscriptionId = string(object.subscription);
       const customerId = string(object.customer);
       const clerkUserId = string(record(object.metadata).clerk_user_id);
       const paid = string(object.payment_status) === "paid";
 
-      if (email && subscriptionId && paid) {
-        await setAccess({
-          email,
-          active: true,
-          customerId,
-          subscriptionId,
-          status: "active",
-          clerkUserId,
-          eventType,
-          eventId,
-        });
+      // Pickaxe's historical checkouts don't carry our Clerk identity metadata.
+      // They must not silently create a new membership under a billing email.
+      if (email && clerkUserId && subscriptionId && customerId && paid) {
+        const current = record(await stripeRequest(
+          `/subscriptions/${encodeURIComponent(subscriptionId)}`,
+        ));
+        if (
+          string(current.customer) === customerId &&
+          stripeSubscriptionIsActive(current.status)
+        ) {
+          await setAccess({
+            email,
+            active: true,
+            customerId,
+            subscriptionId,
+            status: string(current.status),
+            clerkUserId,
+            eventType,
+            eventId,
+          });
+        }
       }
     }
 
@@ -135,19 +148,36 @@ export async function POST(request: Request) {
       eventType === "customer.subscription.updated" ||
       eventType === "customer.subscription.deleted"
     ) {
-      const email = metadataEmail(object);
       const subscriptionId = string(object.id);
       const customerId = string(object.customer);
-      const status = string(object.status);
-      const clerkUserId = string(record(object.metadata).clerk_user_id);
-      const active =
-        eventType !== "customer.subscription.deleted" &&
-        stripeSubscriptionIsActive(status);
+      let email = metadataEmail(object);
+      let clerkUserId = string(record(object.metadata).clerk_user_id);
 
-      if (email && subscriptionId) {
+      // Old Pickaxe subscriptions have studioUserId metadata, not member_email.
+      // Only an already verified subscription-to-member binding is permitted
+      // to resolve the identity for a webhook without Clerk metadata.
+      if (!email && subscriptionId && customerId) {
+        const linked = await getFitnessMembershipBySubscriptionId(subscriptionId);
+        if (linked && String(linked.stripe_customer_id || "") === customerId) {
+          email = String(linked.email || "");
+          clerkUserId = String(linked.clerk_user_id || "");
+        }
+      }
+
+      if (email && subscriptionId && customerId) {
+        // Stripe deliveries may arrive out of order. Read the current Stripe
+        // status, including canceled-at-period-end subscriptions, before
+        // granting or revoking someone's paid access.
+        const current = record(await stripeRequest(
+          `/subscriptions/${encodeURIComponent(subscriptionId)}`,
+        ));
+        if (string(current.customer) !== customerId) {
+          throw new Error("Stripe subscription/customer identity mismatch.");
+        }
+        const status = string(current.status);
         await setAccess({
           email,
-          active,
+          active: stripeSubscriptionIsActive(status),
           customerId,
           subscriptionId,
           status,

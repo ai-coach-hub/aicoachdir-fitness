@@ -42,6 +42,14 @@ export async function ensureFitnessMembershipSchema() {
     ON fitness_memberships (access_active)
   `;
 
+  // An individual Stripe subscription must never be attached to multiple
+  // members, even when an older Pickaxe account is being reconciled.
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS fitness_memberships_subscription_idx
+    ON fitness_memberships (stripe_subscription_id)
+    WHERE stripe_subscription_id IS NOT NULL
+  `;
+
   return sql;
 }
 
@@ -53,6 +61,61 @@ export async function getFitnessMembership(email: string) {
     FROM fitness_memberships
     WHERE email = ${memberEmail}
     LIMIT 1
+  `;
+  return rows[0] || null;
+}
+
+export async function getFitnessMembershipBySubscriptionId(subscriptionId: string) {
+  if (!/^sub_[A-Za-z0-9]+$/.test(subscriptionId)) return null;
+  const sql = await ensureFitnessMembershipSchema();
+  const rows = await sql`
+    SELECT *
+    FROM fitness_memberships
+    WHERE stripe_subscription_id = ${subscriptionId}
+    LIMIT 2
+  `;
+  if (rows.length > 1) throw new Error("Duplicate Stripe subscription binding.");
+  return rows[0] || null;
+}
+
+// This deliberately cannot create paid access or touch a different subscription.
+// The existing member must already have authenticated and received legacy access.
+export async function linkLegacyFitnessMembershipBilling(args: {
+  email: string;
+  clerkUserId: string;
+  customerId: string;
+  subscriptionId: string;
+  stripeStatus: string;
+}) {
+  const memberEmail = canonicalMemberEmail(args.email);
+  if (
+    !args.clerkUserId ||
+    !/^cus_[A-Za-z0-9]+$/.test(args.customerId) ||
+    !/^sub_[A-Za-z0-9]+$/.test(args.subscriptionId) ||
+    !["active", "trialing"].includes(args.stripeStatus)
+  ) return null;
+
+  const sql = await ensureFitnessMembershipSchema();
+  const rows = await sql`
+    UPDATE fitness_memberships
+    SET stripe_customer_id = ${args.customerId},
+        stripe_subscription_id = ${args.subscriptionId},
+        stripe_status = ${args.stripeStatus},
+        last_event_type = 'legacy_billing_link_verified',
+        last_event_id = NULL,
+        updated_at = NOW()
+    WHERE email = ${memberEmail}
+      AND clerk_user_id = ${args.clerkUserId}
+      AND access_active = TRUE
+      AND stripe_status = 'legacy_pickaxe_member'
+      AND stripe_customer_id IS NULL
+      AND stripe_subscription_id IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM fitness_memberships
+        WHERE stripe_subscription_id = ${args.subscriptionId}
+          AND email <> ${memberEmail}
+      )
+    RETURNING *
   `;
   return rows[0] || null;
 }
