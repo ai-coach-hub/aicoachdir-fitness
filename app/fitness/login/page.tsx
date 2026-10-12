@@ -3,7 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import FitnessMemberLoginClient from "@/components/FitnessMemberLoginClient";
-import { getFitnessMembership, memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
+import { getFitnessMembership, memberHasFitnessAccess, refreshLinkedMembershipStatus } from "@/lib/fitnessMembershipDb";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +62,11 @@ export default async function MemberLoginPage({
 
   if (user && email) {
     try {
+      const stored = await getFitnessMembership(email);
+      if (stored?.stripe_customer_id && stored?.stripe_subscription_id &&
+          stored.access_active === false) {
+        await refreshLinkedMembershipStatus(email, { force: true });
+      }
       hasAccess = await memberHasFitnessAccess(email, user.id);
       if (!hasAccess) {
         const member = await getFitnessMembership(email);
