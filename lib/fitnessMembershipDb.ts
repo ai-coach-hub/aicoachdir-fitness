@@ -307,6 +307,68 @@ async function reconcileLegacyPaidMembership(email: string, clerkUserId?: string
   return updated;
 }
 
+// Call only after Clerk confirms ownership of the user's primary email.
+// This restores older Pickaxe subscribers even when their paid access group
+// was already removed and no current site membership row exists.
+export async function restoreVerifiedHistoricalBillingForMember(
+  email: string,
+  clerkUserId: string,
+) {
+  const memberEmail = canonicalMemberEmail(email);
+  if (!memberEmail || !clerkUserId) return null;
+  let current = await getFitnessMembership(memberEmail);
+  if (current?.stripe_customer_id || current?.stripe_subscription_id) return current;
+
+  if (current?.stripe_status === "legacy_pickaxe_member") {
+    if (String(current.clerk_user_id || "") !== clerkUserId) {
+      const sql = await ensureFitnessMembershipSchema();
+      await sql`
+        UPDATE fitness_memberships
+        SET clerk_user_id = ${clerkUserId}, updated_at = NOW()
+        WHERE email = ${memberEmail}
+          AND stripe_status = 'legacy_pickaxe_member'
+          AND stripe_subscription_id IS NULL
+      `;
+    }
+    return reconcileLegacyPaidMembership(memberEmail, clerkUserId);
+  }
+
+  let verified: Awaited<ReturnType<typeof discoverVerifiedHistoricalBilling>>;
+  try {
+    verified = await discoverVerifiedHistoricalBilling(memberEmail);
+  } catch (error) {
+    console.error("[membership] verified historical recovery deferred", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return current;
+  }
+  if (!verified) return current;
+
+  // A known site membership with another subscription cannot be overwritten.
+  current = await getFitnessMembership(memberEmail);
+  if (current?.stripe_customer_id || current?.stripe_subscription_id) return current;
+
+  const saved = await saveFitnessMembership({
+    email: memberEmail,
+    clerkUserId,
+    customerId: verified.customerId,
+    subscriptionId: verified.subscriptionId,
+    stripeStatus: verified.status,
+    active: verified.active,
+    eventType: "verified_historical_billing_recovered",
+  });
+
+  try {
+    if (verified.active) await grantFitnessAccess(memberEmail);
+    else await revokeFitnessAccess(memberEmail);
+  } catch (error) {
+    console.error("[membership] historical access repair pending", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+  return saved;
+}
+
 // Stripe is authoritative for subscriptions already bound to a member.
 // Refresh at most once every 15 minutes to avoid checking Stripe on each chat
 // message, but also allow a recovered failed payment to regain access.
