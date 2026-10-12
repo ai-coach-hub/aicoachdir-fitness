@@ -1,7 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { ensureTermsAcceptanceSchema } from "@/lib/termsAcceptanceDb";
+import { currentMembershipTermsId } from "@/lib/currentMembershipTerms";
 import {
   getFitnessMembership,
   memberHasFitnessAccess,
@@ -19,9 +18,6 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const TERMS_COOKIE = "fitness_terms_acceptance";
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function checkoutProblem(error: string, status: number, actionUrl?: string, actionLabel?: string) {
   return NextResponse.json(
@@ -72,30 +68,17 @@ export async function POST(request: Request) {
     return checkoutProblem("Secure checkout is temporarily unavailable. No charge was attempted.", 503);
   }
 
-  const acceptanceId = (await cookies()).get(TERMS_COOKIE)?.value || "";
-  if (!UUID_PATTERN.test(acceptanceId)) {
-    return checkoutProblem(
-      "Please review and accept the Terms before subscribing.",
-      409, `/fitness/signup?destination=${destinationQuery}`, "Review & Accept Terms",
-    );
-  }
-
+  let acceptanceId = "";
   try {
-    const sql = await ensureTermsAcceptanceSchema();
-    const rows = await sql`
-      SELECT email FROM terms_acceptances
-      WHERE id = ${acceptanceId}::uuid
-        AND accepted_at >= NOW() - INTERVAL '1 hour'
-      LIMIT 1
-    `;
-    if (String(rows[0]?.email || "").trim().toLowerCase() !== email) {
-      return checkoutProblem(
-        "Please review the Terms using your signed-in account email.",
-        409, `/fitness/signup?destination=${destinationQuery}`, "Review Terms",
-      );
-    }
+    acceptanceId = await currentMembershipTermsId(email);
   } catch {
     return checkoutProblem("We could not verify your Terms acceptance. No charge was attempted.", 503);
+  }
+  if (!acceptanceId) {
+    return checkoutProblem(
+      "Please review and accept the current Terms before subscribing.",
+      409, `/fitness/signup?destination=${destinationQuery}`, "Review & Accept Terms",
+    );
   }
 
   try {
