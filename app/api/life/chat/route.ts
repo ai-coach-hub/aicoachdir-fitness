@@ -1,5 +1,5 @@
 import { lifeTester } from "@/lib/lifeCoachAccess";
-import { listLifeThreads,readLifeThread,recallLifeContext,saveLifeTurn } from "@/lib/lifeCoachStore";
+import { listLifeThreads,readLifeThread,recallLifeContext,recallLifeStatements,saveLifeTurn } from "@/lib/lifeCoachStore";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export const maxDuration=120;
@@ -41,6 +41,17 @@ export async function POST(request:Request) {
    const existing=await readLifeThread(member,id);
    if(!existing)return json({ok:false,error:"Conversation not found."},404);
    prior=existing.slice(-8).map(m=>`${m.role}: ${m.text.slice(0,650)}`).join("\n").slice(0,3500);
+  }
+  // Answer specific past-goal questions directly from the authenticated member's own
+  // saved words. Do not let an unrelated Pickaxe memory disclaimer override known history.
+  if (/\\bwhat goal did i tell you\\b|\\bwhat (?:was|is) my (?:earlier|previous|last) goal\\b/i.test(message)) {
+   const saved=await recallLifeStatements(member,id,message);
+   const goal=saved.find(entry=>/\\b(my goal|i want to|i(?:'d| would) like to|i aim to|my priority)\\b/i.test(entry.text));
+   const answer=goal
+    ? `Earlier, you told me: "${goal.text}".`
+    : "I couldn't find an earlier goal in your saved Life Coach conversations.";
+   await saveLifeTurn(member,id,message,answer);
+   return json({ok:true,response:answer,conversationId:id});
   }
   const recalled=await recallLifeContext(member,id,message);
   const context=[
