@@ -34,7 +34,7 @@ test("life coach database is isolated from shared membership storage",()=>{
 
 test("private Life Coach page never sends testers into paid Fitness login",()=>{
  const page=load("app/life/page.tsx");
- assert.doesNotMatch(page,/redirect\\(["']\\/fitness\\/login/);
- assert.match(page,/\/sign-in\\?redirect_url=/);
- assert.match(page,/lifeTester\\(\\)/);
+ assert.ok(!page.includes('redirect("/fitness/login")'));
+ assert.ok(page.includes("/sign-in?redirect_url="));
+ assert.ok(page.includes("lifeTester()"));
 });
