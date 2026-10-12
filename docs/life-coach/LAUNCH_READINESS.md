@@ -43,7 +43,7 @@ The owner has discussed a three-bundle x three-tier model before, but the exact 
 
 ## Dedicated internal real-account privacy check - BLOCKING
 
-Do not involve any existing paying customer, including Jamie. The prior signup test email did not work; don't force that path again.
+Do not involve any existing paying customer. The prior signup test email did not work; don't force that path again.
 
 When a second-account check is ready:
 1. Create a dedicated company-owned test account in the correct existing Clerk instance through the Clerk dashboard's user-management / invitation controls, rather than the public signup journey. Use a separate controlled inbox and complete primary-email verification. Never share passwords or bypass verification.
