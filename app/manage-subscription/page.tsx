@@ -7,6 +7,7 @@ import {
   memberHasFitnessAccess,
   rebindVerifiedMembershipLogin,
   refreshLinkedMembershipStatus,
+  restoreVerifiedHistoricalBillingForMember,
 } from "@/lib/fitnessMembershipDb";
 import { linkVerifiedLegacyStripeMembership } from "@/lib/legacyStripeMembership";
 import { classifyStripeSubscription, getVerifiedSubscription } from "@/lib/stripeMembershipState";
@@ -38,6 +39,7 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
 
   if (email && user && emailVerified) {
     try {
+      await restoreVerifiedHistoricalBillingForMember(email, user.id);
       let member = await getFitnessMembership(email);
       if (member?.stripe_customer_id && member.stripe_subscription_id &&
           String(member.clerk_user_id || "") !== user.id) {
