@@ -1,6 +1,7 @@
 "use client";
 import {FormEvent,useEffect,useRef,useState} from "react";
 import styles from "./LifeChat.module.css";
+import { cleanLifeCoachText, isLifeCoachSectionHeading } from "@/lib/lifeCoachFormatting";
 type Msg={role:"user"|"assistant";text:string};
 type Thread={id:string;title:string;updatedAt:string};
 const intros=[
@@ -9,6 +10,14 @@ const intros=[
  "Is there a habit you'd like to build or change?",
  "What would make today feel more manageable?"
 ];
+function CoachResponse({text}:{text:string}){
+ const lines=cleanLifeCoachText(text).split("\n");
+ return <span className={styles.coachReply}>
+  {lines.map((line,index)=>line
+   ? <span key={index} className={isLifeCoachSectionHeading(line)?styles.replyHeading:styles.replyLine}>{line}</span>
+   : <span key={index} aria-hidden="true" className={styles.replySpacer}/>)}
+ </span>;
+}
 export default function LifeChat(){
  const [threads,setThreads]=useState<Thread[]>([]);
  const [id,setId]=useState("");
@@ -52,7 +61,7 @@ export default function LifeChat(){
    <p style={{color:"var(--muted)",margin:0}}>Private test • goals, habits and accountability</p>
    <div role="log" aria-live="polite" className={styles.messageLog}>
     {!messages.length&&!input.trim()&&<p style={{color:"var(--muted)"}}>{intro}</p>}
-    {messages.map((m,i)=><p key={i} className={styles.message} style={{background:m.role==="user"?"#17323b":"#101d2a"}}><strong>{m.role==="user"?"You":"Life Coach"}</strong><span style={{display:"block",marginTop:4}}>{m.text}</span></p>)}
+    {messages.map((m,i)=><p key={i} className={styles.message} style={{background:m.role==="user"?"#17323b":"#101d2a"}}><strong>{m.role==="user"?"You":"Life Coach"}</strong><span style={{display:"block",marginTop:4}}>{m.role==="assistant"?<CoachResponse text={m.text}/>:m.text}</span></p>)}
     {busy&&<p>Coach is working…</p>}<div ref={end}/>
    </div>
    {error&&<p role="alert" style={{color:"#ffd39d"}}>{error}</p>}
