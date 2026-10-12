@@ -1,4 +1,4 @@
-import { isLifeRecallQuestion, selectLifeMemories } from "./lifeCoachMemory";
+import { selectLifeMemories } from "./lifeCoachMemory";
 import { neon } from "@neondatabase/serverless";
 
 export type LifeMessage = { role: "user" | "assistant"; text: string; createdAt: string };
@@ -56,14 +56,12 @@ export async function recallLifeStatements(member: string, currentId: string, qu
        AND (lower(body) LIKE '%my goal%' OR lower(body) LIKE '%my priority%'
          OR lower(body) LIKE '%i want to%' OR lower(body) LIKE '%i plan to%'
          OR lower(body) LIKE '%i am trying%' OR lower(body) LIKE '%i aim to%'
-         OR lower(body) LIKE '%i would like%' OR lower(body) LIKE '%i\'m working%')
+         OR lower(body) LIKE '%i would like%' OR lower(body) LIKE '%working on%')
        ORDER BY id DESC LIMIT 40`
     : await sql`SELECT body,created_at FROM life_chat_messages
        WHERE member_id=${member} AND conversation_id<>${currentId} AND role='user'
        ORDER BY id DESC LIMIT 80`;
   const entries=rows.map(row=>({text:String(row.body).slice(0,450),date:String(row.created_at).slice(0,10)}));
-  // Retain the helper as an explicit check for historical-query semantics.
-  if(isLifeRecallQuestion(query)) return selectLifeMemories(query,entries);
   return selectLifeMemories(query,entries);
 }
 export async function recallLifeContext(member: string, currentId: string, query: string) {
