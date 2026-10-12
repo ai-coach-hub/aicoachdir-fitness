@@ -30,7 +30,7 @@ export default async function ManageSubscriptionPage() {
         member = await getFitnessMembership(email);
       }
       if (emailVerified && user && member?.access_active === true && !member.stripe_customer_id) {
-        member = await linkVerifiedLegacyStripeMembership(email, user.id);
+        member = (await linkVerifiedLegacyStripeMembership(email, user.id)) || member;
       }
       hasStripeBilling = !!member?.stripe_customer_id;
     } catch {
