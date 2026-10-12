@@ -2,8 +2,12 @@ import { neon } from "@neondatabase/serverless";
 import { canonicalMemberEmail } from "@/lib/memberIdentity";
 import {
   FITNESS_ACCESS_GROUP_ID,
+  grantFitnessAccess,
+  revokeFitnessAccess,
   pickaxeUserHasFitnessAccess,
 } from "@/lib/pickaxeAccess";
+import { getVerifiedSubscription } from "@/lib/stripeMembershipState";
+import { stripeSubscriptionIsActive } from "@/lib/stripeServer";
 
 function connectionString() {
   const value =
@@ -35,6 +39,11 @@ export async function ensureFitnessMembershipSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+
+  await sql`
+    ALTER TABLE fitness_memberships
+    ADD COLUMN IF NOT EXISTS last_stripe_verified_at TIMESTAMPTZ
   `;
 
   await sql`
@@ -161,6 +170,11 @@ export async function saveFitnessMembership(args: {
       stripe_customer_id = COALESCE(EXCLUDED.stripe_customer_id, fitness_memberships.stripe_customer_id),
       stripe_subscription_id = COALESCE(EXCLUDED.stripe_subscription_id, fitness_memberships.stripe_subscription_id),
       stripe_status = EXCLUDED.stripe_status,
+      last_stripe_verified_at = CASE
+        WHEN EXCLUDED.stripe_subscription_id IS NOT NULL
+          THEN NOW()
+        ELSE fitness_memberships.last_stripe_verified_at
+      END,
       access_active = EXCLUDED.access_active,
       access_group_id = EXCLUDED.access_group_id,
       last_event_type = EXCLUDED.last_event_type,
@@ -171,13 +185,70 @@ export async function saveFitnessMembership(args: {
   return rows[0] || null;
 }
 
+// Stripe is authoritative for subscriptions already bound to a member.
+// Refresh at most once every 15 minutes to avoid checking Stripe on each chat
+// message, but also allow a recovered failed payment to regain access.
+export async function refreshLinkedMembershipStatus(
+  email: string,
+  options: { force?: boolean } = {},
+) {
+  const memberEmail = canonicalMemberEmail(email);
+  const existing = await getFitnessMembership(memberEmail);
+  if (!existing?.stripe_customer_id || !existing.stripe_subscription_id) return existing;
+
+  const lastChecked = existing.last_stripe_verified_at
+    ? new Date(String(existing.last_stripe_verified_at)).getTime() : 0;
+  if (!options.force && lastChecked > Date.now() - 15 * 60 * 1000) {
+    return existing;
+  }
+
+  const live = await getVerifiedSubscription({
+    customerId: String(existing.stripe_customer_id),
+    subscriptionId: String(existing.stripe_subscription_id),
+    memberEmail,
+  });
+  if (!live) throw new Error("Unable to verify linked Stripe subscription.");
+
+  const active = stripeSubscriptionIsActive(live.status);
+  const sql = await ensureFitnessMembershipSchema();
+  const rows = await sql`
+    UPDATE fitness_memberships
+    SET stripe_status = ${live.status},
+        access_active = ${active},
+        access_group_id = ${active ? FITNESS_ACCESS_GROUP_ID : null},
+        last_stripe_verified_at = NOW(),
+        updated_at = CASE
+          WHEN stripe_status IS DISTINCT FROM ${live.status}
+               OR access_active IS DISTINCT FROM ${active}
+          THEN NOW() ELSE updated_at END
+    WHERE email = ${memberEmail}
+      AND stripe_subscription_id = ${live.subscriptionId}
+      AND stripe_customer_id = ${live.customerId}
+    RETURNING *
+  `;
+  const updated = rows[0] || (await getFitnessMembership(memberEmail));
+
+  if (rows.length && existing.access_active !== active) {
+    try {
+      if (active) await grantFitnessAccess(memberEmail);
+      else await revokeFitnessAccess(memberEmail);
+    } catch (error) {
+      console.error("[membership] Pickaxe status sync pending", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      // Site access is still governed by the verified Stripe status in Neon.
+    }
+  }
+  return updated;
+}
+
 export async function memberHasFitnessAccess(
   email: string,
   clerkUserId?: string,
   options: { fallbackToPickaxeList?: boolean } = {},
 ) {
   const memberEmail = canonicalMemberEmail(email);
-  const existing = await getFitnessMembership(memberEmail);
+  const existing = await refreshLinkedMembershipStatus(memberEmail);
 
   if (existing?.access_active === true) {
     if (
@@ -195,21 +266,10 @@ export async function memberHasFitnessAccess(
     return true;
   }
 
-  const hasRealStripeRecord =
-    !!existing &&
-    !!(existing.stripe_customer_id || existing.stripe_subscription_id);
-
-  const stripeInactive =
-    !!existing &&
-    (
-      existing.stripe_status === "canceled" ||
-      existing.stripe_status === "past_due" ||
-      existing.stripe_status === "unpaid" ||
-      existing.stripe_status === "incomplete_expired" ||
-      existing.last_event_type === "customer.subscription.deleted"
-    );
-
-  if (hasRealStripeRecord && stripeInactive) {
+  // Once a customer is linked to paid billing, a canceled or lapsed
+  // subscription must never fall back to a stale Pickaxe access group.
+  // Their Clerk identity and saved coach history remain untouched.
+  if (existing?.stripe_customer_id || existing?.stripe_subscription_id) {
     return false;
   }
 
