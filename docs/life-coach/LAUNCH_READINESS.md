@@ -30,6 +30,8 @@ Do not merge this PR, promote a deployment, add a homepage Life Coach CTA, creat
 - The code currently uses shared memberHasFitnessAccess() for live Fitness/Budgeting. That method must NOT be bolted onto Life Coach as an implicit free entitlement until product/plan allocation is approved.
 - Do not claim unused tracker page visits consume AI credits. Distinguish chat/model requests from non-AI page views; verify total-usage metering across coach providers before sharing a new allowance.
 
+The preliminary three-bundle / nine-tier option matrix is documented separately in BUNDLES_AND_ACCESS_DRAFT.md; it does not approve any price or entitlement.
+
 ## Stripe catalog inventory - read-only inspection, not a pricing decision
 
 On 2026-10-12, the connected live Stripe catalog returned 11 active product records and 14 active recurring monthly price records. There are older Basic/Growth/Pro catalog entries referring to Career-only, FitLife/Fitness+Life, and All Four Coaches, plus a separate current "AI Fitness Coach 2.0" $15 recurring price. The older price entries range from $9 to $39 in that catalog. Catalog "active" means selectable in Stripe; it does not prove currently sold, subscribed to, connected to the website, or approved for a new launch.
