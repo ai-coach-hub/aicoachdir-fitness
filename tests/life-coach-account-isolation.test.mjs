@@ -20,11 +20,13 @@ function moduleFrom(path, deps={}, globals={}) {
 function mockLifeEnvironment(){
  const threads=[];
  const messages=[];
+ const traces=[];
  let serial=0;
  let signedInMember=null;
  let providerCalls=0;
  const fakeSql=async(parts,...values)=>{
   const query=parts.join(" ? ").trim();
+  traces.push({query,values});
   if(query.startsWith("CREATE TABLE IF NOT EXISTS"))return [];
   if(query.startsWith("INSERT INTO life_chat_threads")){
    const [member,id,title]=values;
@@ -77,7 +79,7 @@ function mockLifeEnvironment(){
   "@/lib/lifeCoachAccess":{lifeTester:async()=>signedInMember},
   "@/lib/lifeCoachStore":store
  },{
-  process:{env},Request,Response,AbortSignal,
+  process:{env},Request,Response,URL,AbortSignal,
   crypto:{randomUUID:()=>"ffffffff-1111-2222-3333-444444444444"},
   fetch:async()=>{providerCalls++;throw Error("This privacy test must not call Pickaxe");}
  });
@@ -91,7 +93,7 @@ function mockLifeEnvironment(){
   }));
   return {status:res.status,data:await res.json()};
  };
- return {store,threads,messages,apiGet,apiPost,
+ return {store,threads,messages,traces,apiGet,apiPost,
   signIn:(id)=>{signedInMember=id},
   providerCalls:()=>providerCalls
  };
@@ -119,8 +121,8 @@ test("two separate Clerk owners cannot list, read, or recall each other's saved 
  assert.equal((await e.store.readLifeThread(memberB,threadB)).length,2);
  const recalledA=await e.store.recallLifeStatements(memberA,"","What goal did I tell you earlier?");
  const recalledB=await e.store.recallLifeStatements(memberB,"","What goal did I tell you earlier?");
- assert.ok(recalledA.some(e=>e.text===factA));
- assert.ok(recalledB.some(e=>e.text===factB));
+ assert.ok(recalledA.some(e=>e.text===factA),"A recall: "+JSON.stringify({recalledA,traces:e.traces.slice(-3)}));
+ assert.ok(recalledB.some(e=>e.text===factB),"B recall: "+JSON.stringify({recalledB,traces:e.traces.slice(-3)}));
  assert.ok(!recalledA.some(e=>e.text.includes("watercolor")));
  assert.ok(!recalledB.some(e=>e.text.includes("time management")));
 });
@@ -164,7 +166,7 @@ test("POST cannot append to another member's thread or use forged identity and c
  });
  assert.equal(reply.status,200);
  assert.equal(reply.data.source,"saved-private-history");
- assert.ok(reply.data.response.includes("watercolor painting"));
+ assert.ok(reply.data.response.includes("watercolor painting"),JSON.stringify({reply:reply.data,traces:e.traces.slice(-3)}));
  assert.ok(!reply.data.response.includes("time management"));
  assert.equal(e.messages.length,previousCount+2);
  assert.equal(e.messages.slice(-1)[0].member_id,memberB);
