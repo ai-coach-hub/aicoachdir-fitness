@@ -18,7 +18,7 @@ Status: SANDBOX ONLY. This file prepares the agent; it does not create a Pickaxe
 - Life Coach history will be stored separately per verified Clerk member in the AI Coach Directory database. Save messages and retrieve a small number of relevant prior user and coach turns only through the authenticated website.
 - Never use a Pickaxe User Memory variable or claim cross-session recall in standalone Pickaxe until the private website history route injects verified context.
 - The website must gate new agent access to private testers until the release strategy is approved. Use an isolated conversation namespace `life-coach-` rather than Fitness/Budgeting histories.
-- Reuse the existing Neon connection and Clerk authentication, with a table keyed by Clerk user ID and conversation ID; avoid automatic AI summaries, embeddings, and extra inference calls.
+- Use the dedicated Preview Life Coach Neon database connection (LIFE_COACH_DATABASE_URL) and existing Clerk identity, with data keyed by Clerk user ID and conversation ID. Never fall back to the shared Fitness/Budgeting database. Avoid automatic AI summaries, embeddings, and extra inference calls.
 - For queries that explicitly ask about previous chats, retrieve bounded relevant prior messages; preserve the previous conversation list under the same member login.
 - Test user A goal continuity across a new thread, user B isolation, and no cross-coach records. Do not run write tests on paying customers.
 
@@ -35,4 +35,4 @@ Status: SANDBOX ONLY. This file prepares the agent; it does not create a Pickaxe
 10. Check no cross-coach actions, prompts, internal policies, tool output or paid plan references leak.
 
 ## Launch gate
-Only after passing private Pickaxe QA: integrate a new guarded chat entry point, reusing shared authentication and chat UX without touching the current Fitness or Budgeting pages. Confirm plan/bundle strategy explicitly before enabling public entitlement. Do not expose this agent under the current $15/400-use plan unless approved.
+The private guarded chat entry point already exists in the feature branch and has passed initial memory, coaching, formatting, and synthetic two-member privacy QA. For remaining real-account, billing, entitlement, cost, legal, and release gates see LAUNCH_READINESS.md. Do not expose Life Coach under the existing $15/400-use plan unless explicitly approved. Do not merge this draft PR as a launch action.
