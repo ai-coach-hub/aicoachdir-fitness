@@ -43,6 +43,19 @@ async function setAccess(args: {
   eventType: string;
   eventId: string;
 }) {
+  // Subscription events can arrive late or out of order. Never let an older
+  // subscription replace or revoke a newer membership that is already active.
+  const current = await getFitnessMembership(args.email);
+  const currentSubscriptionId = String(current?.stripe_subscription_id || "");
+  if (
+    current?.access_active === true &&
+    currentSubscriptionId &&
+    args.subscriptionId &&
+    currentSubscriptionId !== args.subscriptionId
+  ) {
+    return;
+  }
+
   if (args.active) {
     // Stripe is the payment source of truth. Persist paid access first so a
     // temporary Pickaxe provisioning failure cannot send a paid member back
@@ -59,19 +72,6 @@ async function setAccess(args: {
     });
 
     await grantFitnessAccess(args.email);
-    return;
-  }
-
-  // A late event from a previous subscription must never revoke or
-  // overwrite a newer active membership.
-  const current = await getFitnessMembership(args.email);
-  const currentSubscriptionId = String(current?.stripe_subscription_id || "");
-  if (
-    current?.access_active === true &&
-    currentSubscriptionId &&
-    args.subscriptionId &&
-    currentSubscriptionId !== args.subscriptionId
-  ) {
     return;
   }
 
