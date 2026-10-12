@@ -23,10 +23,13 @@ export function membershipDb() {
   return neon(connectionString());
 }
 
+let membershipSchemaReady: Promise<void> | null = null;
+
 export async function ensureFitnessMembershipSchema() {
   const sql = membershipDb();
-
-  await sql`
+  if (!membershipSchemaReady) {
+    membershipSchemaReady = (async () => {
+      await sql`
     CREATE TABLE IF NOT EXISTS fitness_memberships (
       email TEXT PRIMARY KEY,
       clerk_user_id TEXT,
@@ -65,6 +68,12 @@ export async function ensureFitnessMembershipSchema() {
     WHERE stripe_subscription_id IS NOT NULL
   `;
 
+    })().catch((error) => {
+      membershipSchemaReady = null;
+      throw error;
+    });
+  }
+  await membershipSchemaReady;
   return sql;
 }
 
