@@ -8,6 +8,7 @@ import {
 } from "@/lib/pickaxeAccess";
 import { getVerifiedSubscription } from "@/lib/stripeMembershipState";
 import { stripeSubscriptionIsActive } from "@/lib/stripeServer";
+import { discoverVerifiedHistoricalBilling } from "@/lib/legacyBillingVerification";
 
 function connectionString() {
   const value =
@@ -44,6 +45,11 @@ export async function ensureFitnessMembershipSchema() {
   await sql`
     ALTER TABLE fitness_memberships
     ADD COLUMN IF NOT EXISTS last_stripe_verified_at TIMESTAMPTZ
+  `;
+
+  await sql`
+    ALTER TABLE fitness_memberships
+    ADD COLUMN IF NOT EXISTS last_legacy_verified_at TIMESTAMPTZ
   `;
 
   await sql`
@@ -185,6 +191,73 @@ export async function saveFitnessMembership(args: {
   return rows[0] || null;
 }
 
+// Historical Pickaxe subscriptions lacked a Clerk identity and could be left
+// incorrectly active after cancellation. Match both Pickaxe Studio ID and
+// Stripe customer email before changing an old paid membership. Free members
+// who never had a matching subscription keep their existing access.
+async function reconcileLegacyPaidMembership(email: string, clerkUserId?: string) {
+  if (!clerkUserId) return getFitnessMembership(email);
+  const current = await getFitnessMembership(email);
+  if (!current ||
+      current.stripe_status !== "legacy_pickaxe_member" ||
+      current.stripe_customer_id ||
+      current.stripe_subscription_id ||
+      String(current.clerk_user_id || "") !== clerkUserId) return current;
+
+  const checked = current.last_legacy_verified_at
+    ? new Date(String(current.last_legacy_verified_at)).getTime() : 0;
+  if (checked > Date.now() - 24 * 60 * 60 * 1000) return current;
+
+  const verified = await discoverVerifiedHistoricalBilling(email);
+  const sql = await ensureFitnessMembershipSchema();
+  if (!verified) {
+    await sql`
+      UPDATE fitness_memberships SET last_legacy_verified_at = NOW()
+      WHERE email = ${canonicalMemberEmail(email)}
+        AND stripe_status = 'legacy_pickaxe_member'
+        AND stripe_subscription_id IS NULL
+        AND clerk_user_id = ${clerkUserId}
+    `;
+    return getFitnessMembership(email);
+  }
+
+  const rows = await sql`
+    UPDATE fitness_memberships SET
+      stripe_customer_id = ${verified.customerId},
+      stripe_subscription_id = ${verified.subscriptionId},
+      stripe_status = ${verified.status},
+      access_active = ${verified.active},
+      access_group_id = ${verified.active ? FITNESS_ACCESS_GROUP_ID : null},
+      last_stripe_verified_at = NOW(),
+      last_legacy_verified_at = NOW(),
+      last_event_type = 'verified_legacy_billing_reconciled',
+      last_event_id = NULL,
+      updated_at = NOW()
+    WHERE email = ${canonicalMemberEmail(email)}
+      AND clerk_user_id = ${clerkUserId}
+      AND stripe_status = 'legacy_pickaxe_member'
+      AND stripe_customer_id IS NULL
+      AND stripe_subscription_id IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM fitness_memberships
+        WHERE stripe_subscription_id = ${verified.subscriptionId}
+          AND email <> ${canonicalMemberEmail(email)}
+      )
+    RETURNING *
+  `;
+  const updated = rows[0] || await getFitnessMembership(email);
+  if (rows.length && !verified.active) {
+    try {
+      await revokeFitnessAccess(email);
+    } catch (error) {
+      console.error("[membership] historical Pickaxe access revoke pending", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  return updated;
+}
+
 // Stripe is authoritative for subscriptions already bound to a member.
 // Refresh at most once every 15 minutes to avoid checking Stripe on each chat
 // message, but also allow a recovered failed payment to regain access.
@@ -248,7 +321,16 @@ export async function memberHasFitnessAccess(
   options: { fallbackToPickaxeList?: boolean } = {},
 ) {
   const memberEmail = canonicalMemberEmail(email);
-  const existing = await refreshLinkedMembershipStatus(memberEmail);
+  // Backfill only an independently verified historical paid subscription.
+  // Unmatched grandfathered members remain fully active.
+  let existing = await getFitnessMembership(memberEmail);
+  if (existing?.stripe_status === "legacy_pickaxe_member" &&
+      !existing.stripe_subscription_id && clerkUserId) {
+    existing = await reconcileLegacyPaidMembership(memberEmail, clerkUserId);
+  }
+  if (existing?.stripe_customer_id && existing?.stripe_subscription_id) {
+    existing = await refreshLinkedMembershipStatus(memberEmail);
+  }
 
   if (existing?.access_active === true) {
     if (
@@ -289,5 +371,13 @@ export async function memberHasFitnessAccess(
     eventType: "legacy_sync",
   });
 
+  // A newly recognized legacy account still needs its historical Stripe
+  // subscription checked before it can be considered currently paid.
+  if (clerkUserId) {
+    const verified = await reconcileLegacyPaidMembership(memberEmail, clerkUserId);
+    if (verified?.stripe_customer_id || verified?.stripe_subscription_id) {
+      return verified?.access_active === true;
+    }
+  }
   return true;
 }
