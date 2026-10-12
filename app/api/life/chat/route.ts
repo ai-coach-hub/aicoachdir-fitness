@@ -1,4 +1,4 @@
-import { lifeMemoryReply, guardLifeMemoryDenial } from "@/lib/lifeCoachMemory";
+import { lifeMemoryReply, guardLifeMemoryDenial, isLifeRecallQuestion } from "@/lib/lifeCoachMemory";
 import { lifeTester } from "@/lib/lifeCoachAccess";
 import { listLifeThreads,readLifeThread,recallLifeContext,recallLifeStatements,saveLifeTurn } from "@/lib/lifeCoachStore";
 export const runtime="nodejs";
@@ -51,7 +51,8 @@ export async function POST(request:Request) {
    const clean=existing.filter(m=>m.role==="user" || !/\b(?:can\x27t|cannot|don\x27t|do not|no)\b.{0,80}\b(?:access|see|remember|retrieve)\b.{0,80}\b(?:earlier|previous|past|conversation|chat|history)\b/i.test(m.text));
    prior=clean.slice(-8).map(m=>m.role+": "+m.text.slice(0,400)).join("\n").slice(0,2100);
   }
-  const saved=await recallLifeStatements(member,id,message);
+  const needsHistory=isLifeRecallQuestion(message) || /\b(?:goal|goals|habit|habits|plan|schedule|routine|priority|progress|time management|follow up|pick up|left off)\b/i.test(message);
+  const saved=needsHistory ? await recallLifeStatements(member,id,message) : [];
   const memories=[...sameThreadUserEntries,...saved];
   const direct=lifeMemoryReply(message,memories);
   if(direct!==null) {
