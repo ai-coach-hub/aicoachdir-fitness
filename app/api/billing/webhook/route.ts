@@ -43,17 +43,30 @@ async function setAccess(args: {
   eventType: string;
   eventId: string;
 }) {
-  // Subscription events can arrive late or out of order. Never let an older
-  // subscription replace or revoke a newer membership that is already active.
+  // Events can arrive late or out of order. A terminated subscription
+  // never gets to overwrite a DIFFERENT, newer subscription, even when the
+  // current membership is temporarily inactive due to a failed payment.
   const current = await getFitnessMembership(args.email);
   const currentSubscriptionId = String(current?.stripe_subscription_id || "");
   if (
-    current?.access_active === true &&
     currentSubscriptionId &&
     args.subscriptionId &&
     currentSubscriptionId !== args.subscriptionId
   ) {
-    return;
+    if (!args.active || current?.access_active === true) return;
+
+    // A newer, verified paid Checkout may replace an older canceled record.
+    // An old active webhook replay must not replace the newly linked record.
+    const [oldSubscription, incomingSubscription] = await Promise.all([
+      stripeRequest(`/subscriptions/${encodeURIComponent(currentSubscriptionId)}`),
+      stripeRequest(`/subscriptions/${encodeURIComponent(args.subscriptionId)}`),
+    ]);
+    const oldCreated = Number(oldSubscription.created || 0);
+    const incomingCreated = Number(incomingSubscription.created || 0);
+    if (!oldCreated || !incomingCreated || incomingCreated <= oldCreated) return;
+    if (String(incomingSubscription.customer || "") !== String(args.customerId || "")) {
+      throw new Error("Incoming subscription/customer mismatch.");
+    }
   }
 
   if (args.active) {
