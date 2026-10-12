@@ -80,6 +80,36 @@ export async function getFitnessMembership(email: string) {
   return rows[0] || null;
 }
 
+// A user who signs in again with the same VERIFIED email may receive a new
+// Clerk user ID. Keep the existing Stripe customer and saved coaching data.
+// Call only after Clerk has verified email ownership; Stripe independently
+// verifies the same email against the stored billing customer.
+export async function rebindVerifiedMembershipLogin(email: string, clerkUserId: string) {
+  if (!clerkUserId) return null;
+  const memberEmail = canonicalMemberEmail(email);
+  const existing = await getFitnessMembership(memberEmail);
+  if (!existing) return null;
+  if (String(existing.clerk_user_id || "") === clerkUserId) return existing;
+  if (!existing.stripe_customer_id || !existing.stripe_subscription_id) return existing;
+
+  const current = await getVerifiedSubscription({
+    customerId: String(existing.stripe_customer_id),
+    subscriptionId: String(existing.stripe_subscription_id),
+    memberEmail,
+  });
+  if (!current) return existing;
+  const sql = await ensureFitnessMembershipSchema();
+  const rows = await sql`
+    UPDATE fitness_memberships
+    SET clerk_user_id = ${clerkUserId}, updated_at = NOW()
+    WHERE email = ${memberEmail}
+      AND stripe_customer_id = ${current.customerId}
+      AND stripe_subscription_id = ${current.subscriptionId}
+    RETURNING *
+  `;
+  return rows[0] || await getFitnessMembership(memberEmail);
+}
+
 export async function getFitnessMembershipBySubscriptionId(subscriptionId: string) {
   if (!/^sub_[A-Za-z0-9]+$/.test(subscriptionId)) return null;
   const sql = await ensureFitnessMembershipSchema();
