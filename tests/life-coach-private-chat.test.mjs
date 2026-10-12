@@ -31,3 +31,10 @@ test("life coach database is isolated from shared membership storage",()=>{
  assert.ok(store.includes("process.env.LIFE_COACH_DATABASE_URL"));
  for(const forbidden of ["process.env.DATABASE_URL","process.env.POSTGRES_URL","process.env.STORAGE_URL"])assert.ok(!store.includes(forbidden));
 });
+
+test("private Life Coach page never sends testers into paid Fitness login",()=>{
+ const page=load("app/life/page.tsx");
+ assert.doesNotMatch(page,/redirect\\(["']\\/fitness\\/login/);
+ assert.match(page,/\/sign-in\\?redirect_url=/);
+ assert.match(page,/lifeTester\\(\\)/);
+});
