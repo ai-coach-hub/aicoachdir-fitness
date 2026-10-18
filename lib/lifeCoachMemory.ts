@@ -12,6 +12,8 @@ const filler = /^(?:ok(?:ay)?|thanks|thank you|yes|no|great|hello|hi|got it|soun
 const topicWords = new Set(["what","which","where","when","have","with","from","about","this","that","were","your","mine","ours","goal","goals","plan","plans","habit","habits","priority","priorities","earlier","previous","last","time","chat","conversation","remember","discussed","talked","tell","told","said","mentioned","help","progress","make","could","would","like","please","more","into","them","today","can","you","the","for","and","how","did","was"]);
 
 export function isLifeRecallQuestion(query: string): boolean {
+  // A member stating a new goal and asking us to remember it is writing a memory, not recalling one.
+  if (goalStatement.test(query) && /\b(?:please\s+)?remember (?:this|that|my|it)\b/i.test(query) && !/^\s*(?:what|which|did|do|can you (?:recall|remind|tell))\b/i.test(query)) return false;
   return (memoryReference.test(query) && (memoryQuestion.test(query) || progressQuestion.test(query))) || /\b(?:what(?:\x27s| is| was) my (?:goal|goals|priority|plan)|what goals have i set|which goal did i)\b/i.test(query);
 }
 export function lifeMemoryIntent(query: string): LifeMemoryIntent {
