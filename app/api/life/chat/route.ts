@@ -52,6 +52,12 @@ export async function POST(request:Request) {
    const clean=existing.filter(m=>m.role==="user" || !/\b(?:can\x27t|cannot|don\x27t|do not|no)\b.{0,80}\b(?:access|see|remember|retrieve)\b.{0,80}\b(?:earlier|previous|past|conversation|chat|history)\b/i.test(m.text));
    prior=clean.slice(-8).map(m=>m.role+": "+m.text.slice(0,400)).join("\n").slice(0,2100);
   }
+  // Explicit new goal capture should not be routed to previous-history recall or paid model inference.
+  if (/\bmy goal\b/i.test(message) && /\bplease remember (?:this|that|my|it)\b/i.test(message) && !/\b(?:suicid(?:al|e)|self[- ]?harm|kill myself|hurt(?:ing)? myself|overdose|starv(?:e|ing)|purging|danger to myself)\b/i.test(message)) {
+   const response="Got it. I'll remember that goal for our future Life Coach conversations. We can build on it whenever you're ready.";
+   await saveLifeTurn(member,id,message,response);
+   return json({ok:true,response,conversationId:id,source:"saved-private-history"});
+  }
   const needsHistory=isLifeRecallQuestion(message) || /\b(?:goal|goals|habit|habits|plan|schedule|routine|priority|progress|time management|follow up|pick up|left off)\b/i.test(message);
   const saved=needsHistory ? await recallLifeStatements(member,id,message) : [];
   const memories=[...sameThreadUserEntries,...saved];
