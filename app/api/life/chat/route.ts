@@ -85,13 +85,14 @@ export async function POST(request:Request) {
       process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011" &&
       process.env.PREVIEW_SHARED_USAGE_METER_ENABLED === "true") {
     const requestKey=typeof body.requestKey==="string" ? body.requestKey.trim() : "";
-    const subscriptionKey=process.env.PREVIEW_LIFE_USAGE_SUBSCRIPTION_KEY || "";
-    const periodStart=process.env.PREVIEW_LIFE_USAGE_PERIOD_START || "";
-    if (!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey) ||
-        !subscriptionKey.startsWith("preview-") ||
-        Number.isNaN(Date.parse(periodStart))) {
-      return json({ok:false,error:"Private usage test is not configured."},503);
+    const {lifeTestStatus,previewLifeTestPeriod,previewLifeTestSubscription}=await import("@/lib/previewLifeTestEnrollment");
+    const enrollment=await lifeTestStatus(member);
+    if(enrollment.active){
+    if (!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey)) {
+      return json({ok:false,error:"Private usage test request ID is missing."},400);
     }
+    const subscriptionKey=previewLifeTestSubscription;
+    const periodStart=previewLifeTestPeriod;
     const {reservePreviewAiUse,settlePreviewAiUse} = await import("@/lib/previewAiUsage");
     const {runMeteredPreviewGeneration} = await import("@/lib/previewLifeUsageFlow");
     const usage={memberId:member,subscriptionKey,periodStart,requestKey,coach:"life" as const};
@@ -120,6 +121,7 @@ export async function POST(request:Request) {
       result.reason.startsWith("duplicate_")?"This request was already submitted.":
       "Private usage test not available."},result.reason==="exhausted"?429:409);
     return json({ok:false,error:"The private test could not confirm the request result; please do not retry yet."},503);
+    }
   }
   const response=await fetch("https://api.pickaxe.co/v1/completions",{
    method:"POST",
