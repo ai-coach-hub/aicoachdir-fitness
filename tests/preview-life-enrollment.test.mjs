@@ -10,7 +10,7 @@ function loadModule(path,deps,env){
   module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022
  }}).outputText;
  const mod={exports:{}};
- runInNewContext(compiled,{module:mod,exports:mod.exports,
+ runInNewContext(compiled,{module:mod,exports:mod.exports,Response,
   process:{env},require:(name)=>{
    if(!Object.hasOwn(deps,name))throw Error("Unexpected dependency: "+name);
    return deps[name];
