@@ -78,6 +78,49 @@ export async function POST(request:Request) {
    "[End site history]"
   ].join("\n");
   const promptMessage=prior||recalled ? message+"\n\n"+context : message;
+  // Optional private-preview metering. OFF unless explicitly enabled with server-only
+  // settings. Existing memory/goal replies already returned above and remain free.
+  // Production never enters this branch, regardless of configuration.
+  if (process.env.VERCEL_ENV === "preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011" &&
+      process.env.PREVIEW_SHARED_USAGE_METER_ENABLED === "true") {
+    const requestKey=typeof body.requestKey==="string" ? body.requestKey.trim() : "";
+    const subscriptionKey=process.env.PREVIEW_LIFE_USAGE_SUBSCRIPTION_KEY || "";
+    const periodStart=process.env.PREVIEW_LIFE_USAGE_PERIOD_START || "";
+    if (!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey) ||
+        !subscriptionKey.startsWith("preview-") ||
+        Number.isNaN(Date.parse(periodStart))) {
+      return json({ok:false,error:"Private usage test is not configured."},503);
+    }
+    const {reservePreviewAiUse,settlePreviewAiUse} = await import("@/lib/previewAiUsage");
+    const {runMeteredPreviewGeneration} = await import("@/lib/previewLifeUsageFlow");
+    const usage={memberId:member,subscriptionKey,periodStart,requestKey,coach:"life" as const};
+    const result=await runMeteredPreviewGeneration({
+      reserve:()=>reservePreviewAiUse(usage),
+      settle:outcome=>settlePreviewAiUse(usage,outcome)
+    },async()=>{
+      const completion=await fetch("https://api.pickaxe.co/v1/completions",{
+        method:"POST",
+        headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json",Accept:"application/json"},
+        body:JSON.stringify({message:promptMessage,userId:member,conversationId:id,stream:false}),
+        cache:"no-store",signal:AbortSignal.timeout(110000)
+      });
+      if(!completion.ok)throw Error("Provider did not complete");
+      const payload=await completion.json();
+      if(payload?.success===false)throw Error("Provider returned failure");
+      const rawAnswer=resultText(payload);
+      if(!rawAnswer)throw Error("Empty provider reply");
+      const answer=cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories));
+      await saveLifeTurn(member,id,message,answer);
+      return {kind:"generated" as const,value:{ok:true,response:answer,conversationId:id,source:"coach"}};
+    });
+    if(result.status==="completed")return json(result.value);
+    if(result.status==="blocked")return json({ok:false,error:
+      result.reason==="exhausted"?"Private test allowance reached.":
+      result.reason.startsWith("duplicate_")?"This request was already submitted.":
+      "Private usage test not available."},result.reason==="exhausted"?429:409);
+    return json({ok:false,error:"The private test could not confirm the request result; please do not retry yet."},503);
+  }
   const response=await fetch("https://api.pickaxe.co/v1/completions",{
    method:"POST",
    headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json",Accept:"application/json"},
