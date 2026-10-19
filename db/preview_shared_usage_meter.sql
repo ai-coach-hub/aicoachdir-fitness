@@ -84,3 +84,24 @@ BEGIN
  WHERE member_id=p_member AND subscription_key=p_subscription AND period_start=p_start;
  RETURN p_outcome;
 END $$;
+CREATE OR REPLACE FUNCTION preview_ai_reconcile(
+ p_member text, p_subscription text, p_start timestamptz,
+ p_request text, p_actual text
+) RETURNS text LANGUAGE plpgsql AS $$
+DECLARE old_status text;
+BEGIN
+ IF p_actual NOT IN ('completed','released') THEN RETURN 'invalid'; END IF;
+ PERFORM 1 FROM preview_ai_usage_periods
+ WHERE member_id=p_member AND subscription_key=p_subscription AND period_start=p_start FOR UPDATE;
+ IF NOT FOUND THEN RETURN 'ineligible'; END IF;
+ SELECT status INTO old_status FROM preview_ai_usage_requests
+ WHERE member_id=p_member AND subscription_key=p_subscription AND period_start=p_start AND request_key=p_request FOR UPDATE;
+ IF NOT FOUND THEN RETURN 'missing'; END IF;
+ IF old_status<>'uncertain' THEN RETURN 'already_'||old_status; END IF;
+ UPDATE preview_ai_usage_requests SET status=p_actual,changed_at=NOW()
+ WHERE member_id=p_member AND subscription_key=p_subscription AND period_start=p_start AND request_key=p_request;
+ UPDATE preview_ai_usage_periods SET reserved_uses=reserved_uses-1,
+ completed_uses=completed_uses+CASE WHEN p_actual='completed' THEN 1 ELSE 0 END
+ WHERE member_id=p_member AND subscription_key=p_subscription AND period_start=p_start;
+ RETURN p_actual;
+END $$;
