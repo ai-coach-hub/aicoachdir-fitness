@@ -26,6 +26,7 @@ export default function LifeChat(){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const end=useRef<HTMLDivElement>(null);
+ const pendingRequest=useRef<{key:string;message:string;conversationId:string}|null>(null);
  const [intro,setIntro]=useState(intros[0]);
  useEffect(()=>setIntro(intros[Math.floor(Math.random()*intros.length)]),[]);
  const loadThreads=async()=>{try{const r=await fetch("/api/life/chat",{cache:"no-store"});const j=await r.json();if(j.ok)setThreads(j.threads||[]);}catch{}};
@@ -35,23 +36,28 @@ export default function LifeChat(){
   try {
    const r=await fetch("/api/life/chat?id="+encodeURIComponent(nextId),{cache:"no-store"});
    const j=await r.json();
-   if(j.ok){setId(nextId);setMessages(j.messages||[]);}
+   if(j.ok){pendingRequest.current=null;setId(nextId);setMessages(j.messages||[]);}
    else setError(j.error||"Could not open this chat.");
   }catch{setError("Could not open this chat.");}
  };
  async function send(e:FormEvent){
   e.preventDefault();const message=input.trim();if(!message||busy)return;
+  const previous=pendingRequest.current;
+  const requestKey=previous?.message===message && previous?.conversationId===id
+   ? previous.key : `life-${crypto.randomUUID()}`;
+  pendingRequest.current={key:requestKey,message,conversationId:id};
   setBusy(true);setError("");setMessages(a=>[...a,{role:"user",text:message}]);setInput("");
   try{
-   const r=await fetch("/api/life/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,...(id?{conversationId:id}:{})})});
+   const r=await fetch("/api/life/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,requestKey,...(id?{conversationId:id}:{})})});
    const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"Life Coach reply could not be saved.");
+   pendingRequest.current=null;
    setId(j.conversationId);setMessages(a=>[...a,{role:"assistant",text:j.response}]);await loadThreads();
   }catch(ex){setError(ex instanceof Error?ex.message:"Request failed.");setInput(message);setMessages(a=>a.slice(0,-1));}finally{setBusy(false);}
  }
  return <section className={styles.layout}>
   <aside className={styles.history} aria-label="Previous Life Coach conversations">
    <h3>Previous chats</h3>
-   <button className={styles.newButton} type="button" disabled={busy} onClick={()=>{setId("");setMessages([]);setError("");}}>New Chat</button>
+   <button className={styles.newButton} type="button" disabled={busy} onClick={()=>{pendingRequest.current=null;setId("");setMessages([]);setError("");}}>New Chat</button>
    <div className={styles.threadList}>
     {threads.map(t=><button key={t.id} className={styles.threadButton} type="button" disabled={busy} aria-pressed={t.id===id} onClick={()=>void open(t.id)} style={{background:t.id===id?"#1b3440":"#0c1c2b"}}>{t.title}</button>)}
    </div>
