@@ -1,0 +1,32 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+
+const client=readFileSync(new URL("../app/life/LifeChat.tsx",import.meta.url),"utf8");
+const route=readFileSync(new URL("../app/api/life/chat/route.ts",import.meta.url),"utf8");
+
+test("Life Chat submits a request key but does not expose member identity or allowance",()=>{
+ assert.match(client,/requestKey/);
+ assert.match(client,/crypto\.randomUUID\(\)/);
+ assert.match(client,/body:JSON\.stringify\(\{message,requestKey/);
+ assert.doesNotMatch(client,/subscriptionKey|periodStart|memberId|limit_uses/);
+});
+
+test("retries reuse the request key for the same text and conversation",()=>{
+ assert.match(client,/previous\?\.message===message && previous\?\.conversationId===id/);
+ assert.match(client,/pendingRequest\.current=\{key:requestKey,message,conversationId:id\}/);
+ assert.match(client,/pendingRequest\.current=null/);
+});
+
+test("preview meter stays behind both environment flags and memory returns before reserving",()=>{
+ const indexSave=route.indexOf('await saveLifeTurn(member,id,message,response);');
+ const indexRecall=route.indexOf('if(direct!==null)');
+ const indexMeter=route.indexOf('PREVIEW_SHARED_USAGE_METER_ENABLED === "true"');
+ const indexReservation=route.indexOf('runMeteredPreviewGeneration(');
+ assert.ok(indexSave>0 && indexRecall>indexSave && indexMeter>indexRecall && indexReservation>indexMeter);
+ assert.match(route,/process\.env\.VERCEL_ENV === "preview"/);
+ assert.match(route,/process\.env\.VERCEL_GIT_COMMIT_REF === "feature\/life-coach-agent-sandbox-20261011"/);
+ assert.match(route,/subscriptionKey=process\.env\.PREVIEW_LIFE_USAGE_SUBSCRIPTION_KEY/);
+ assert.match(route,/periodStart=process\.env\.PREVIEW_LIFE_USAGE_PERIOD_START/);
+ assert.doesNotMatch(route,/subscriptionKey=body\.|periodStart=body\./);
+});
