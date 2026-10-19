@@ -26,7 +26,8 @@ test("preview meter stays behind both environment flags and memory returns befor
  assert.ok(indexSave>0 && indexRecall>indexSave && indexMeter>indexRecall && indexReservation>indexMeter);
  assert.match(route,/process\.env\.VERCEL_ENV === "preview"/);
  assert.match(route,/process\.env\.VERCEL_GIT_COMMIT_REF === "feature\/life-coach-agent-sandbox-20261011"/);
- assert.match(route,/subscriptionKey=process\.env\.PREVIEW_LIFE_USAGE_SUBSCRIPTION_KEY/);
- assert.match(route,/periodStart=process\.env\.PREVIEW_LIFE_USAGE_PERIOD_START/);
+ assert.match(route,/const subscriptionKey=previewLifeTestSubscription/);
+ assert.match(route,/const periodStart=previewLifeTestPeriod/);
+ assert.match(route,/if\(enrollment.active\)/);
  assert.doesNotMatch(route,/subscriptionKey=body\.|periodStart=body\./);
 });
