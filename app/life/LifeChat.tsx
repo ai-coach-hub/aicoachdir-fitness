@@ -24,13 +24,32 @@ export default function LifeChat(){
  const [messages,setMessages]=useState<Msg[]>([]);
  const [input,setInput]=useState("");
  const [busy,setBusy]=useState(false);
+ const [usageTest,setUsageTest]=useState<{active:boolean;remaining:number;used:number;limit:number}|null>(null);
+ const [startingTest,setStartingTest]=useState(false);
  const [error,setError]=useState("");
  const end=useRef<HTMLDivElement>(null);
  const pendingRequest=useRef<{key:string;message:string;conversationId:string}|null>(null);
  const [intro,setIntro]=useState(intros[0]);
  useEffect(()=>setIntro(intros[Math.floor(Math.random()*intros.length)]),[]);
  const loadThreads=async()=>{try{const r=await fetch("/api/life/chat",{cache:"no-store"});const j=await r.json();if(j.ok)setThreads(j.threads||[]);}catch{}};
- useEffect(()=>{void loadThreads();},[]);
+ const loadUsage=async()=>{try{
+  const r=await fetch("/api/life/usage-test",{cache:"no-store"});
+  if(!r.ok)return;
+  const j=await r.json();
+  if(j.ok)setUsageTest({active:j.active,remaining:j.remaining,used:j.used,limit:j.limit});
+ }catch{}};
+ useEffect(()=>{void loadThreads();void loadUsage();},[]);
+ async function startUsageTest(){
+  if(startingTest||busy)return;
+  setStartingTest(true);setError("");
+  try{
+   const r=await fetch("/api/life/usage-test",{method:"POST"});
+   const j=await r.json();
+   if(!r.ok||!j.ok)throw Error(j.error||"Cannot start private test");
+   setUsageTest({active:j.active,remaining:j.remaining,used:j.used,limit:j.limit});
+  }catch(ex){setError(ex instanceof Error?ex.message:"Cannot start private test")}
+  finally{setStartingTest(false)}
+ }
  useEffect(()=>{end.current?.scrollIntoView({block:"end",behavior:"smooth"});},[messages,busy]);
  const open=async(nextId:string)=>{if(busy)return;setError("");
   try {
@@ -51,8 +70,9 @@ export default function LifeChat(){
    const r=await fetch("/api/life/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,requestKey,...(id?{conversationId:id}:{})})});
    const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"Life Coach reply could not be saved.");
    pendingRequest.current=null;
+   if(usageTest?.active)void loadUsage();
    setId(j.conversationId);setMessages(a=>[...a,{role:"assistant",text:j.response}]);await loadThreads();
-  }catch(ex){setError(ex instanceof Error?ex.message:"Request failed.");setInput(message);setMessages(a=>a.slice(0,-1));}finally{setBusy(false);}
+  }catch(ex){if(usageTest?.active)void loadUsage();setError(ex instanceof Error?ex.message:"Request failed.");setInput(message);setMessages(a=>a.slice(0,-1));}finally{setBusy(false);}
  }
  return <section className={styles.layout}>
   <aside className={styles.history} aria-label="Previous Life Coach conversations">
@@ -65,6 +85,8 @@ export default function LifeChat(){
   <div className={styles.chatPanel}>
    <h1 style={{margin:0}}>AI Coaching for Life</h1>
    <p style={{color:"var(--muted)",margin:0}}>Private test • goals, habits and accountability</p>
+   {usageTest&&!usageTest.active&&<button type="button" disabled={startingTest||busy} onClick={()=>void startUsageTest()}>Start optional 3-use test</button>}
+   {usageTest?.active&&<p role="status" style={{margin:0}}>Private AI uses left: {usageTest.remaining} of {usageTest.limit}. Saved-memory recall remains free.</p>}
    <div role="log" aria-live="polite" className={styles.messageLog}>
     {!messages.length&&!input.trim()&&<p style={{color:"var(--muted)"}}>{intro}</p>}
     {messages.map((m,i)=><p key={i} className={styles.message} style={{background:m.role==="user"?"#17323b":"#101d2a"}}><strong>{m.role==="user"?"You":"Life Coach"}</strong><span style={{display:"block",marginTop:4}}>{m.role==="assistant"?<CoachResponse text={m.text}/>:m.text}</span></p>)}
