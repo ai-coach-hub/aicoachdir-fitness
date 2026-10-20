@@ -66,6 +66,22 @@ export async function previewFitnessChat(
     return Response.json({ ok: false, error: "Fitness membership verification is temporarily unavailable." }, { status: 503 });
   }
 
+  // Never reuse the production Fitness Pickaxe deployment in an isolated QA.
+  // The normal handler can read/write provider-side memories and action runs.
+  // Until a separately configured provider path is wired, fail before reserve.
+  if (!process.env.PICKAXE_FITNESS_TEST_DEPLOYMENT_TOKEN) {
+    return Response.json({
+      ok: false,
+      error: "Private Fitness model testing is paused until an isolated test coach is configured. No AI use was taken for this request.",
+    }, { status: 503 });
+  }
+  // The dedicated test deployment must be integrated into an isolated provider
+  // handler before model-backed test calls can be enabled.
+  return Response.json({
+    ok: false,
+    error: "Private Fitness test coach integration is pending. No new AI request was started.",
+  }, { status: 503 });
+
   const requestKey = typeof body.requestKey === "string" ? body.requestKey.trim() : "";
   if (!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey)) {
     return Response.json({ ok: false, error: "A valid private usage request ID is required." }, { status: 400 });
