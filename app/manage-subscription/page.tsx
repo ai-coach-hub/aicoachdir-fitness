@@ -99,7 +99,10 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
         <h1 id="subscription-heading">Manage Subscription</h1>
         <p>Manage renewal, payment methods, or cancellation using the same AI Coach Directory login. Cancellation keeps paid access through the end of the billing period.</p>
         {!user ? (
-          <p><Link href="/fitness/login">Sign in</Link> with your existing member account.</p>
+          <div>
+            <p><Link href="/fitness/login">Sign in</Link> with your existing member account to manage billing online.</p>
+            <p><strong>Can't sign in or account not found?</strong> You can still request cancellation. Email support from the address used for your subscription. Include only your request to cancel; never email your password or payment-card details. We will verify ownership and help stop future renewals without requiring a new account.</p>
+          </div>
         ) : !emailVerified ? (
           <p>Please verify the email on your member login to manage Stripe billing securely.</p>
         ) : (
@@ -141,12 +144,12 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
                 {lookupFailed
                   ? "We couldn't load your billing details right now. No payment was attempted."
                   : "We need to confirm your billing account before opening secure billing management."}
-                {" "}Please contact support to reconnect an existing subscription without paying twice.
+                {" "}Contact support to verify your existing subscription, manage cancellation, or reconnect your account without paying twice. Do not sign up for another paid subscription.
               </p>
             ) : null}
           </>
         )}
-        <p>Need help? Contact support: Email <a href={`mailto:${supportEmail}?subject=Subscription%20management%20request`}>{supportEmail}</a>. We can assist with payment recovery, cancellation, or reactivation.</p>
+        <p>Need help? Contact support: Email <a href={`mailto:${supportEmail}?subject=Subscription%20management%20request`}>{supportEmail}</a>. We can assist with payment recovery, cancellation, or reactivation, including when your original login is not recognized.</p>
         <p><Link href="/">Back to home</Link></p>
       </section>
     </main>
