@@ -26,9 +26,13 @@ test("billing management has a legacy/support fallback", async () => {
 test("customers without a Clerk account can see cancellation assistance", async () => {
   const manage = await source("app/manage-subscription/page.tsx");
   const signIn = await source("app/sign-in/[[...sign-in]]/page.tsx");
-  assert.match(manage, /Can't sign in or account not found/);
-  assert.match(manage, /request cancellation/);
-  assert.match(manage, /without requiring a new account/);
+  assert.match(manage, /className="primary-button">Member Login/);
+  assert.match(manage, /href="\/fitness\/login\?destination=manage-subscription"/);
+  assert.match(manage, /Activate Existing Login/);
+  assert.match(manage, /No new purchase is required/);
+  assert.match(manage, /Can't access your account or subscription/);
+  assert.match(manage, /Cancellation%20request/);
+  assert.equal((manage.match(/<details/g) || []).length, 1);
   const login = await source("components/FitnessMemberLoginClient.tsx");
   const cancel = await source("app/api/billing/cancel-renewal/route.ts");
   assert.match(signIn, /manage or cancel your subscription without signing in/);
@@ -44,4 +48,13 @@ test("customers without a Clerk account can see cancellation assistance", async 
   assert.match(cancel, /"true"/);
   assert.match(cancel, /verified\.cancelAtPeriodEnd/);
   assert.doesNotMatch(cancel, /\/subscriptions[^\n]*\/cancel/);
+});
+
+test("subscription login returns the member to billing rather than the coach", async () => {
+  const login = await source("app/fitness/login/page.tsx");
+  const client = await source("components/FitnessMemberLoginClient.tsx");
+  assert.match(login, /value === "manage-subscription"/);
+  assert.match(login, /destination === "manage-subscription"/);
+  assert.match(login, /return "\/manage-subscription"/);
+  assert.match(client, /forceRedirectUrl={loginReturnUrl}/);
 });
