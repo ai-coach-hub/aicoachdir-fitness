@@ -29,6 +29,7 @@ test("customers without a Clerk account can see cancellation assistance", async 
   assert.match(manage, /className="primary-button">Member Login/);
   assert.match(manage, /href="\/fitness\/login\?destination=manage-subscription"/);
   assert.match(manage, /Activate Existing Login/);
+  assert.match(manage, /href="\/fitness\/legacy-account\?destination=manage-subscription"/);
   assert.match(manage, /No new purchase is required/);
   assert.match(manage, /Can't access your account or subscription/);
   assert.match(manage, /Cancellation%20request/);
@@ -57,4 +58,15 @@ test("subscription login returns the member to billing rather than the coach", a
   assert.match(login, /destination === "manage-subscription"/);
   assert.match(login, /return "\/manage-subscription"/);
   assert.match(client, /forceRedirectUrl={loginReturnUrl}/);
+});
+
+test("existing-member activation also returns to billing only when explicitly requested", async () => {
+  const page = await source("app/fitness/legacy-account/page.tsx");
+  const client = await source("components/LegacyMemberAccountClient.tsx");
+  assert.match(page, /requested === "manage-subscription"/);
+  assert.match(page, /returnPath =/);
+  assert.match(client, /forceRedirectUrl={returnPath}/);
+  assert.match(client, /signInUrl={returnPath === "\/manage-subscription"/);
+  assert.match(client, /Manage Subscription/);
+  assert.match(client, /Continue to Fitness Coach/);
 });
