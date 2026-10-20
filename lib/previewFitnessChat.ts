@@ -1,0 +1,89 @@
+import { lifeTester } from "@/lib/lifeCoachAccess";
+import { lifeTestStatus, previewLifeTestPeriod, previewLifeTestSubscription } from "@/lib/previewLifeTestEnrollment";
+import { reservePreviewAiUse, settlePreviewAiUse } from "@/lib/previewAiUsage";
+import { runMeteredPreviewGeneration } from "@/lib/previewLifeUsageFlow";
+
+// The real Fitness handler remains the source of truth for subscription access,
+// saved-plan verification and provider error handling. This opt-in adapter runs
+// exclusively on the private sandbox branch for approved, enrolled Life testers.
+export async function previewFitnessChat(
+  request: Request,
+  existingFitnessHandler: (request: Request) => Promise<Response>,
+): Promise<Response> {
+  if (process.env.VERCEL_ENV !== "preview" ||
+      process.env.VERCEL_GIT_COMMIT_REF !== "feature/life-coach-agent-sandbox-20261011" ||
+      process.env.PREVIEW_SHARED_USAGE_METER_ENABLED !== "true") {
+    return existingFitnessHandler(request);
+  }
+
+  // Workout-completion recording is not a model-backed chat request.
+  let body: Record<string, unknown>;
+  try {
+    const value: unknown = await request.clone().json();
+    body = value && typeof value === "object" && !Array.isArray(value)
+      ? value as Record<string, unknown> : {};
+  } catch {
+    return existingFitnessHandler(request);
+  }
+  if (body.action === "complete_workout" || body.action === "sync_completed_workout" ||
+      typeof body.message !== "string" || !body.message.trim()) {
+    return existingFitnessHandler(request);
+  }
+
+  const member = await lifeTester();
+  if (!member) return existingFitnessHandler(request);
+
+  let enrollment: Awaited<ReturnType<typeof lifeTestStatus>>;
+  try {
+    enrollment = await lifeTestStatus(member);
+  } catch {
+    // Approved preview testers cannot bypass an unavailable preview meter.
+    return Response.json({ ok: false, error: "Private usage verification is temporarily unavailable." }, { status: 503 });
+  }
+  if (!enrollment.active) return existingFitnessHandler(request);
+
+  const requestKey = typeof body.requestKey === "string" ? body.requestKey.trim() : "";
+  if (!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey)) {
+    return Response.json({ ok: false, error: "A valid private usage request ID is required." }, { status: 400 });
+  }
+
+  const usage = {
+    memberId: member,
+    subscriptionKey: previewLifeTestSubscription,
+    periodStart: previewLifeTestPeriod,
+    requestKey,
+    coach: "fitness" as const,
+  };
+  try {
+    const result = await runMeteredPreviewGeneration({
+      reserve: () => reservePreviewAiUse(usage),
+      settle: (outcome) => settlePreviewAiUse(usage, outcome),
+    }, async () => {
+      const response = await existingFitnessHandler(request);
+      const payload: unknown = await response.clone().json().catch(() => null);
+      const value = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+      // Once the handler was invoked, an unverified error may follow a provider
+      // attempt or a workout Action. Hold the reservation for reconciliation.
+      if (!response.ok || value.ok !== true || typeof value.response !== "string" || !value.response.trim()) {
+        throw new Error("Fitness response was not a confirmed generation");
+      }
+      return { kind: "generated" as const, value: response };
+    });
+    if (result.status === "completed") return result.value;
+    if (result.status === "blocked") {
+      const exhausted = result.reason === "exhausted";
+      return Response.json({
+        ok: false,
+        error: exhausted ? "Private test allowance reached." :
+          result.reason.startsWith("duplicate_") ? "This request was already submitted." :
+          "Private usage test not available.",
+      }, { status: exhausted ? 429 : 409 });
+    }
+    return Response.json({
+      ok: false,
+      error: "The private test could not confirm this Fitness request. Please do not retry yet.",
+    }, { status: 503 });
+  } catch {
+    return Response.json({ ok: false, error: "Private usage meter is temporarily unavailable." }, { status: 503 });
+  }
+}
