@@ -5,7 +5,21 @@ import {
   pickaxeUserHasFitnessAccess,
 } from "@/lib/pickaxeAccess";
 
+const PREVIEW_SANDBOX_BRANCH = "feature/life-coach-agent-sandbox-20261011";
+const PREVIEW_NEON_BRANCH_ID = "br-autumn-breeze-auw38rgr";
+
+function onFitnessPreviewSandbox() {
+  return process.env.VERCEL_ENV === "preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF === PREVIEW_SANDBOX_BRANCH;
+}
+
 function connectionString() {
+  // A sandbox preview must never fall back to the inherited production URLs.
+  if (onFitnessPreviewSandbox()) {
+    const isolated = process.env.LIFE_COACH_DATABASE_URL;
+    if (!isolated) throw new Error("Sandbox membership database is not configured.");
+    return isolated;
+  }
   const value =
     process.env.STORAGE_URL ||
     process.env.DATABASE_URL ||
@@ -18,8 +32,20 @@ export function membershipDb() {
   return neon(connectionString());
 }
 
-export async function ensureFitnessMembershipSchema() {
+async function verifiedMembershipDb() {
   const sql = membershipDb();
+  if (onFitnessPreviewSandbox()) {
+    // Check the database identity BEFORE any reads, schema DDL or writes.
+    const rows = await sql`SELECT current_setting('neon.branch_id', true) AS branch_id`;
+    if (String(rows[0]?.branch_id || "") !== PREVIEW_NEON_BRANCH_ID) {
+      throw new Error("Sandbox membership database branch mismatch.");
+    }
+  }
+  return sql;
+}
+
+export async function ensureFitnessMembershipSchema() {
+  const sql = await verifiedMembershipDb();
 
   await sql`
     CREATE TABLE IF NOT EXISTS fitness_memberships (
@@ -149,6 +175,10 @@ export async function memberHasFitnessAccess(
   if (hasRealStripeRecord && stripeInactive) {
     return false;
   }
+
+  // Never synchronize external Pickaxe membership into the private sandbox.
+  // Test access must already be explicitly present in the isolated DB.
+  if (onFitnessPreviewSandbox()) return false;
 
   const legacyActive = await pickaxeUserHasFitnessAccess(memberEmail, {
     fallbackToList: options.fallbackToPickaxeList ?? true,
