@@ -21,11 +21,12 @@ export default function SignInPage() {
         <h1>Sign in to AI Coach Directory</h1>
         <p>Access your account and continue to your coaching experience.</p>
       </section>
-      <SignIn />
       <p style={{ textAlign: "center", margin: "18px auto", maxWidth: 520 }}>
-        Trying to cancel a subscription but your account cannot be found?{" "}
-        <Link href="/manage-subscription">Get cancellation help without signing in.</Link>
+        Already paying but seeing "Couldn't find your account"?{" "}
+        <Link href="/fitness/legacy-account">Activate your existing login</Link>, or{" "}
+        <Link href="/manage-subscription">manage or cancel your subscription without signing in</Link>.
       </p>
+      <SignIn />
     </main>
   );
 }
