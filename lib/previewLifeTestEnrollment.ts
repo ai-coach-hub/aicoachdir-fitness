@@ -1,8 +1,8 @@
 import { neon } from "@neondatabase/serverless";
 const branch="feature/life-coach-agent-sandbox-20261011";
 const expected="br-autumn-breeze-auw38rgr";
-export const previewLifeTestPeriod="2026-10-19T00:00:00.000Z";
-export const previewLifeTestSubscription="preview-life-three-use-20261019";
+export const previewLifeTestPeriod="2026-10-20T00:00:00.000Z";
+export const previewLifeTestSubscription="preview-shared-three-use-20261020";
 export const previewLifeTestLimit=3;
 function permitted(){
  return process.env.VERCEL_ENV==="preview" &&
