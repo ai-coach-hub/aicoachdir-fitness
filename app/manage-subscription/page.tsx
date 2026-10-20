@@ -107,14 +107,15 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
             <p>Sign in to view and manage your subscription.</p>
             <div className="cta-row">
               <Link href="/fitness/login?destination=manage-subscription" className="primary-button">Member Login</Link>
-              <Link href="/fitness/legacy-account" className="secondary-button">Activate Existing Login</Link>
+              <Link href="/fitness/legacy-account?destination=manage-subscription" className="secondary-button">Activate Existing Login</Link>
             </div>
             <p className="microcopy">
               Already subscribed but not recognized? Activate your existing login with your original member email. No new purchase is required.
             </p>
           </div>
         ) : !emailVerified ? (
-          <p>Please verify the email address on your member login before managing your subscription.</p>        ) : (
+          <p>Please verify the email address on your member login before managing your subscription.</p>
+        ) : (
           <>
             {statusMessage ? <p role="status">{statusMessage}</p> : null}
 
