@@ -1,3 +1,5 @@
+import { currentUser } from "@clerk/nextjs/server";
+import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
 import { lifeTester } from "@/lib/lifeCoachAccess";
 import { lifeTestStatus, previewLifeTestPeriod, previewLifeTestSubscription } from "@/lib/previewLifeTestEnrollment";
 import { reservePreviewAiUse, settlePreviewAiUse } from "@/lib/previewAiUsage";
@@ -41,6 +43,19 @@ export async function previewFitnessChat(
     return Response.json({ ok: false, error: "Private usage verification is temporarily unavailable." }, { status: 503 });
   }
   if (!enrollment.active) return existingFitnessHandler(request);
+
+  // Verify real Fitness entitlement before reserving the synthetic preview slot.
+  // Unsubscribed Life testers must not spend a slot on an inaccessible coach.
+  try {
+    const user = await currentUser();
+    const primary = user?.emailAddresses.find(e => e.id === user.primaryEmailAddressId);
+    if (!user || !primary || user.id !== member ||
+        !(await memberHasFitnessAccess(primary.emailAddress.trim().toLowerCase(), user.id))) {
+      return Response.json({ ok: false, error: "An active Fitness Coach membership is required." }, { status: 403 });
+    }
+  } catch {
+    return Response.json({ ok: false, error: "Fitness membership verification is temporarily unavailable." }, { status: 503 });
+  }
 
   const requestKey = typeof body.requestKey === "string" ? body.requestKey.trim() : "";
   if (!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey)) {
