@@ -11,7 +11,7 @@ test("Fitness shared meter is isolated to preview, exact sandbox branch and expl
   assert.match(adapter, /PREVIEW_SHARED_USAGE_METER_ENABLED !== "true"/);
   assert.match(adapter, /lifeTester\(\)/);
   assert.match(adapter, /lifeTestStatus\(member\)/);
-  assert.match(adapter, /if \(!enrollment\.active\) return existingFitnessHandler\(request\)/);
+  assert.match(adapter, /if \(!enrollment\.active\) return Response\.json/);
 });
 test("Workout completion is not charged and Fitness entitlement checked before reservation", () => {
   assert.match(adapter, /body\.action === "complete_workout"/);
