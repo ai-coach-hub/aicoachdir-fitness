@@ -32,7 +32,8 @@ test("customers without a Clerk account can see cancellation assistance", async 
   assert.match(manage, /href="\/fitness\/legacy-account\?destination=manage-subscription"/);
   assert.match(manage, /No new purchase is required/);
   assert.match(manage, /Can't access your account or subscription/);
-  assert.match(manage, /Cancellation%20request/);
+  assert.match(manage, /SupportContactForm/);
+  assert.match(manage, /contactConfigured/);
   assert.equal((manage.match(/<details/g) || []).length, 1);
   const login = await source("components/FitnessMemberLoginClient.tsx");
   const cancel = await source("app/api/billing/cancel-renewal/route.ts");
@@ -69,4 +70,19 @@ test("existing-member activation also returns to billing only when explicitly re
   assert.match(client, /signInUrl={returnPath === "\/manage-subscription"/);
   assert.match(client, /Manage Subscription/);
   assert.match(client, /Continue to Fitness Coach/);
+});
+
+test("contact form has name, email, message and shows success only after provider confirmation", async () => {
+  const form = await source("components/SupportContactForm.tsx");
+  const route = await source("app/api/support/contact/route.ts");
+  const page = await source("app/manage-subscription/page.tsx");
+  for (const field of ['name="name"', 'name="email"', 'name="message"']) assert.match(form, new RegExp(field));
+  assert.match(form, /response\.ok/);
+  assert.match(form, /form\.reset\(\)/);
+  assert.match(route, /request\.headers\.get\("origin"\)/);
+  assert.match(route, /RESEND_API_KEY/);
+  assert.match(route, /SUPPORT_CONTACT_FROM_EMAIL/);
+  assert.match(route, /api\.resend\.com\/emails/);
+  assert.match(route, /if \(!result\.ok\)/);
+  assert.match(page, /contactConfigured \?/);
 });
