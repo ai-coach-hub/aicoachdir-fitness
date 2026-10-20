@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import SiteHeader from "@/components/SiteHeader";
-import { getPublicStripePortalLoginUrl } from "@/lib/publicStripePortalLogin";
 import {
   getFitnessMembership,
   memberHasFitnessAccess,
@@ -26,7 +25,6 @@ type ManageSubscriptionProps = {
 };
 
 export default async function ManageSubscriptionPage({ searchParams }: ManageSubscriptionProps) {
-  const publicPortalLoginUrl = getPublicStripePortalLoginUrl();
   const user = await currentUser();
   const primaryAddress = user?.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)
     || user?.emailAddresses[0];
@@ -83,7 +81,11 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
 
   const params = await searchParams;
   const renewalMessage = Array.isArray(params.renewal) ? params.renewal[0] : params.renewal;
-  const statusMessage = renewalMessage === "resumed" && billingState === "active"
+  const statusMessage = renewalMessage === "canceled" && billingState === "canceling"
+    ? "Your cancellation is confirmed. Automatic renewal is off, and your paid access continues through your current billing period."
+    : renewalMessage === "already-canceling" && billingState === "canceling"
+      ? "Your subscription is already scheduled to cancel at the end of your paid period."
+      : renewalMessage === "resumed" && billingState === "active"
     ? "Automatic renewal has been restored. Your existing subscription remains in place."
     : renewalMessage === "already-active" && billingState === "active"
       ? "Your subscription is already renewing automatically."
@@ -100,17 +102,9 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
         <p className="eyebrow">ACCOUNT</p>
         <h1 id="subscription-heading">Manage Subscription</h1>
         <p>Manage renewal, payment methods, or cancellation. Canceling stops future renewals, and you ordinarily keep your access through the paid billing period.</p>
-        {publicPortalLoginUrl ? (
-          <div className="cta-row">
-            <a className="secondary-button" href={publicPortalLoginUrl}>Manage Billing by Email</a>
-          </div>
-        ) : null}
-        {publicPortalLoginUrl ? (
-          <p>Can't sign in to AI Coach Directory? Use the email you pay with to get a secure Stripe billing login link. No new website account is required.</p>
-        ) : null}
         {!user ? (
           <div>
-            <p><Link href="/fitness/login">Sign in</Link> with your existing member account to manage billing online.</p>
+            <p><Link href="/fitness/login">Sign in</Link> with your existing member account to manage billing securely, or <Link href="/fitness/legacy-account">activate your existing member login</Link> without purchasing again.</p>
             <p><strong>Can't sign in or account not found?</strong> You can still request cancellation. Email support from the address used for your subscription. Include only your request to cancel; never email your password or payment-card details. We will verify ownership and help stop future renewals without requiring a new account.</p>
           </div>
         ) : !emailVerified ? (
@@ -139,6 +133,12 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
                   <Link href="/fitness/subscribe?destination=fitness" className="primary-button">Reactivate Membership</Link>
                 </div>
               </>
+            ) : null}
+
+            {billingState === "active" && linkedMember ? (
+              <form method="post" action="/api/billing/cancel-renewal">
+                <button className="secondary-button" type="submit">Cancel Subscription at End of Billing Period</button>
+              </form>
             ) : null}
 
             {hasStripeBilling ? (
