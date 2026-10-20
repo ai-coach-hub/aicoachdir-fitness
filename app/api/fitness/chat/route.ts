@@ -2150,6 +2150,16 @@ export async function GET() {
     );
   }
 
+  // The sandbox has no isolated Pickaxe workout dataset yet.
+  // Never read, recover, or write real workout data during private QA.
+  if (process.env.VERCEL_ENV === "preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011") {
+    return Response.json({
+      ok: true, plan: null, historyEntries: [],
+      memberAuthenticated: true, previewWorkoutDataUnavailable: true,
+    }, { headers: { "Cache-Control": "private, no-store" } });
+  }
+
   const studioToken = getStudioToken();
   if (!studioToken) {
     return Response.json(
