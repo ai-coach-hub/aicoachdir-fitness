@@ -356,6 +356,7 @@ export default function FitnessChatPage() {
   const [pendingPlanRequest, setPendingPlanRequest] = useState("");
   const [status, setStatus] = useState("");
   const [previewAllowance, setPreviewAllowance] = useState<{ active: boolean; remaining: number; limit: number } | null>(null);
+  const [enrollingPreview, setEnrollingPreview] = useState(false);
   async function refreshPreviewAllowance() {
     try {
       const response = await fetch("/api/life/usage-test", { cache: "no-store" });
@@ -363,6 +364,17 @@ export default function FitnessChatPage() {
       const data = await response.json();
       if (data.ok) setPreviewAllowance({ active: data.active, remaining: data.remaining, limit: data.limit });
     } catch { /* preview counter does not affect ordinary member chat */ }
+  }
+  async function enrollSharedPreview() {
+    setEnrollingPreview(true);
+    try {
+      const response = await fetch("/api/life/usage-test", { method: "POST", cache: "no-store" });
+      const data = await response.json();
+      if (response.ok && data.ok)
+        setPreviewAllowance({ active: data.active, remaining: data.remaining, limit: data.limit });
+      else setStatus(data.error || "Private test could not be activated.");
+    } catch { setStatus("Private test could not be activated."); }
+    finally { setEnrollingPreview(false); }
   }
   useEffect(() => { void refreshPreviewAllowance(); }, []);
   const [plan, setPlan] = useState<JsonRecord | null>(null);
@@ -879,6 +891,12 @@ export default function FitnessChatPage() {
               <div>
                 <p className="eyebrow compact-eyebrow">YOUR COACH</p>
                 <h2>What are we working on today?</h2>
+                {previewAllowance && !previewAllowance.active ? (
+                  <button type="button" className="secondary-button" disabled={enrollingPreview}
+                    onClick={() => { void enrollSharedPreview(); }}>
+                    {enrollingPreview ? "Starting private test..." : "Start optional shared 3-use test"}
+                  </button>
+                ) : null}
                 {previewAllowance?.active ? (
                   <p role="status">Private shared AI uses left: {previewAllowance.remaining} of {previewAllowance.limit}.</p>
                 ) : null}
