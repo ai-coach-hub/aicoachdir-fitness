@@ -22,3 +22,13 @@ test("billing management has a legacy/support fallback", async () => {
   assert.match(page, /Ai\.coach\.hub\.domain@gmail\.com/i);
   assert.match(page, /customer-portal/);
 });
+
+test("customers without a Clerk account can see cancellation assistance", async () => {
+  const manage = await source("app/manage-subscription/page.tsx");
+  const signIn = await source("app/sign-in/[[...sign-in]]/page.tsx");
+  assert.match(manage, /Can't sign in or account not found/);
+  assert.match(manage, /request cancellation/);
+  assert.match(manage, /without requiring a new account/);
+  assert.match(signIn, /Get cancellation help without signing in/);
+  assert.match(signIn, /href="\/manage-subscription"/);
+});
