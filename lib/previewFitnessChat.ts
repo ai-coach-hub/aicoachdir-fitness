@@ -37,7 +37,7 @@ export async function previewFitnessChat(
   // Private QA must never change real Pickaxe workout plans. The standalone
   // conversation path remains testable; mutation requests are deliberately
   // blocked until provider data is isolated as well.
-  if (/\\b(?:create|make|build|generate|save|update|modify|change|replace|shift|move|reschedule|add|remove|delete|sync)\\b[\\s\\S]{0,90}\\b(?:workout|workouts|plan|schedule|my workouts)\\b/i.test(body.message)) {
+  if (/\b(?:create|make|build|generate|save|update|modify|change|replace|shift|move|reschedule|add|remove|delete|sync)\b[\s\S]{0,90}\b(?:workout|workouts|plan|schedule|my workouts)\b/i.test(body.message)) {
     return Response.json({ ok: false, error: "Workout-plan changes are disabled in this private test to protect your saved workouts." }, { status: 403 });
   }
 
