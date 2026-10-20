@@ -34,7 +34,7 @@ function setup(overrides={}){
    return [{branch_id:dbBranch}];
   if(statement.includes("INSERT INTO preview_ai_usage_periods")){
    const [id,subscription,period,limit]=values;
-   assert.equal(subscription,"preview-life-three-use-20261019");
+   assert.equal(subscription,"preview-shared-three-use-20261020");
    assert.equal(limit,3);
    const key=id+":"+subscription+":"+period;
    if(!records.has(key)){records.set(key,{limit_uses:limit,reserved_uses:0,completed_uses:0});writes++;}
