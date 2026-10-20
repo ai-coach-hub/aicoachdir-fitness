@@ -891,6 +891,7 @@ export default function FitnessChatPage() {
               <div>
                 <p className="eyebrow compact-eyebrow">YOUR COACH</p>
                 <h2>What are we working on today?</h2>
+                {status ? <p role="alert" className="member-error">{status}</p> : null}
                 {previewAllowance && !previewAllowance.active ? (
                   <button type="button" className="secondary-button" disabled={enrollingPreview}
                     onClick={() => { void enrollSharedPreview(); }}>
