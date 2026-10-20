@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import SiteHeader from "@/components/SiteHeader";
+import SupportContactForm from "@/components/SupportContactForm";
 import {
   getFitnessMembership,
   memberHasFitnessAccess,
@@ -25,6 +26,7 @@ type ManageSubscriptionProps = {
 };
 
 export default async function ManageSubscriptionPage({ searchParams }: ManageSubscriptionProps) {
+  const contactConfigured = Boolean(process.env.RESEND_API_KEY && process.env.SUPPORT_CONTACT_FROM_EMAIL);
   const user = await currentUser();
   const primaryAddress = user?.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)
     || user?.emailAddresses[0];
@@ -166,11 +168,15 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
           </>
         )}
         <details style={{ marginTop: 24 }}>
-          <summary style={{ cursor: "pointer" }}>Can't access your account or subscription?</summary>
-          <p className="microcopy">
-            You can request cancellation assistance from <a href={`mailto:${supportEmail}?subject=Cancellation%20request`} style={{ textDecoration: "underline" }}>{supportEmail}</a> using your billing email.
-            We will verify ownership before making changes. Never share passwords or card numbers.
-          </p>
+          <summary style={{ cursor: "pointer" }}>Need Cancellation Help?</summary>
+          {contactConfigured ? (
+            <SupportContactForm />
+          ) : (
+            <p className="microcopy">
+              For cancellation assistance, contact <a href={`mailto:${supportEmail}?subject=Cancellation%20request`} style={{ textDecoration: "underline" }}>{supportEmail}</a>.
+              We'll verify account ownership before updating billing. Never share passwords or card numbers.
+            </p>
+          )}
         </details>
         <p><Link href="/">Back to home</Link></p>
       </section>
