@@ -2248,6 +2248,13 @@ async function settleWorkoutSaveRace<R extends { finalDelivery?: string }>(optio
 }
 
 export async function POST(request: Request) {
+  // The shared meter is opt-in, preview-branch-only. Legacy/live Fitness requests
+  // continue through the unchanged handler below.
+  const { previewFitnessChat } = await import("@/lib/previewFitnessChat");
+  return previewFitnessChat(request, postFitnessWithoutPreviewMeter);
+}
+
+async function postFitnessWithoutPreviewMeter(request: Request) {
   const user = await currentUser();
   const memberEmail = primaryEmailForUser(user);
   if (!user || !memberEmail) {
