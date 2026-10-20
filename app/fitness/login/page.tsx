@@ -33,6 +33,7 @@ function primaryEmail(user: Awaited<ReturnType<typeof currentUser>>) {
 
 function normalizeDestination(value: string) {
   if (value === "fitness") return "fitness";
+  if (value === "manage-subscription") return "manage-subscription";
   if (value === "budget-coach") return "budget-coach";
   if (value === "budget-tracker") return "budget-tracker";
   return "";
@@ -42,6 +43,7 @@ function destinationPath(destination: string) {
   if (destination === "budget-coach") return "/budgeting/launch?destination=coach";
   if (destination === "budget-tracker") return "/budgeting/launch?destination=tracker";
   if (destination === "fitness") return "/fitness/chat";
+  if (destination === "manage-subscription") return "/manage-subscription";
   return "";
 }
 
@@ -83,7 +85,7 @@ export default async function MemberLoginPage({
   }
 
   const continuePath = destinationPath(destination);
-  if (user && hasAccess && continuePath) {
+  if (user && continuePath && (hasAccess || destination === "manage-subscription")) {
     redirect(continuePath);
   }
 
