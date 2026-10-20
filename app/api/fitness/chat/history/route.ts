@@ -243,6 +243,14 @@ export async function GET() {
     );
   }
 
+  // Private QA has no isolated Pickaxe chat-history workspace. Do not query
+  // the real member's external history or confuse absence with deletion.
+  if (process.env.VERCEL_ENV === "preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011") {
+    return Response.json({ ok: true, threads: [], source: "isolated-preview", previewHistoryUnavailable: true },
+      { headers: { "Cache-Control": "private, no-store" } });
+  }
+
   const studioToken = getStudioToken();
   if (!studioToken) {
     return Response.json(
