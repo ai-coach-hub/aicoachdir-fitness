@@ -355,6 +355,16 @@ export default function FitnessChatPage() {
   const [running, setRunning] = useState(false);
   const [pendingPlanRequest, setPendingPlanRequest] = useState("");
   const [status, setStatus] = useState("");
+  const [previewAllowance, setPreviewAllowance] = useState<{ active: boolean; remaining: number; limit: number } | null>(null);
+  async function refreshPreviewAllowance() {
+    try {
+      const response = await fetch("/api/life/usage-test", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.ok) setPreviewAllowance({ active: data.active, remaining: data.remaining, limit: data.limit });
+    } catch { /* preview counter does not affect ordinary member chat */ }
+  }
+  useEffect(() => { void refreshPreviewAllowance(); }, []);
   const [plan, setPlan] = useState<JsonRecord | null>(null);
   const [history, setHistory] = useState<unknown[]>([]);
   const [planLoading, setPlanLoading] = useState(true);
@@ -660,6 +670,7 @@ export default function FitnessChatPage() {
       });
 
       const data = (await response.json()) as ChatResult;
+      void refreshPreviewAllowance();
       if (data.conversationId) setConversationId(data.conversationId);
       if (typeof data.pendingPlanRequest === "string") setPendingPlanRequest(data.pendingPlanRequest);
 
@@ -868,6 +879,10 @@ export default function FitnessChatPage() {
               <div>
                 <p className="eyebrow compact-eyebrow">YOUR COACH</p>
                 <h2>What are we working on today?</h2>
+                {previewAllowance?.active ? (
+                  <p role="status">Private shared AI uses left: {previewAllowance.remaining} of {previewAllowance.limit}.</p>
+                ) : null}
+                <p className="microcopy">Private preview: live chat history and saved workouts are intentionally not loaded.</p>
               </div>
             </div>
 
