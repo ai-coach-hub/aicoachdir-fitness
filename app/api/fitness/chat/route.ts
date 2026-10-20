@@ -2250,8 +2250,13 @@ async function settleWorkoutSaveRace<R extends { finalDelivery?: string }>(optio
 export async function POST(request: Request) {
   // The shared meter is opt-in, preview-branch-only. Legacy/live Fitness requests
   // continue through the unchanged handler below.
-  const { previewFitnessChat } = await import("@/lib/previewFitnessChat");
-  return previewFitnessChat(request, postFitnessWithoutPreviewMeter);
+  if (process.env.VERCEL_ENV === "preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011" &&
+      process.env.PREVIEW_SHARED_USAGE_METER_ENABLED === "true") {
+    const { previewFitnessChat } = await import("@/lib/previewFitnessChat");
+    return previewFitnessChat(request, postFitnessWithoutPreviewMeter);
+  }
+  return postFitnessWithoutPreviewMeter(request);
 }
 
 async function postFitnessWithoutPreviewMeter(request: Request) {
