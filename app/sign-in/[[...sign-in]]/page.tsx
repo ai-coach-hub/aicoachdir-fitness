@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SignIn } from "@clerk/nextjs";
 import SiteHeader from "@/components/SiteHeader";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Sign In | AI Coach Directory",
@@ -21,6 +22,10 @@ export default function SignInPage() {
         <p>Access your account and continue to your coaching experience.</p>
       </section>
       <SignIn />
+      <p style={{ textAlign: "center", margin: "18px auto", maxWidth: 520 }}>
+        Trying to cancel a subscription but your account cannot be found?{" "}
+        <Link href="/manage-subscription">Get cancellation help without signing in.</Link>
+      </p>
     </main>
   );
 }
