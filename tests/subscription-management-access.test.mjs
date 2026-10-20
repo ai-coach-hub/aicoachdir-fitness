@@ -31,7 +31,7 @@ test("customers without a Clerk account can see cancellation assistance", async 
   assert.match(manage, /Activate Existing Login/);
   assert.match(manage, /href="\/fitness\/legacy-account\?destination=manage-subscription"/);
   assert.match(manage, /No new purchase is required/);
-  assert.match(manage, /Can't access your account or subscription/);
+  assert.match(manage, /Need Cancellation Help/);
   assert.match(manage, /SupportContactForm/);
   assert.match(manage, /contactConfigured/);
   assert.equal((manage.match(/<details/g) || []).length, 1);
