@@ -27,9 +27,11 @@ export async function previewFitnessChat(
   } catch {
     return existingFitnessHandler(request);
   }
-  if (body.action === "complete_workout" || body.action === "sync_completed_workout" ||
-      typeof body.message !== "string" || !body.message.trim()) {
-    return existingFitnessHandler(request);
+  if (body.action === "complete_workout" || body.action === "sync_completed_workout") {
+    return Response.json({ ok: false, error: "Workout completion changes are disabled in this private test." }, { status: 403 });
+  }
+  if (typeof body.message !== "string" || !body.message.trim()) {
+    return Response.json({ ok: false, error: "A valid message is required." }, { status: 400 });
   }
 
   // Private QA must never change real Pickaxe workout plans. The standalone
@@ -40,7 +42,7 @@ export async function previewFitnessChat(
   }
 
   const member = await lifeTester();
-  if (!member) return existingFitnessHandler(request);
+  if (!member) return Response.json({ ok: false, error: "Private Fitness test access required." }, { status: 403 });
 
   let enrollment: Awaited<ReturnType<typeof lifeTestStatus>>;
   try {
@@ -49,7 +51,7 @@ export async function previewFitnessChat(
     // Approved preview testers cannot bypass an unavailable preview meter.
     return Response.json({ ok: false, error: "Private usage verification is temporarily unavailable." }, { status: 503 });
   }
-  if (!enrollment.active) return existingFitnessHandler(request);
+  if (!enrollment.active) return Response.json({ ok: false, error: "Private usage test enrollment is required." }, { status: 403 });
 
   // Verify real Fitness entitlement before reserving the synthetic preview slot.
   // Unsubscribed Life testers must not spend a slot on an inaccessible coach.
