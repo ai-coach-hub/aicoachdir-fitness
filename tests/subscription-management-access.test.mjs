@@ -22,3 +22,20 @@ test("billing management has a legacy/support fallback", async () => {
   assert.match(page, /Ai\.coach\.hub\.domain@gmail\.com/i);
   assert.match(page, /customer-portal/);
 });
+
+test("customers without a Clerk account can see cancellation assistance", async () => {
+  const manage = await source("app/manage-subscription/page.tsx");
+  const signIn = await source("app/sign-in/[[...sign-in]]/page.tsx");
+  assert.match(manage, /Can't sign in or account not found/);
+  assert.match(manage, /request cancellation/);
+  assert.match(manage, /without requiring a new account/);
+  const login = await source("components/FitnessMemberLoginClient.tsx");
+  const portalConfig = await source("lib/publicStripePortalLogin.ts");
+  assert.match(signIn, /manage or cancel your subscription without signing in/);
+  assert.match(signIn, /href="\/manage-subscription"/);
+  assert.match(login, /Manage or Cancel Subscription/);
+  assert.match(manage, /Manage Billing by Email/);
+  assert.match(manage, /getPublicStripePortalLoginUrl/);
+  assert.match(portalConfig, /url.hostname !== "billing.stripe.com"/);
+  assert.match(portalConfig, /url.protocol !== "https:"/);
+});

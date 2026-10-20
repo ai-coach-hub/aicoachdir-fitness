@@ -94,7 +94,7 @@ export default function FitnessMemberLoginClient({
           <span>
             {paymentNeedsAttention
               ? "Update your payment method or resolve an unpaid invoice. Please don't buy another subscription."
-              : "Use the same email tied to your existing membership, or review the current membership option."}
+              : "Use the email tied to your membership. If you already pay, verify your existing subscription before starting another one."}
           </span>
         </div>
 
@@ -106,6 +106,9 @@ export default function FitnessMemberLoginClient({
               : "/fitness/subscribe?destination=fitness"
           } className="primary-button">
             {paymentNeedsAttention ? "Resolve Payment" : "Reactivate Membership"}
+          </Link>
+          <Link href="/manage-subscription" className="secondary-button">
+            Manage existing subscription
           </Link>
           <button
             type="button"
@@ -133,6 +136,9 @@ export default function FitnessMemberLoginClient({
       <div className="cta-row">
         <Link href="/fitness/legacy-account" className="primary-button">
           Activate my existing member login
+        </Link>
+        <Link href="/manage-subscription" className="secondary-button">
+          Manage or Cancel Subscription
         </Link>
       </div>
 
