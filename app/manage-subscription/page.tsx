@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import SiteHeader from "@/components/SiteHeader";
+import { getPublicStripePortalLoginUrl } from "@/lib/publicStripePortalLogin";
 import {
   getFitnessMembership,
   memberHasFitnessAccess,
@@ -25,6 +26,7 @@ type ManageSubscriptionProps = {
 };
 
 export default async function ManageSubscriptionPage({ searchParams }: ManageSubscriptionProps) {
+  const publicPortalLoginUrl = getPublicStripePortalLoginUrl();
   const user = await currentUser();
   const primaryAddress = user?.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)
     || user?.emailAddresses[0];
@@ -97,7 +99,15 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
       <section className="login-config-card" aria-labelledby="subscription-heading">
         <p className="eyebrow">ACCOUNT</p>
         <h1 id="subscription-heading">Manage Subscription</h1>
-        <p>Manage renewal, payment methods, or cancellation using the same AI Coach Directory login. Cancellation keeps paid access through the end of the billing period.</p>
+        <p>Manage renewal, payment methods, or cancellation. Canceling stops future renewals, and you ordinarily keep your access through the paid billing period.</p>
+        {publicPortalLoginUrl ? (
+          <div className="cta-row">
+            <a className="secondary-button" href={publicPortalLoginUrl}>Manage Billing by Email</a>
+          </div>
+        ) : null}
+        {publicPortalLoginUrl ? (
+          <p>Can't sign in to AI Coach Directory? Use the email you pay with to get a secure Stripe billing login link. No new website account is required.</p>
+        ) : null}
         {!user ? (
           <div>
             <p><Link href="/fitness/login">Sign in</Link> with your existing member account to manage billing online.</p>
@@ -149,7 +159,7 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
             ) : null}
           </>
         )}
-        <p>Need help? Contact support: Email <a href={`mailto:${supportEmail}?subject=Subscription%20management%20request`}>{supportEmail}</a>. We can assist with payment recovery, cancellation, or reactivation, including when your original login is not recognized.</p>
+        <p><strong>Can't sign in or find your subscription?</strong> You can request cancellation without creating another account or paying again. Email <a href={`mailto:${supportEmail}?subject=Cancellation%20request`}>{supportEmail}</a> from the address used for billing. We will verify ownership and help stop future renewals. Never email a password or payment-card details.</p>
         <p><Link href="/">Back to home</Link></p>
       </section>
     </main>
