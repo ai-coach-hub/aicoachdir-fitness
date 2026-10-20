@@ -101,14 +101,20 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
       <section className="login-config-card" aria-labelledby="subscription-heading">
         <p className="eyebrow">ACCOUNT</p>
         <h1 id="subscription-heading">Manage Subscription</h1>
-        <p>Manage renewal, payment methods, or cancellation. Canceling stops future renewals, and you ordinarily keep your access through the paid billing period.</p>
+        <p>View your membership, update payment details, or cancel renewal. Cancellation preserves access through the end of your paid billing period.</p>
         {!user ? (
           <div>
-            <p><Link href="/fitness/login">Sign in</Link> with your existing member account to manage billing securely, or <Link href="/fitness/legacy-account">activate your existing member login</Link> without purchasing again.</p>
-            <p><strong>Can't sign in or account not found?</strong> You can still request cancellation. Email support from the address used for your subscription. Include only your request to cancel; never email your password or payment-card details. We will verify ownership and help stop future renewals without requiring a new account.</p>
+            <p>Sign in to view and manage your subscription.</p>
+            <div className="cta-row">
+              <Link href="/fitness/login?destination=manage-subscription" className="primary-button">Member Login</Link>
+              <Link href="/fitness/legacy-account?destination=manage-subscription" className="secondary-button">Activate Existing Login</Link>
+            </div>
+            <p className="microcopy">
+              Already subscribed but not recognized? Activate your existing login with your original member email. No new purchase is required.
+            </p>
           </div>
         ) : !emailVerified ? (
-          <p>Please verify the email on your member login to manage Stripe billing securely.</p>
+          <p>Please verify the email address on your member login before managing your subscription.</p>
         ) : (
           <>
             {statusMessage ? <p role="status">{statusMessage}</p> : null}
@@ -159,7 +165,13 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
             ) : null}
           </>
         )}
-        <p><strong>Can't sign in or find your subscription?</strong> You can request cancellation without creating another account or paying again. Email <a href={`mailto:${supportEmail}?subject=Cancellation%20request`}>{supportEmail}</a> from the address used for billing. We will verify ownership and help stop future renewals. Never email a password or payment-card details.</p>
+        <details style={{ marginTop: 24 }}>
+          <summary style={{ cursor: "pointer" }}>Can't access your account or subscription?</summary>
+          <p className="microcopy">
+            You can request cancellation assistance from <a href={`mailto:${supportEmail}?subject=Cancellation%20request`} style={{ textDecoration: "underline" }}>{supportEmail}</a> using your billing email.
+            We will verify ownership before making changes. Never share passwords or card numbers.
+          </p>
+        </details>
         <p><Link href="/">Back to home</Link></p>
       </section>
     </main>

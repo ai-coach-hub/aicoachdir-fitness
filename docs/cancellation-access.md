@@ -1,58 +1,53 @@
-# Accessible membership cancellations
+# Subscription management and cancellation
 
-Subscriptions must remain cancelable even when a legacy member cannot log into Clerk.
-This site offers two distinct paths:
+AI Coach Directory members manage renewal through the website, not a
+Stripe-hosted, email-only portal login.
 
-1. An authenticated Clerk member can manage billing through the existing private
-   Stripe portal session (`/manage-subscription` -> `/api/billing/customer-portal`).
-2. A member without a working Clerk login can either use a **Stripe-hosted email
-   verification login** (if activated) or request manual cancellation by emailing
-   support from their billing address. Neither path requires a new paid account.
+## Member journey
 
-## Enable Stripe-hosted email sign-in for subscriptions
+1. Go to `/manage-subscription`. Signed-out users see a primary **Member
+   Login** button and an **Activate Existing Login** alternative for legacy
+   Pickaxe members.
+2. Member Login routes through `/fitness/login?destination=manage-subscription`,
+   returning signed-in members to the subscription page instead of coach chat.
+3. A member with a verified Clerk email and verified, linked Stripe
+   subscription can cancel from the website. `POST /api/billing/cancel-renewal`
+   checks the request origin and linked user, calls Stripe server-side with
+   `cancel_at_period_end=true`, and verifies the resulting scheduled
+   cancellation before confirming. The membership remains usable through
+   the paid period.
+4. The member can restore renewal before the period ends using the guarded
+   `/api/billing/resume-renewal` path.
+5. Updating a card or other payment details still uses an authenticated,
+   short-lived Stripe billing portal session created server-side for the
+   verified linked customer (not an emailed login link).
 
-No Stripe connector needs to be granted to ChatGPT. The merchant must do this
-in their own **live** Stripe Dashboard.
+## Existing members who have no Clerk login
 
-1. Open Stripe Billing > Customer portal. Enable the no-code/shareable portal login link.
-2. Configure the portal to allow subscription cancellation at the **end of the paid
-   billing period**, preserving service access until then.
-3. Copy the *live* portal login URL, ordinarily
-   `https://billing.stripe.com/p/login/...`.
-4. Set `STRIPE_CUSTOMER_PORTAL_LOGIN_URL` to that exact URL for the Vercel
-   **production** environment. Redeploy so that it is available.
-5. On `https://www.aicoachdir.com/manage-subscription`, confirm the
-   "Manage Billing by Email" button appears and reaches the correct merchant.
-6. Validate using a consenting legacy customer's billing email and a new
-   customer's billing email. Do not create test charges or use a third party's
-   account without consent. Confirm cancellation is configured to stop renewal,
-   rather than terminate paid access immediately.
+`/fitness/legacy-account` offers activation without creating an additional
+paid subscription. Verified historical billing identities are reconciled
+using the existing server-side checks. Do not treat an email address alone
+as sufficient proof that a customer owns a particular billing subscription.
 
-If the URL is missing or invalid, the site does not display a broken portal link.
-It always displays an email-support fallback instead.
+A signed-out customer can access the collapsed **Can't access your account
+or subscription?** help section on `/manage-subscription`, which provides
+a support email for cancellation requests. Support must confirm ownership
+before changing billing. Do not request passwords or payment-card numbers.
 
-## Why not look up Stripe accounts from a public email form?
+## Guardrails
 
-The private Stripe billing portal route intentionally requires an authenticated,
-verified Clerk user with a matching stored Stripe customer. Allowing an anonymous
-caller to supply an email or customer ID would expose billing data and would risk
-cancellation for the wrong account. Stripe's hosted login verifies email
-ownership, while support must independently verify ownership before altering billing.
+- Cancellation is not immediate; do not revoke access for an active paid
+  member until their paid period expires.
+- Do not create a checkout session merely because an existing subscription
+  cannot be found by Clerk.
+- Do not delete historical coaching data, user records, or Stripe customers
+  to resolve a login mismatch.
+- Anonymous visitors cannot pass email or a Stripe customer ID to generate
+  billing access.
+- `STRIPE_CUSTOMER_PORTAL_LOGIN_URL` and `lib/publicStripePortalLogin.ts`
+  were retired after email-based portal login was rejected by the owner.
+- Confirm both logged-out presentation and the verified linked-member UI
+  during release validation. Do not trigger a live cancellation for testing
+  without the member's express consent.
 
-Stripe's shareable login may choose the most recently created active customer
-if multiple Stripe customer records share an email. Customers who don't see
-the correct subscription should contact support; do not pay again to fix it.
-
-## Support handling
-
-- Verify ownership from existing records; do not request passwords or card numbers.
-- Cancel future renewal at end of paid period. Do not delete Clerk or Pickaxe
-  accounts, existing coaching records, or Stripe customer objects.
-- Confirm cancellation was scheduled and tell the customer the final paid-through
-  date in a separate customer communication.
-- For unusual legacy duplicate-customer or missing-email situations, research
-  the specific account manually. Do not automatically merge subscriptions by
-  email alone.
-
-This configuration does not modify the authenticated billing API, subscription
-renewal logic, or Stripe webhook processing.
+This does not alter webhooks, subscription checkout, or renewal pricing.
