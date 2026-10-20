@@ -140,6 +140,13 @@ export async function memberHasFitnessAccess(
   options: { fallbackToPickaxeList?: boolean } = {},
 ) {
   const memberEmail = canonicalMemberEmail(email);
+  // Only explicitly allowlisted, verified Clerk users may enter the isolated
+  // Fitness shared-usage sandbox. No membership or Stripe record is created.
+  if (onFitnessPreviewSandbox()) {
+    const { lifeTester } = await import("@/lib/lifeCoachAccess");
+    const testerId = await lifeTester();
+    if (testerId && clerkUserId === testerId) return true;
+  }
   const existing = await getFitnessMembership(memberEmail);
 
   if (existing?.access_active === true) {
