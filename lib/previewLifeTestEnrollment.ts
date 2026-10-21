@@ -25,9 +25,9 @@ export async function lifeTestStatus(member:string){
  WHERE member_id=${member} AND subscription_key=${previewLifeTestSubscription}
  AND period_start=${previewLifeTestPeriod}::timestamptz AND period_end>NOW()`;
  const row=rows[0];
- if(!row)return {active:false,remaining:0,used:0,limit:previewLifeTestLimit};
+ if(!row)return {active:false,remaining:0,used:0,pending:0,limit:previewLifeTestLimit};
  return {active:true,remaining:Number(row.limit_uses)-Number(row.reserved_uses)-Number(row.completed_uses),
-  used:Number(row.completed_uses),limit:Number(row.limit_uses)};
+  used:Number(row.completed_uses),pending:Number(row.reserved_uses),limit:Number(row.limit_uses)};
 }
 export async function enrollLifeTest(member:string){
  const sql=await database();
