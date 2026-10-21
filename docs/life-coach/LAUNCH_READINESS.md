@@ -1,6 +1,6 @@
 # AI Coaching for Life - Launch Readiness (private)
 
-Updated: 2026-10-12
+Updated: 2026-10-21
 Status: PREPARATION ONLY - NOT APPROVED FOR PUBLIC RELEASE
 Work branch: feature/life-coach-agent-sandbox-20261011
 Pull request: #175 (must remain DRAFT until all blocking conditions are satisfied)
@@ -20,7 +20,9 @@ Do not merge this PR, promote a deployment, add a homepage Life Coach CTA, creat
 - GitHub CI includes Life Coach safety, formatting, private memory, and simulated two-member isolation regression cases.
 - The automated two-member test checks thread listing, cross-member reads, recall, forged member IDs, cross-member writes, and model-bound history. No real Pickaxe credits were used by those synthetic tests.
 - Database constraints: life_chat_threads keyed by (member_id, id) and life_chat_messages referencing (member_id, conversation_id).
-- The current private Neon branch has actual conversation records from only one real test member, so a two-real-Clerk-account test has NOT passed yet.
+- On 2026-10-21 a read-only audit found two distinct Clerk-format owner identifiers in the private Neon branch (9 and 12 threads); no personal IDs, messages or email addresses were exported. Two authenticated browser sessions have **not** yet been verified against the current build, so the two-real-Clerk-account test has NOT passed yet.
+- Read-only owner-scoped database queries returned zero foreign threads or messages in both A-to-B and B-to-A directions. This is a database-layer result, not proof of end-to-end Clerk session isolation.
+- The private store now verifies the exact Neon branch before table setup or member reads/writes, and rejects non-sandbox Vercel deployments. Automated wrong-branch tests run without any model requests.
 
 ## Current live membership - preserve completely
 
@@ -42,6 +44,15 @@ The owner has discussed a three-bundle x three-tier model before, but the exact 
 3. Audit actual Pickaxe costs and model usage per coach to price each tier profitably.
 4. Implement explicit server-authoritative entitlements for the approved Life Coach plan. Reuse the same Clerk identity and existing subscriber record, with clear cancellation, recovery and upgrade/downgrade rules and no duplicate charges.
 5. Verify checkout, webhooks, pricing copy, legal assent, and cancellations in test mode before any live Stripe edits.
+
+## Latest private sandbox privacy evidence (2026-10-21)
+
+- Verified Vercel Preview on the exact sandbox branch, never the live production alias. Test access requires the signed-in Clerk user's verified primary email to be on the private preview allowlist.
+- The dedicated Neon branch reported 2 Clerk-format conversation owners and a total of 21 threads and 46 messages. These counts **do not** establish that both users successfully tested this current preview through independent authenticated sessions.
+- In read-only SQL, the exact member-scoped queries used by the chat store returned 0 cross-account thread or message matches in either direction.
+- The store now independently checks the Neon branch identity before executing reads or writes. In mocked-branch-mismatch regression tests, both GET and POST fail without accessing chat data.
+- No messages, account identifiers, secrets, live Stripe records, provider calls or production database rows were included in this audit. No Pickaxe generation was used.
+- **Still needed:** Test the current preview in two separate verified Clerk sessions; verify private chat lists, foreign conversation IDs, direct-memory recall and signed-out denials. Keep this gate blocked until real-session evidence is recorded.
 
 ## Dedicated internal real-account privacy check - BLOCKING
 
