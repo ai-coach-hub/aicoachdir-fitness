@@ -16,7 +16,7 @@ export default function ContactPage() {
         <h1>Contact Us</h1>
         <p>Have a question, need help with your account, or want to report an issue? Send us a message below.</p>
         {configured ? <SupportContactForm /> : <p>Support form is temporarily unavailable. Please try again later.</p>}
-        <p className="microcopy">Need to cancel or manage your membership? <Link href="/manage-subscription">Manage Subscription</Link> lets you cancel renewal directly without waiting for a support reply.</p>
+        <p className="microcopy">For membership and billing settings, visit <Link href="/manage-subscription">Manage Subscription</Link>.</p>
         <p><Link href="/">Back to home</Link></p>
       </section>
     </main>
