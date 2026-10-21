@@ -682,7 +682,7 @@ export default function FitnessChatPage() {
       });
 
       const data = (await response.json()) as ChatResult;
-      void refreshPreviewAllowance();
+      if (previewAllowance?.active) void refreshPreviewAllowance();
       if (data.conversationId) setConversationId(data.conversationId);
       if (typeof data.pendingPlanRequest === "string") setPendingPlanRequest(data.pendingPlanRequest);
 
