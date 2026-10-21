@@ -24,7 +24,9 @@ test("Fitness chat uses shared Life test allowance and reserves before provider 
   assert.match(adapter, /coach: "fitness" as const/);
   assert.match(adapter, /reservePreviewAiUse\(usage\)/);
   assert.match(adapter, /settlePreviewAiUse\(usage, outcome\)/);
-  assert.ok(adapter.indexOf("runMeteredPreviewGeneration(") < adapter.indexOf("existingFitnessHandler(request);\n      const payload:"));
+  assert.match(adapter, /body\.message\.trim\(\) !== "TEST SHARED COUNTER"/);
+  assert.match(adapter, /previewSimulation: true/);
+  assert.ok(adapter.indexOf('body.message.trim() !== "TEST SHARED COUNTER"') < adapter.indexOf("runMeteredPreviewGeneration("));
   assert.match(adapter, /result\.reason === "exhausted"/);
 });
 test("Fitness provides a request key from the browser and retains old handler", () => {
