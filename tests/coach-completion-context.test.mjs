@@ -185,3 +185,12 @@ test('quality rewrites retain fresh completion context',async()=>{
   await f.requestCoachQualityRewrite({deploymentKey:'test',memberEmail:MEMBER,memberMessage:'What should I do?',draftResponse:'A draft',completionContext:context});
   assert.ok(JSON.parse(calls.find(c=>c.url.endsWith('/completions')).init.body).message.includes('Easy Spin'));
 });
+
+test('unrelated conversation skips completion history lookup while history questions still request it', () => {
+  const sourceText = source;
+  assert.match(sourceText, /const needsCompletionContext = completionHistoryQuestion/);
+  assert.match(sourceText, /&& needsCompletionContext\s*\? readCoachCompletionContext/);
+  const historyQuestion = load(backend([])).__test.isCompletionHistoryQuestion;
+  assert.equal(historyQuestion("I'm not talking about fitness."), false);
+  assert.equal(historyQuestion("What was my last completed workout?"), true);
+});
