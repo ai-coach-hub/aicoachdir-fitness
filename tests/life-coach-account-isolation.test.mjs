@@ -227,34 +227,13 @@ test("private Preview access requires a verified primary, allowlisted Clerk emai
  assert.equal(await module.lifeTester(),null);
 });
 
-test("detailed coaching sends Pickaxe only the authenticated member's history and identity",async()=>{
+test("unenrolled private Life users cannot invoke paid Pickaxe or read other member details",async()=>{
  const e=mockLifeEnvironment();
  await e.store.saveLifeTurn(memberA,threadA,factA,"A's progress notes");
  await e.store.saveLifeTurn(memberB,threadB,factB,"B's progress notes");
  e.enableMockProvider();
  e.signIn(memberB);
- const request={
-  message:"Build a detailed weekly plan based on the goal I shared earlier.",
-  memberId:memberA,userId:memberA
- };
- const resultB=await e.apiPost(request);
- assert.equal(resultB.status,200);
- assert.equal(resultB.data.source,"coach");
- assert.equal(e.providerCalls(),1);
- const payloadB=e.providerPayload();
- assert.equal(payloadB.userId,memberB);
- assert.ok(payloadB.message.includes(factB));
- assert.ok(!payloadB.message.includes(factA));
- assert.ok(!payloadB.message.includes("A's progress notes"));
- assert.ok(!payloadB.message.includes(memberA));
- assert.notEqual(payloadB.conversationId,threadA);
- e.signIn(memberA);
- const resultA=await e.apiPost(request);
- assert.equal(resultA.status,200);
- const payloadA=e.providerPayload();
- assert.equal(payloadA.userId,memberA);
- assert.ok(payloadA.message.includes(factA));
- assert.ok(!payloadA.message.includes(factB));
- assert.ok(!payloadA.message.includes(memberB));
- assert.equal(e.providerCalls(),2);
+ const result=await e.apiPost({message:"Build a detailed weekly plan based on the goal I shared earlier.",memberId:memberA,userId:memberA});
+ assert.equal(result.status,503);
+ assert.equal(e.providerCalls(),0);
 });
