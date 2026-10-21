@@ -22,3 +22,69 @@ test("billing management has a legacy/support fallback", async () => {
   assert.match(page, /Ai\.coach\.hub\.domain@gmail\.com/i);
   assert.match(page, /customer-portal/);
 });
+
+test("customers without a Clerk account can see cancellation assistance", async () => {
+  const manage = await source("app/manage-subscription/page.tsx");
+  const signIn = await source("app/sign-in/[[...sign-in]]/page.tsx");
+  assert.match(manage, /className="primary-button">Member Login/);
+  assert.match(manage, /href="\/fitness\/login\?destination=manage-subscription"/);
+  assert.match(manage, /Activate Existing Login/);
+  assert.match(manage, /href="\/fitness\/legacy-account\?destination=manage-subscription"/);
+  assert.match(manage, /No new purchase is required/);
+  assert.match(manage, /Contact Support/);
+  assert.match(manage, /SupportContactForm/);
+  assert.match(manage, /contactConfigured/);
+  assert.equal((manage.match(/<details/g) || []).length, 1);
+  const login = await source("components/FitnessMemberLoginClient.tsx");
+  const cancel = await source("app/api/billing/cancel-renewal/route.ts");
+  assert.match(signIn, /manage or cancel your subscription without signing in/);
+  assert.match(signIn, /href="\/manage-subscription"/);
+  assert.match(login, /Manage or Cancel Subscription/);
+  assert.doesNotMatch(manage, /Manage Billing by Email|getPublicStripePortalLoginUrl/);
+  assert.match(manage, /\/api\/billing\/cancel-renewal/);
+  assert.match(manage, /Cancel Automatic Renewal/);
+  assert.match(cancel, /currentUser\(/);
+  assert.match(cancel, /verification\?\.status !== "verified"/);
+  assert.match(cancel, /String\(saved\.clerk_user_id \|\| ""\) !== user\.id/);
+  assert.match(cancel, /getVerifiedSubscription\(/);
+  assert.match(cancel, /cancel_at_period_end/);
+  assert.match(cancel, /"true"/);
+  assert.match(cancel, /verified\.cancelAtPeriodEnd/);
+  assert.doesNotMatch(cancel, /\/subscriptions[^\n]*\/cancel/);
+});
+
+test("subscription login returns the member to billing rather than the coach", async () => {
+  const login = await source("app/fitness/login/page.tsx");
+  const client = await source("components/FitnessMemberLoginClient.tsx");
+  assert.match(login, /value === "manage-subscription"/);
+  assert.match(login, /destination === "manage-subscription"/);
+  assert.match(login, /return "\/manage-subscription"/);
+  assert.match(client, /forceRedirectUrl={loginReturnUrl}/);
+});
+
+test("existing-member activation also returns to billing only when explicitly requested", async () => {
+  const page = await source("app/fitness/legacy-account/page.tsx");
+  const client = await source("components/LegacyMemberAccountClient.tsx");
+  assert.match(page, /requested === "manage-subscription"/);
+  assert.match(page, /returnPath =/);
+  assert.match(client, /forceRedirectUrl={returnPath}/);
+  assert.match(client, /signInUrl={returnPath === "\/manage-subscription"/);
+  assert.match(client, /Manage Subscription/);
+  assert.match(client, /Continue to Fitness Coach/);
+});
+
+test("contact form has name, email, message and shows success only after provider confirmation", async () => {
+  const form = await source("components/SupportContactForm.tsx");
+  const route = await source("app/api/support/contact/route.ts");
+  const page = await source("app/manage-subscription/page.tsx");
+  for (const field of ['name="name"', 'name="email"', 'name="message"']) assert.match(form, new RegExp(field));
+  assert.match(form, /name="topic"/);
+  assert.match(form, /response\.ok/);
+  assert.match(form, /form\.reset\(\)/);
+  assert.match(route, /request\.headers\.get\("origin"\)/);
+  assert.match(route, /RESEND_API_KEY/);
+  assert.match(route, /SUPPORT_CONTACT_FROM_EMAIL/);
+  assert.match(route, /api\.resend\.com\/emails/);
+  assert.match(route, /if \(!result\.ok\)/);
+  assert.match(page, /contactConfigured \?/);
+});

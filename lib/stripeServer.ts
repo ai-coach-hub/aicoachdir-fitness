@@ -62,7 +62,7 @@ function secretKey() {
 
 export async function stripeRequest(
   path: string,
-  init: { method?: "GET" | "POST"; body?: URLSearchParams } = {},
+  init: { method?: "GET" | "POST"; body?: URLSearchParams; idempotencyKey?: string } = {},
 ) {
   const method = init.method || "GET";
   const response = await fetch(`${STRIPE_API_BASE}${path}`, {
@@ -70,7 +70,10 @@ export async function stripeRequest(
     headers: {
       Authorization: `Bearer ${secretKey()}`,
       ...(method === "POST"
-        ? { "Content-Type": "application/x-www-form-urlencoded" }
+        ? {
+            "Content-Type": "application/x-www-form-urlencoded",
+            ...(init.idempotencyKey ? { "Idempotency-Key": init.idempotencyKey } : {}),
+          }
         : {}),
     },
     ...(method === "POST" ? { body: init.body || new URLSearchParams() } : {}),

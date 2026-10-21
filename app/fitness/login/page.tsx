@@ -3,7 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import FitnessMemberLoginClient from "@/components/FitnessMemberLoginClient";
-import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
+import { getFitnessMembership, memberHasFitnessAccess, refreshLinkedMembershipStatus, restoreVerifiedHistoricalBillingForMember } from "@/lib/fitnessMembershipDb";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +33,7 @@ function primaryEmail(user: Awaited<ReturnType<typeof currentUser>>) {
 
 function normalizeDestination(value: string) {
   if (value === "fitness") return "fitness";
+  if (value === "manage-subscription") return "manage-subscription";
   if (value === "budget-coach") return "budget-coach";
   if (value === "budget-tracker") return "budget-tracker";
   return "";
@@ -42,6 +43,7 @@ function destinationPath(destination: string) {
   if (destination === "budget-coach") return "/budgeting/launch?destination=coach";
   if (destination === "budget-tracker") return "/budgeting/launch?destination=tracker";
   if (destination === "fitness") return "/fitness/chat";
+  if (destination === "manage-subscription") return "/manage-subscription";
   return "";
 }
 
@@ -58,17 +60,32 @@ export default async function MemberLoginPage({
 
   let hasAccess = false;
   let accessCheckFailed = false;
+  let paymentNeedsAttention = false;
 
   if (user && email) {
     try {
+      const verifiedPrimary = user.emailAddresses.find((item) => item.id === user.primaryEmailAddressId);
+      if (verifiedPrimary?.verification?.status === "verified") {
+        await restoreVerifiedHistoricalBillingForMember(email, user.id);
+      }
+      const stored = await getFitnessMembership(email);
+      if (stored?.stripe_customer_id && stored?.stripe_subscription_id &&
+          stored.access_active === false) {
+        await refreshLinkedMembershipStatus(email, { force: true });
+      }
       hasAccess = await memberHasFitnessAccess(email, user.id);
+      if (!hasAccess) {
+        const member = await getFitnessMembership(email);
+        paymentNeedsAttention = ["past_due", "unpaid", "incomplete", "paused"]
+          .includes(String(member?.stripe_status || ""));
+      }
     } catch {
       accessCheckFailed = true;
     }
   }
 
   const continuePath = destinationPath(destination);
-  if (user && hasAccess && continuePath) {
+  if (user && continuePath && (hasAccess || destination === "manage-subscription")) {
     redirect(continuePath);
   }
 
@@ -94,6 +111,7 @@ export default async function MemberLoginPage({
 
         <FitnessMemberLoginClient
           hasAccess={hasAccess}
+          paymentNeedsAttention={paymentNeedsAttention}
           accessCheckFailed={accessCheckFailed}
           loginReturnUrl={loginReturnUrl}
         />

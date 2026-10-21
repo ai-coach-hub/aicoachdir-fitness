@@ -2150,8 +2150,7 @@ export async function GET() {
     );
   }
 
-  // The sandbox has no isolated Pickaxe workout dataset yet.
-  // Never read, recover, or write real workout data during private QA.
+  // Private preview may not read or mutate real Pickaxe workout data.
   if (process.env.VERCEL_ENV === "preview" &&
       process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011") {
     return Response.json({
@@ -2258,8 +2257,7 @@ async function settleWorkoutSaveRace<R extends { finalDelivery?: string }>(optio
 }
 
 export async function POST(request: Request) {
-  // The shared meter is opt-in, preview-branch-only. Legacy/live Fitness requests
-  // continue through the unchanged handler below.
+  // Private shared usage testing is opt-in; production Fitness is unchanged.
   if (process.env.VERCEL_ENV === "preview" &&
       process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011" &&
       process.env.PREVIEW_SHARED_USAGE_METER_ENABLED === "true") {
@@ -2546,7 +2544,13 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
   const standaloneNoSaveWorkout = isStandaloneNoSaveWorkout(message);
   const mustConfirmSavedPlanMutation = requiresConfirmedSavedPlanMutation(effectiveMessage);
   const completionHistoryQuestion = !mustConfirmSavedPlanMutation && !standaloneNoSaveWorkout && isCompletionHistoryQuestion(message);
-  const completionContextPromise = !mustConfirmSavedPlanMutation && !standaloneNoSaveWorkout
+  // Only fetch completion history for explicit history questions or a clear request
+  // to use recent workout completions. Ordinary conversation must not carry raw
+  // workout records into Pickaxe or incur the associated memory lookups.
+  const needsCompletionContext = completionHistoryQuestion ||
+    /\b(?:recent|past|previous|logged|finished|completed|completion|progress)\b[^.!?\n]{0,100}\b(?:workouts?|sessions?|training|exercises?)\b/i.test(message) ||
+    /\b(?:workouts?|sessions?|training|exercises?)\b[^.!?\n]{0,100}\b(?:recent|past|previous|logged|finished|completed|completion|progress)\b/i.test(message);
+  const completionContextPromise = !mustConfirmSavedPlanMutation && !standaloneNoSaveWorkout && needsCompletionContext
     ? readCoachCompletionContext(memberEmail, studioToken) : Promise.resolve(null);
   const mutationSignal = AbortSignal.timeout(100_000);
   let planBeforeMutation: Record<string, unknown> | null = null;

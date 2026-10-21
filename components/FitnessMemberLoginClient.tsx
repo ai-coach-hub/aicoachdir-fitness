@@ -5,12 +5,14 @@ import { SignIn, useClerk, useUser } from "@clerk/nextjs";
 
 type Props = {
   hasAccess: boolean;
+  paymentNeedsAttention?: boolean;
   accessCheckFailed: boolean;
   loginReturnUrl: string;
 };
 
 export default function FitnessMemberLoginClient({
   hasAccess,
+  paymentNeedsAttention = false,
   accessCheckFailed,
   loginReturnUrl,
 }: Props) {
@@ -88,16 +90,25 @@ export default function FitnessMemberLoginClient({
     return (
       <>
         <div className="verification-reminder" role="status">
-          <strong>No active membership was found for this account</strong>
+          <strong>{paymentNeedsAttention ? "Your existing subscription needs a payment update" : "No active membership was found for this account"}</strong>
           <span>
-            Use the same email tied to your existing membership, or review the
-            current membership option.
+            {paymentNeedsAttention
+              ? "Update your payment method or resolve an unpaid invoice. Please don't buy another subscription."
+              : "Use the email tied to your membership. If you already pay, verify your existing subscription before starting another one."}
           </span>
         </div>
 
         <div className="cta-row">
-          <Link href={loginReturnUrl.includes("budget") ? "/fitness/signup?destination=budget-coach" : "/fitness/signup?destination=fitness"} className="primary-button">
-            Reactivate Membership
+          <Link href={paymentNeedsAttention
+            ? "/manage-subscription"
+            : loginReturnUrl.includes("budget")
+              ? "/fitness/subscribe?destination=budget-coach"
+              : "/fitness/subscribe?destination=fitness"
+          } className="primary-button">
+            {paymentNeedsAttention ? "Resolve Payment" : "Reactivate Membership"}
+          </Link>
+          <Link href="/manage-subscription" className="secondary-button">
+            Manage existing subscription
           </Link>
           <button
             type="button"
@@ -125,6 +136,9 @@ export default function FitnessMemberLoginClient({
       <div className="cta-row">
         <Link href="/fitness/legacy-account" className="primary-button">
           Activate my existing member login
+        </Link>
+        <Link href="/manage-subscription" className="secondary-button">
+          Manage or Cancel Subscription
         </Link>
       </div>
 

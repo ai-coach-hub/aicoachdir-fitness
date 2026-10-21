@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SignIn } from "@clerk/nextjs";
 import SiteHeader from "@/components/SiteHeader";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Sign In | AI Coach Directory",
@@ -20,6 +21,11 @@ export default function SignInPage() {
         <h1>Sign in to AI Coach Directory</h1>
         <p>Access your account and continue to your coaching experience.</p>
       </section>
+      <p style={{ textAlign: "center", margin: "18px auto", maxWidth: 520 }}>
+        Already paying but seeing "Couldn't find your account"?{" "}
+        <Link href="/fitness/legacy-account">Activate your existing login</Link>, or{" "}
+        <Link href="/manage-subscription">manage or cancel your subscription without signing in</Link>.
+      </p>
       <SignIn />
     </main>
   );

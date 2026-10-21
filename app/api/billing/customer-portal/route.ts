@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { getFitnessMembership } from "@/lib/fitnessMembershipDb";
+import { getFitnessMembership, memberHasFitnessAccess, rebindVerifiedMembershipLogin, restoreVerifiedHistoricalBillingForMember } from "@/lib/fitnessMembershipDb";
+import { linkVerifiedLegacyStripeMembership } from "@/lib/legacyStripeMembership";
 import { stripeRequest } from "@/lib/stripeServer";
 
 export const runtime = "nodejs";
@@ -14,14 +15,33 @@ export async function POST(request: Request) {
   }
 
   const user = await currentUser();
-  const email = user?.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)?.emailAddress
-    || user?.emailAddresses[0]?.emailAddress || "";
+  const primaryAddress = user?.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)
+    || user?.emailAddresses[0];
+  const email = primaryAddress?.emailAddress || "";
+  // A billing link is created only from a Clerk-verified email.
+  const emailVerified = primaryAddress?.verification?.status === "verified";
   if (!user || !email) {
     return NextResponse.redirect(new URL("/fitness/login", siteOrigin), 303);
   }
 
   try {
-    const membership = await getFitnessMembership(email);
+    if (emailVerified) await restoreVerifiedHistoricalBillingForMember(email, user.id);
+    let membership = await getFitnessMembership(email);
+    if (emailVerified && membership?.stripe_customer_id &&
+        membership.stripe_subscription_id &&
+        String(membership.clerk_user_id || "") !== user.id) {
+      membership = (await rebindVerifiedMembershipLogin(email, user.id)) || membership;
+    }
+    if (emailVerified && (!membership || (membership.access_active === true && String(membership.clerk_user_id || "") !== user.id))) {
+      await memberHasFitnessAccess(email, user.id);
+      membership = await getFitnessMembership(email);
+    }
+    if (emailVerified && membership?.access_active === true && !membership.stripe_customer_id) {
+      membership = (await linkVerifiedLegacyStripeMembership(email, user.id)) || membership;
+    }
+    if (!emailVerified || !membership || String(membership.clerk_user_id || "") !== user.id) {
+      return NextResponse.redirect(new URL("/manage-subscription", siteOrigin), 303);
+    }
     const customerId = String(membership?.stripe_customer_id || "");
     if (!customerId || !/^cus_[a-zA-Z0-9]+$/.test(customerId)) {
       return NextResponse.redirect(new URL("/manage-subscription", siteOrigin), 303);
