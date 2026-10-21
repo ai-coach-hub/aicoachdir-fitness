@@ -131,21 +131,5 @@ export async function POST(request:Request) {
   }
   // Explicitly fail closed. No unmetered Pickaxe fallback in this preview.
   return json({ok:false,error:"Private Life Coach generation is unavailable."},503);
-  /*
-  const response=await fetch("https://api.pickaxe.co/v1/completions",{
-   method:"POST",
-   headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json",Accept:"application/json"},
-   body:JSON.stringify({message:promptMessage,userId:member,conversationId:id,stream:false}),
-   cache:"no-store",signal:AbortSignal.timeout(110000)
-  });
-  if(!response.ok)return json({ok:false,error:"Life Coach is temporarily unavailable."},502);
-  const payload=await response.json();
-  if(payload?.success===false)return json({ok:false,error:"Life Coach could not complete that request."},502);
-  const rawAnswer=resultText(payload);
-  if(!rawAnswer)return json({ok:false,error:"Life Coach returned no response."},502);
-  const answer=cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories));
-  await saveLifeTurn(member,id,message,answer);
-  return json({ok:true,response:answer,conversationId:id,source:"coach"});
-  */
  }catch{return json({ok:false,error:"Life Coach reply or storage was unavailable. Your message may not have been saved."},503);}
 }
