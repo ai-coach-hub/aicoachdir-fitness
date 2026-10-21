@@ -66,21 +66,14 @@ export async function previewFitnessChat(
     return Response.json({ ok: false, error: "Fitness membership verification is temporarily unavailable." }, { status: 503 });
   }
 
-  // Never reuse the production Fitness Pickaxe deployment in an isolated QA.
-  // The normal handler can read/write provider-side memories and action runs.
-  // Until a separately configured provider path is wired, fail before reserve.
-  if (!process.env.PICKAXE_FITNESS_TEST_DEPLOYMENT_TOKEN) {
-    return Response.json({
-      ok: false,
-      error: "Private Fitness model testing is paused until an isolated test coach is configured. No AI use was taken for this request.",
-    }, { status: 503 });
+  // Deliberately limited to one exact synthetic QA command. This does NOT
+  // exercise the real Fitness AI provider and must never claim otherwise.
+  // All other inputs fail before reservation or any provider-side activity.
+  if (body.message.trim() !== "TEST SHARED COUNTER") {
+    return Response.json({ ok: false,
+      error: "Private Fitness AI is paused until an isolated provider is available. For usage-meter QA, send exactly: TEST SHARED COUNTER." },
+      { status: 503 });
   }
-  // The dedicated test deployment must be integrated into an isolated provider
-  // handler before model-backed test calls can be enabled.
-  return Response.json({
-    ok: false,
-    error: "Private Fitness test coach integration is pending. No new AI request was started.",
-  }, { status: 503 });
 
   const requestKey = typeof body.requestKey === "string" ? body.requestKey.trim() : "";
   if (!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey)) {
@@ -99,15 +92,14 @@ export async function previewFitnessChat(
       reserve: () => reservePreviewAiUse(usage),
       settle: (outcome) => settlePreviewAiUse(usage, outcome),
     }, async () => {
-      const response = await existingFitnessHandler(request);
-      const payload: unknown = await response.clone().json().catch(() => null);
-      const value = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
-      // Once the handler was invoked, an unverified error may follow a provider
-      // attempt or a workout Action. Hold the reservation for reconciliation.
-      if (!response.ok || value.ok !== true || typeof value.response !== "string" || !value.response.trim()) {
-        throw new Error("Fitness response was not a confirmed generation");
-      }
-      return { kind: "generated" as const, value: response };
+      // Synthetic only: no fetch(), Pickaxe workspace, workouts, or chat
+      // history. Records a real preview-meter settlement for cross-coach QA.
+      return { kind: "generated" as const, value: Response.json({
+        ok: true,
+        response: "Preview counter test recorded successfully. This is a simulated response, not an AI-generated Fitness Coach answer.",
+        conversationId: body.conversationId,
+        previewSimulation: true,
+      }) };
     });
     if (result.status === "completed") return result.value;
     if (result.status === "blocked") {
