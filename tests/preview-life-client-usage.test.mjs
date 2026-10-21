@@ -28,7 +28,7 @@ test("preview meter stays behind both environment flags and memory returns befor
  assert.match(route,/process\.env\.VERCEL_GIT_COMMIT_REF === "feature\/life-coach-agent-sandbox-20261011"/);
  assert.match(route,/const subscriptionKey=previewLifeTestSubscription/);
  assert.match(route,/const periodStart=previewLifeTestPeriod/);
- assert.match(route,/if\(enrollment.active\)/);
+ assert.match(route,/if\(!enrollment\.active\) return json/);
  assert.doesNotMatch(route,/subscriptionKey=body\.|periodStart=body\./);
 });
 
