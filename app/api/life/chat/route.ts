@@ -66,6 +66,13 @@ export async function POST(request:Request) {
    await saveLifeTurn(member,id,message,direct);
    return json({ok:true,response:direct,conversationId:id,source:"saved-private-history"});
   }
+  // This sandbox must never fall through to unmetered paid generation.
+  // Free goal capture and saved-history answers have already returned above.
+  const privateSandbox = process.env.VERCEL_ENV === "preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011";
+  if (!privateSandbox || process.env.PREVIEW_SHARED_USAGE_METER_ENABLED !== "true") {
+    return json({ok:false,error:"Private Life Coach generation is not enabled."},503);
+  }
   // Only pay for model inference when the user needs actual coaching or new content.
   const token=(process.env.PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN||"").trim();
   if(!token)return json({ok:false,error:"Private Life Coach deployment is not configured."},503);
@@ -87,7 +94,7 @@ export async function POST(request:Request) {
     const requestKey=typeof body.requestKey==="string" ? body.requestKey.trim() : "";
     const {lifeTestStatus,previewLifeTestPeriod,previewLifeTestSubscription}=await import("@/lib/previewLifeTestEnrollment");
     const enrollment=await lifeTestStatus(member);
-    if(enrollment.active){
+    if(!enrollment.active) return json({ok:false,error:"Private usage test enrollment is required."},403);
     if (!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey)) {
       return json({ok:false,error:"Private usage test request ID is missing."},400);
     }
@@ -121,8 +128,10 @@ export async function POST(request:Request) {
       result.reason.startsWith("duplicate_")?"This request was already submitted.":
       "Private usage test not available."},result.reason==="exhausted"?429:409);
     return json({ok:false,error:"The private test could not confirm the request result; please do not retry yet."},503);
-    }
   }
+  // Explicitly fail closed. No unmetered Pickaxe fallback in this preview.
+  return json({ok:false,error:"Private Life Coach generation is unavailable."},503);
+  /*
   const response=await fetch("https://api.pickaxe.co/v1/completions",{
    method:"POST",
    headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json",Accept:"application/json"},
@@ -137,5 +146,6 @@ export async function POST(request:Request) {
   const answer=cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories));
   await saveLifeTurn(member,id,message,answer);
   return json({ok:true,response:answer,conversationId:id,source:"coach"});
+  */
  }catch{return json({ok:false,error:"Life Coach reply or storage was unavailable. Your message may not have been saved."},503);}
 }
