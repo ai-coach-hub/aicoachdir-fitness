@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const supportInbox = "Ai.coach.hub.domain@gmail.com";
+const topics = ["General Question", "Technical Support", "Account / Login", "Billing / Cancellation", "Other"];
 
 export async function POST(request: Request) {
   if (request.headers.get("origin") !== new URL(request.url).origin) {
@@ -20,8 +21,9 @@ export async function POST(request: Request) {
   if (input.website) return NextResponse.json({ ok: true });
   const name = String(input.name || "").trim();
   const email = String(input.email || "").trim();
+  const topic = String(input.topic || "").trim();
   const message = String(input.message || "").trim();
-  if (!name || name.length > 120 || email.length > 254 ||
+  if (!topics.includes(topic) || !name || name.length > 120 || email.length > 254 ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
       message.length < 10 || message.length > 3000) {
     return NextResponse.json({ error: "Invalid contact details" }, { status: 400 });
@@ -39,8 +41,8 @@ export async function POST(request: Request) {
         from,
         to: [supportInbox],
         reply_to: email,
-        subject: "AI Coach Directory - Subscription support request",
-        text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}\n\nSubmission does not automatically cancel billing.`,
+        subject: `AI Coach Directory - ${topic}`,
+        text: `Topic: ${topic}\nName: ${name}\nEmail: ${email}\n\nMessage:\n${message}\n\nSubmission does not automatically cancel billing.`,
       }),
       signal: AbortSignal.timeout(10000),
     });
