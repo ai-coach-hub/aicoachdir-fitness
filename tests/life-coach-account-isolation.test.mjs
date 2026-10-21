@@ -202,7 +202,7 @@ test("unapproved or signed-out members cannot invoke any Life Coach endpoint",as
 });
 test("private Preview access requires a verified primary, allowlisted Clerk email and stays off in production",async()=>{
  let currentUser=null;
- const processStub={env:{VERCEL_ENV:"preview",LIFE_COACH_TESTER_EMAILS:"a@example.test,b@example.test"}};
+ const processStub={env:{VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feature/life-coach-agent-sandbox-20261011",LIFE_COACH_TESTER_EMAILS:"a@example.test,b@example.test"}};
  const module=moduleFrom("lib/lifeCoachAccess.ts",{
   "@clerk/nextjs/server":{currentUser:async()=>currentUser}
  },{process:processStub});
@@ -223,6 +223,9 @@ test("private Preview access requires a verified primary, allowlisted Clerk emai
  currentUser=account(memberA,"other@example.test");
  assert.equal(await module.lifeTester(),null);
  currentUser=account(memberA,"a@example.test");
+ processStub.env.VERCEL_GIT_COMMIT_REF="main";
+ assert.equal(await module.lifeTester(),null);
+ processStub.env.VERCEL_GIT_COMMIT_REF="feature/life-coach-agent-sandbox-20261011";
  processStub.env.VERCEL_ENV="production";
  assert.equal(await module.lifeTester(),null);
 });
