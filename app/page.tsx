@@ -296,6 +296,7 @@ export default function HomePage() {
           <Link href={memberLoginUrl}>Member Login</Link>
           <Link href="/terms">Terms & Conditions</Link>
           <Link href="/manage-subscription">Manage Subscription</Link>
+          <Link href="/contact">Contact Us</Link>
           <Link href="/fitness/signup">New Subscription</Link>
         </div>
 
