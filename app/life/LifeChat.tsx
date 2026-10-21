@@ -24,7 +24,7 @@ export default function LifeChat(){
  const [messages,setMessages]=useState<Msg[]>([]);
  const [input,setInput]=useState("");
  const [busy,setBusy]=useState(false);
- const [usageTest,setUsageTest]=useState<{active:boolean;remaining:number;used:number;limit:number}|null>(null);
+ const [usageTest,setUsageTest]=useState<{active:boolean;remaining:number;used:number;pending:number;limit:number}|null>(null);
  const [startingTest,setStartingTest]=useState(false);
  const [error,setError]=useState("");
  const end=useRef<HTMLDivElement>(null);
@@ -36,7 +36,7 @@ export default function LifeChat(){
   const r=await fetch("/api/life/usage-test",{cache:"no-store"});
   if(!r.ok)return;
   const j=await r.json();
-  if(j.ok)setUsageTest({active:j.active,remaining:j.remaining,used:j.used,limit:j.limit});
+  if(j.ok)setUsageTest({active:j.active,remaining:j.remaining,used:j.used,pending:j.pending,limit:j.limit});
  }catch{}};
  useEffect(()=>{void loadThreads();void loadUsage();},[]);
  async function startUsageTest(){
@@ -46,7 +46,7 @@ export default function LifeChat(){
    const r=await fetch("/api/life/usage-test",{method:"POST"});
    const j=await r.json();
    if(!r.ok||!j.ok)throw Error(j.error||"Cannot start private test");
-   setUsageTest({active:j.active,remaining:j.remaining,used:j.used,limit:j.limit});
+   setUsageTest({active:j.active,remaining:j.remaining,used:j.used,pending:j.pending,limit:j.limit});
   }catch(ex){setError(ex instanceof Error?ex.message:"Cannot start private test")}
   finally{setStartingTest(false)}
  }
@@ -86,7 +86,7 @@ export default function LifeChat(){
    <h1 style={{margin:0}}>AI Coaching for Life</h1>
    <p style={{color:"var(--muted)",margin:0}}>Private test • goals, habits and accountability</p>
    {usageTest&&!usageTest.active&&<button type="button" disabled={startingTest||busy} onClick={()=>void startUsageTest()}>Start optional 3-use test</button>}
-   {usageTest?.active&&<p role="status" style={{margin:0}}>Private AI uses left: {usageTest.remaining} of {usageTest.limit}. Saved-memory recall remains free.</p>}
+   {usageTest?.active&&<p role="status" style={{margin:0}}>Private AI uses left: {usageTest.remaining} of {usageTest.limit}. {usageTest.used} completed{usageTest.pending>0 ? `; ${usageTest.pending} pending verification` : ""}. Saved-memory recall remains free.</p>}
    <div role="log" aria-live="polite" className={styles.messageLog}>
     {!messages.length&&!input.trim()&&<p style={{color:"var(--muted)"}}>{intro}</p>}
     {messages.map((m,i)=><p key={i} className={styles.message} style={{background:m.role==="user"?"#17323b":"#101d2a"}}><strong>{m.role==="user"?"You":"Life Coach"}</strong><span style={{display:"block",marginTop:4}}>{m.role==="assistant"?<CoachResponse text={m.text}/>:m.text}</span></p>)}
