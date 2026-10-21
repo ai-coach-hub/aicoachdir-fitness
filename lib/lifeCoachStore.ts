@@ -10,8 +10,18 @@ function database() {
   if (!url) throw new Error("Private Life Coach database is not configured");
   return neon(url);
 }
+// Fail closed if a preview points at the wrong Neon branch or environment.
+const PRIVATE_PREVIEW_BRANCH = "feature/life-coach-agent-sandbox-20261011";
+const PRIVATE_NEON_BRANCH_ID = "br-autumn-breeze-auw38rgr";
+
 async function db() {
+  if (process.env.VERCEL_ENV !== "preview" ||
+      process.env.VERCEL_GIT_COMMIT_REF !== PRIVATE_PREVIEW_BRANCH)
+    throw new Error("Private Life Coach storage is disabled outside its preview branch");
   const sql = database();
+  const identity = await sql`SELECT current_setting('neon.branch_id', true) AS branch_id`;
+  if (String(identity[0]?.branch_id || "") !== PRIVATE_NEON_BRANCH_ID)
+    throw new Error("Private Life Coach database branch mismatch");
   await sql`CREATE TABLE IF NOT EXISTS life_chat_threads (
     member_id TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
