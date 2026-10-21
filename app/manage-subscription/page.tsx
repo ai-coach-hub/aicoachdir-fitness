@@ -103,7 +103,7 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
       <section className="login-config-card" aria-labelledby="subscription-heading">
         <p className="eyebrow">ACCOUNT</p>
         <h1 id="subscription-heading">Manage Subscription</h1>
-        <p>View your membership, update payment details, or cancel renewal. Cancellation preserves access through the end of your paid billing period.</p>
+        <p>View your membership and manage billing, including renewal and payment details.</p>
         {!user ? (
           <div>
             <p>Sign in to view and manage your subscription.</p>
@@ -144,8 +144,12 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
             ) : null}
 
             {billingState === "active" && linkedMember ? (
+              <p className="microcopy">You can turn off automatic renewal at any time. Your current paid access continues through the end of the billing period.</p>
+            ) : null}
+
+            {billingState === "active" && linkedMember ? (
               <form method="post" action="/api/billing/cancel-renewal">
-                <button className="secondary-button" type="submit">Cancel Subscription at End of Billing Period</button>
+                <button className="secondary-button" type="submit">Cancel Automatic Renewal</button>
               </form>
             ) : null}
 
@@ -168,12 +172,12 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
           </>
         )}
         <details style={{ marginTop: 24 }}>
-          <summary style={{ cursor: "pointer" }}>Need Cancellation Help?</summary>
+          <summary style={{ cursor: "pointer" }}>Contact Support</summary>
           {contactConfigured ? (
-            <SupportContactForm />
+            <SupportContactForm defaultTopic="Billing / Cancellation" />
           ) : (
             <p className="microcopy">
-              For cancellation assistance, contact <a href={`mailto:${supportEmail}?subject=Cancellation%20request`} style={{ textDecoration: "underline" }}>{supportEmail}</a>.
+              For account or billing assistance, contact <a href={`mailto:${supportEmail}?subject=Cancellation%20request`} style={{ textDecoration: "underline" }}>{supportEmail}</a>.
               We'll verify account ownership before updating billing. Never share passwords or card numbers.
             </p>
           )}
