@@ -206,4 +206,5 @@ test("API cleans new model replies and UI cleans old replies, without altering u
  assert.ok(ui.includes('m.role==="assistant"?<CoachResponse text={m.text}/>:m.text'));
  assert.ok(api.includes("await saveLifeTurn(member,id,message,answer)"));
  assert.ok(api.includes("return json({ok:true,response:answer,conversationId:id"));
+ assert.ok(api.includes("Private usage test enrollment is required."));
 });
