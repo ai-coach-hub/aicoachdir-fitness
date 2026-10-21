@@ -23,12 +23,15 @@ function mockLifeEnvironment(){
  const traces=[];
  let serial=0;
  let signedInMember=null;
+ let databaseBranch="br-autumn-breeze-auw38rgr";
  let providerCalls=0;
  let mockProviderEnabled=false;
  let lastProviderRequest=null;
  const fakeSql=async(parts,...values)=>{
   const query=parts.join(" ? ").trim();
   traces.push({query,values});
+  if(query.includes("current_setting('neon.branch_id'"))
+    return [{branch_id:databaseBranch}];
   if(query.startsWith("CREATE TABLE IF NOT EXISTS"))return [];
   if(query.startsWith("INSERT INTO life_chat_threads")){
    const [member,id,title]=values;
@@ -67,7 +70,7 @@ function mockLifeEnvironment(){
   }
   throw Error("Unrecognized query: "+query.slice(0,180));
  };
- const env={LIFE_COACH_DATABASE_URL:"postgresql://private.invalid",PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN:"unused-in-isolation-tests"};
+ const env={VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feature/life-coach-agent-sandbox-20261011",LIFE_COACH_DATABASE_URL:"postgresql://private.invalid",PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN:"unused-in-isolation-tests"};
  const memory=moduleFrom("lib/lifeCoachMemory.ts");
  const formatting=moduleFrom("lib/lifeCoachFormatting.ts");
  const store=moduleFrom("lib/lifeCoachStore.ts",{
@@ -107,6 +110,7 @@ function mockLifeEnvironment(){
  };
  return {store,threads,messages,traces,apiGet,apiPost,
   signIn:(id)=>{signedInMember=id},
+  setDatabaseBranch:(id)=>{databaseBranch=id},
   providerCalls:()=>providerCalls,
   enableMockProvider:()=>{mockProviderEnabled=true},
   providerPayload:()=>lastProviderRequest
@@ -239,4 +243,18 @@ test("unenrolled private Life users cannot invoke paid Pickaxe or read other mem
  const result=await e.apiPost({message:"Build a detailed weekly plan based on the goal I shared earlier.",memberId:memberA,userId:memberA});
  assert.equal(result.status,503);
  assert.equal(e.providerCalls(),0);
+});
+
+test("wrong Neon preview branch rejects Life reads and writes before any personal data query",async()=>{
+ const e=mockLifeEnvironment();
+ e.signIn(memberA);
+ e.setDatabaseBranch("br-wrong-branch");
+ const get=await e.apiGet("");
+ assert.equal(get.status,503);
+ const post=await e.apiPost({message:"My goal is to read daily. Please remember this goal."});
+ assert.equal(post.status,503);
+ assert.equal(e.providerCalls(),0);
+ assert.ok(e.traces.length===2);
+ assert.ok(e.traces.every(t=>t.query.includes("current_setting('neon.branch_id'")));
+ assert.equal(e.messages.length,0);
 });
