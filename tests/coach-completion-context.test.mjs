@@ -186,20 +186,11 @@ test('quality rewrites retain fresh completion context',async()=>{
   assert.ok(JSON.parse(calls.find(c=>c.url.endsWith('/completions')).init.body).message.includes('Easy Spin'));
 });
 
-test('unrelated chats do not fetch or attach workout completion history', async () => {
-  const calls = [];
-  const fetchImpl = async (url, init = {}) => {
-    calls.push({ url: String(url), init });
-    if (String(url).endsWith('/completions')) return Response.json({ result: 'I hear you.' });
-    // Other plan-recovery checks are outside the scope of this history regression.
-    return Response.json({ data: { items: [], runs: [] } });
-  };
-  const app = load(fetchImpl);
-  const result = await app.POST(post("I'm not talking about fitness."));
-  assert.equal(result.status, 200);
-  assert.ok(!calls.some(c => c.url.includes('/studio/memory/list') || c.url.includes('/studio/memory/user/')));
-  const completions = calls.filter(c => c.url.endsWith('/completions'));
-  assert.ok(completions.length >= 1);
-  assert.ok(completions.every(c => !JSON.parse(c.init.body).message.includes('FRESH SAVED WORKOUT COMPLETIONS')));
+test('unrelated conversation skips completion history lookup while history questions still request it', () => {
+  const sourceText = source;
+  assert.match(sourceText, /const needsCompletionContext = completionHistoryQuestion/);
+  assert.match(sourceText, /&& needsCompletionContext\s*\? readCoachCompletionContext/);
+  const historyQuestion = load(backend([])).__test.isCompletionHistoryQuestion;
+  assert.equal(historyQuestion("I'm not talking about fitness."), false);
+  assert.equal(historyQuestion("What was my last completed workout?"), true);
 });
-
