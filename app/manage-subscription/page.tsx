@@ -103,7 +103,7 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
       <section className="login-config-card" aria-labelledby="subscription-heading">
         <p className="eyebrow">ACCOUNT</p>
         <h1 id="subscription-heading">Manage Subscription</h1>
-        <p>View your membership, update payment details, or cancel automatic renewal. You can cancel at any time and keep access through the end of your paid billing period.</p>
+        <p>View your membership and manage billing, including renewal and payment details.</p>
         {!user ? (
           <div>
             <p>Sign in to view and manage your subscription.</p>
@@ -144,7 +144,7 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
             ) : null}
 
             {billingState === "active" && linkedMember ? (
-              <p className="microcopy">Cancel renewal without contacting support. Your current paid access continues until the end of the billing period.</p>
+              <p className="microcopy">You can turn off automatic renewal at any time. Your current paid access continues through the end of the billing period.</p>
             ) : null}
 
             {billingState === "active" && linkedMember ? (
