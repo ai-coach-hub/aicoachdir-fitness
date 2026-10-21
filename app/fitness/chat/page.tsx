@@ -355,6 +355,23 @@ export default function FitnessChatPage() {
   const [running, setRunning] = useState(false);
   const [pendingPlanRequest, setPendingPlanRequest] = useState("");
   const [status, setStatus] = useState("");
+  const [plan, setPlan] = useState<JsonRecord | null>(null);
+  const [history, setHistory] = useState<unknown[]>([]);
+  const [planLoading, setPlanLoading] = useState(true);
+  const [planError, setPlanError] = useState("");
+  const [introPrompt, setIntroPrompt] = useState<string>(COACH_INTROS[0]);
+  const [threads, setThreads] = useState<HistoryThread[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [selectedThreadId, setSelectedThreadId] = useState("");
+  const [expandedWorkoutKey, setExpandedWorkoutKey] = useState<string | null>(null);
+  const [completionBusyKey, setCompletionBusyKey] = useState("");
+  const [completionError, setCompletionError] = useState("");
+  const [activeWorkoutTracker, setActiveWorkoutTracker] = useState<WorkoutTracker | null>(null);
+  const [trackerExercises, setTrackerExercises] = useState<TrackerExercise[]>([]);
+  const [trackerNotes, setTrackerNotes] = useState("");
+  const [trackerDuration, setTrackerDuration] = useState("");
+  const [completionNotice, setCompletionNotice] = useState("");
   const [previewAllowance, setPreviewAllowance] = useState<{ active: boolean; remaining: number; limit: number } | null>(null);
   const [enrollingPreview, setEnrollingPreview] = useState(false);
   async function refreshPreviewAllowance() {
@@ -377,23 +394,6 @@ export default function FitnessChatPage() {
     finally { setEnrollingPreview(false); }
   }
   useEffect(() => { void refreshPreviewAllowance(); }, []);
-  const [plan, setPlan] = useState<JsonRecord | null>(null);
-  const [history, setHistory] = useState<unknown[]>([]);
-  const [planLoading, setPlanLoading] = useState(true);
-  const [planError, setPlanError] = useState("");
-  const [introPrompt, setIntroPrompt] = useState<string>(COACH_INTROS[0]);
-  const [threads, setThreads] = useState<HistoryThread[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState("");
-  const [selectedThreadId, setSelectedThreadId] = useState("");
-  const [expandedWorkoutKey, setExpandedWorkoutKey] = useState<string | null>(null);
-  const [completionBusyKey, setCompletionBusyKey] = useState("");
-  const [completionError, setCompletionError] = useState("");
-  const [activeWorkoutTracker, setActiveWorkoutTracker] = useState<WorkoutTracker | null>(null);
-  const [trackerExercises, setTrackerExercises] = useState<TrackerExercise[]>([]);
-  const [trackerNotes, setTrackerNotes] = useState("");
-  const [trackerDuration, setTrackerDuration] = useState("");
-  const [completionNotice, setCompletionNotice] = useState("");
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const planRequestVersion = useRef(0);
 
