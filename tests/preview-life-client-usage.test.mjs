@@ -31,3 +31,9 @@ test("preview meter stays behind both environment flags and memory returns befor
  assert.match(route,/if\(enrollment.active\)/);
  assert.doesNotMatch(route,/subscriptionKey=body\.|periodStart=body\./);
 });
+
+test("preview counter separates completed uses from pending verification without a paid request",()=>{
+ assert.match(client,/usageTest\.used/);
+ assert.match(client,/usageTest\.pending/);
+ assert.match(client,/pending verification/);
+});
