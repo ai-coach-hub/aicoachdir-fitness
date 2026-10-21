@@ -2524,7 +2524,13 @@ export async function POST(request: Request) {
   const standaloneNoSaveWorkout = isStandaloneNoSaveWorkout(message);
   const mustConfirmSavedPlanMutation = requiresConfirmedSavedPlanMutation(effectiveMessage);
   const completionHistoryQuestion = !mustConfirmSavedPlanMutation && !standaloneNoSaveWorkout && isCompletionHistoryQuestion(message);
-  const completionContextPromise = !mustConfirmSavedPlanMutation && !standaloneNoSaveWorkout
+  // Only fetch completion history for explicit history questions or a clear request
+  // to use recent workout completions. Ordinary conversation must not carry raw
+  // workout records into Pickaxe or incur the associated memory lookups.
+  const needsCompletionContext = completionHistoryQuestion ||
+    /\b(?:recent|past|previous|logged|finished|completed|completion|progress)\b[^.!?\n]{0,100}\b(?:workouts?|sessions?|training|exercises?)\b/i.test(message) ||
+    /\b(?:workouts?|sessions?|training|exercises?)\b[^.!?\n]{0,100}\b(?:recent|past|previous|logged|finished|completed|completion|progress)\b/i.test(message);
+  const completionContextPromise = !mustConfirmSavedPlanMutation && !standaloneNoSaveWorkout && needsCompletionContext
     ? readCoachCompletionContext(memberEmail, studioToken) : Promise.resolve(null);
   const mutationSignal = AbortSignal.timeout(100_000);
   let planBeforeMutation: Record<string, unknown> | null = null;
