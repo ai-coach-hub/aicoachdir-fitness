@@ -93,7 +93,7 @@ test("opt-in is idempotent, limited to three uses and isolated per authenticated
  response=await x.route.POST();
  assert.equal(response.status,200);
  assert.deepEqual(JSON.parse(JSON.stringify(await response.json())),
-  {ok:true,active:true,remaining:3,used:0,limit:3});
+  {ok:true,active:true,remaining:3,used:0,pending:0,limit:3});
  assert.equal(x.writes(),1);
  await x.route.POST();
  assert.equal(x.writes(),1,"repeated enrollment must not reset allowance");
@@ -114,5 +114,5 @@ test("preview account's consumed and reserved uses reduce its displayed allowanc
  row.completed_uses=1;row.reserved_uses=1;
  const response=await x.route.GET();
  assert.deepEqual(JSON.parse(JSON.stringify(await response.json())),
-  {ok:true,active:true,remaining:1,used:1,limit:3});
+  {ok:true,active:true,remaining:1,used:1,pending:1,limit:3});
 });
