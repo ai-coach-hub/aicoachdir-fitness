@@ -54,6 +54,12 @@ The owner has discussed a three-bundle x three-tier model before, but the exact 
 - No messages, account identifiers, secrets, live Stripe records, provider calls or production database rows were included in this audit. No Pickaxe generation was used.
 - **Still needed:** Test the current preview in two separate verified Clerk sessions; verify private chat lists, foreign conversation IDs, direct-memory recall and signed-out denials. Keep this gate blocked until real-session evidence is recorded.
 
+### Zero-credit authenticated verification (private preview)
+
+The sandbox now exposes `/life/privacy-check` for approved, verified internal Clerk testers. Each tester signs in separately and clicks **Run zero-credit privacy check**. The server derives identity from Clerk, verifies the Neon branch, enumerates only that member's thread list, and confirms a different test account's conversation cannot be read through the member-scoped store. It does not call Pickaxe, perform checkout, expose the foreign conversation ID, or access the production database.
+
+A successful check records only the authenticated Clerk member ID, passing status and timestamp in the private `life_privacy_test_checks` table. Two different accounts must each pass within 48 hours to mark `twoAccountCheckComplete: true`. Repeated checks by a single account never count as a second session. This page streamlines the **real authenticated session** part of the release gate; the owner should still confirm each account's own historical goal is correct and not the other's using the zero-model memory pathway. Do not change the gate to passed until two sessions have actually run the check.
+
 ## Dedicated internal real-account privacy check - BLOCKING
 
 Do not involve any existing paying customer. The prior signup test email did not work; don't force that path again.
