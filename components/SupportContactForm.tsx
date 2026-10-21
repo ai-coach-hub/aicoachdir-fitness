@@ -32,7 +32,7 @@ export default function SupportContactForm({ defaultTopic = "General Question" }
       <button className="secondary-button" type="submit" disabled={state === "sending"}>{state === "sending" ? "Sending…" : "Send Message"}</button>
       {state === "sent" ? <p role="status">Your message was sent to support. We'll review it as soon as possible.</p> : null}
       {state === "error" ? <p role="alert">We couldn't deliver your message. Please try again later.</p> : null}
-      <p className="microcopy">Do not send passwords or payment-card information. A support request does not automatically cancel a subscription. To cancel renewal, use <a href="/manage-subscription">Manage Subscription</a>.</p>
+      <p className="microcopy">Do not send passwords or payment-card information. Support messages do not change subscription settings. For billing changes, use <a href="/manage-subscription">Manage Subscription</a>.</p>
     </form>
   );
 }
