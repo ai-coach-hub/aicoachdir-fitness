@@ -475,6 +475,10 @@ export async function memberHasFitnessAccess(
     return true;
   }
 
+  // An explicitly retired legacy login must never fall back to an old
+  // Pickaxe access group. Preserve its identity and saved history.
+  if (existing?.stripe_status === "retired_owner_requested") return false;
+
   // Once a customer is linked to paid billing, a canceled or lapsed
   // subscription must never fall back to a stale Pickaxe access group.
   // Their Clerk identity and saved coach history remain untouched.
