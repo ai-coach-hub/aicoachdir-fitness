@@ -47,6 +47,7 @@ function verifyFixture({row=base(),verified=true,revokeOnRefresh=false,env="prod
    VERCEL_ENV:env,
    SHARED_USAGE_GATE_ENABLED:"true",
    SHARED_USAGE_PUBLIC_RELEASE_APPROVED:"true",
+   SHARED_USAGE_OPENING_BALANCES_RECONCILED:"true",
    BUDGET_MEMBERSHIP_HANDOFF_SECRET:"s".repeat(48),
    SHARED_USAGE_LEGACY_PERIOD_MODE:"utc_calendar"
   }}
