@@ -11,7 +11,8 @@ export function sharedUsageGateEnabled(){
  if(process.env.VERCEL_ENV==="preview")
   return process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011";
  return process.env.VERCEL_ENV==="production" &&
-        process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true";
+        process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
+        process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true";
 }
 export type QuotaCoach="fitness"|"budgeting"|"life";
 export type QuotaPermit={
