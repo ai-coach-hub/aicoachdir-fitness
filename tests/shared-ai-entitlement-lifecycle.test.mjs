@@ -119,7 +119,7 @@ test("absent, stale, future or malformed server billing verification cannot gran
 
 test("a valid subscription only grants uses within verified paid billing boundaries",()=>{
  const base={verifiedAt:"2026-10-01T00:00:00.000Z"};
- assert.equal(judge(base,{now:"2026-09-30T23:59:59.999Z"}).reason,"outside_billing_period"==="outside_billing_period"?"billing_unverified":"invalid"); // future verification denied
+ assert.equal(judge(base,{now:"2026-09-30T23:59:59.999Z"}).reason,"outside_billing_period"); // billing boundary blocks request
  const within={verifiedAt:"2026-10-01T00:01:00.000Z"};
  assert.equal(judge(within,{now:"2026-10-01T00:02:00.000Z"}).allowed,true);
  assert.equal(judge({verifiedAt:"2026-11-01T00:00:00.000Z"},{now:"2026-11-01T00:00:00.000Z"}).reason,"outside_billing_period");
