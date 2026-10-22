@@ -64,6 +64,14 @@ export async function resolveCurrentSharedUsage(email:string):Promise<QuotaPermi
  const normalized=email.trim().toLowerCase(), secret=root();
  const memberKey=sharedUsageMemberKey(normalized,secret);
  if(!memberKey || normalized!==email)return null;
+ // Internal synthetic/QA accounts remain available for private testing but
+ // must never receive customer AI credits in production. Exact operator-
+ // configured matches only; not inferred from "+" aliases or domain names.
+ if(process.env.VERCEL_ENV==="production"){
+  const qaOnly=String(process.env.SHARED_USAGE_NONBILLABLE_TEST_EMAILS||"")
+   .split(",").map(v=>v.trim().toLowerCase()).filter(Boolean);
+  if(qaOnly.includes(normalized))return null;
+ }
  let record=await getFitnessMembership(normalized);
  if(!record || record.access_active!==true)return null;
  // Previously approved grandfathered members can have no Stripe IDs. Reuse
