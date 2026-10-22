@@ -31,6 +31,8 @@ export function legacyLifeVerifiedBinding(
   stripeCustomerId:row.stripe_customer_id as string,
   stripeSubscriptionId:row.stripe_subscription_id as string,
   approvedPriceId,
-  ...approvedLegacyLifeEntitlement()
+  approvedLedgerKey:approvedLegacyLifeEntitlement().allowanceLedgerKey,
+  includedUses:approvedLegacyLifeEntitlement().includedUses,
+  allowedCoaches:approvedLegacyLifeEntitlement().allowedCoaches
  };
 }
