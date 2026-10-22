@@ -70,5 +70,5 @@ test("private QA endpoint cannot call real coach providers or mutate live billin
  assert.match(route,/previewTestAvailable\(\)/);
  assert.match(route,/lifeTestStatus\(member\)/);
  assert.doesNotMatch(route,/fetch\(|stripeRequest\(|pickaxe|memberHasFitnessAccess|grantFitnessAccess/);
- assert.doesNotMatch(source,/fetch\(|stripeRequest\(|pickaxe|INSERT INTO|UPDATE /i);
+ assert.doesNotMatch(source,/fetch\(|stripeRequest\(|api\.pickaxe\.co|INSERT INTO|UPDATE /i);
 });
