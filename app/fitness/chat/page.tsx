@@ -350,6 +350,7 @@ export default function FitnessChatPage() {
   const { signOut } = useClerk();
   const [tab, setTab] = useState<"coach" | "workouts" | "history">("coach");
   const [conversationId, setConversationId] = useState(() => `fitness-chat-${crypto.randomUUID()}`);
+  const pendingChatRequest = useRef<{message:string;conversationId:string;requestKey:string}|null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [running, setRunning] = useState(false);
@@ -669,6 +670,10 @@ export default function FitnessChatPage() {
     const message = input.trim();
     if (!message || running) return;
 
+    const previous=pendingChatRequest.current;
+    const requestKey=previous?.message===message&&previous.conversationId===conversationId
+      ? previous.requestKey : `fitness-${crypto.randomUUID()}`;
+    pendingChatRequest.current={message,conversationId,requestKey};
     setMessages((items) => [...items, { role: "user", text: message }]);
     setInput("");
     setRunning(true);
@@ -678,7 +683,7 @@ export default function FitnessChatPage() {
       const response = await fetch("/api/fitness/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, conversationId, pendingPlanRequest, requestKey: `fitness-${crypto.randomUUID()}` }),
+        body: JSON.stringify({ message, conversationId, pendingPlanRequest, requestKey }),
       });
 
       const data = (await response.json()) as ChatResult;
@@ -688,9 +693,12 @@ export default function FitnessChatPage() {
 
       if (!response.ok || !data.ok || !data.response) {
         setStatus(data.error || "The Fitness Coach request did not complete.");
+        setInput(message);
+        setMessages((items)=>items.slice(0,-1));
         return;
       }
 
+      pendingChatRequest.current=null;
       setMessages((items) => [...items, { role: "assistant", text: cleanCoachText(data.response!) }]);
       const savedPlanChanged = data.savedPlanVerified === true;
       setStatus(savedPlanChanged ? "Saved and verified in My Workouts." : "");
@@ -703,13 +711,16 @@ export default function FitnessChatPage() {
         await loadPlan();
       }
     } catch {
-      setStatus("The Fitness Coach request failed.");
+      setStatus("The Fitness Coach request failed. Check previous chats before retrying.");
+      setInput(message);
+      setMessages((items)=>items.slice(0,-1));
     } finally {
       setRunning(false);
     }
   }
 
   function newChat() {
+    pendingChatRequest.current=null;
     setConversationId(`fitness-chat-${crypto.randomUUID()}`);
     setMessages([]);
     setStatus("");
