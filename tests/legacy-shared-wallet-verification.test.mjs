@@ -60,7 +60,7 @@ function fixture({hasPickaxeAccess=true,billing=null,verifyError=null,groupError
  runInNewContext(code,{module,exports:module.exports,require:p=>{
   assert.ok(p in dependencies,"unexpected import "+p);
   return dependencies[p];
- },process:{env:{VERCEL_ENV:"production"}},Date,console:{error:()=>{}}},{timeout:3000});
+ },process:{env:{VERCEL_ENV:"production",DATABASE_URL:"postgres://sandbox.invalid/test-only"}},Date,console:{error:()=>{}}},{timeout:3000});
  return {access:()=>module.exports.memberHasFitnessAccess(email,userId,{fallbackToPickaxeList:false}),
   row:()=>row,calls};
 }
