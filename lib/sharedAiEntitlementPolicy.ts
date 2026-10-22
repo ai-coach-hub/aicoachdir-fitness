@@ -112,12 +112,18 @@ export function decideSharedAiUsage(
     return denied("coach_not_included");
 
   const prior = request.priorPeriod;
-  if (prior && prior.clerkUserId === snapshot.clerkUserId &&
-      prior.allowanceLedgerKey === snapshot.allowanceLedgerKey &&
-      prior.periodStart !== snapshot.periodStart) {
+  if (prior) {
+    if (prior.clerkUserId !== snapshot.clerkUserId)
+      return denied("invalid_identity");
     const oldStart = isoUtc(prior.periodStart);
     const oldEnd = isoUtc(prior.periodEnd);
-    if (oldStart === null || oldEnd === null || start < oldEnd)
+    if (oldStart === null || oldEnd === null || !ledgerId(prior.allowanceLedgerKey))
+      return denied("billing_unverified");
+    // A new Stripe subscription, tier or ledger key cannot mint a second
+    // allowance while the prior billing period is still running.
+    if ((prior.periodStart !== snapshot.periodStart ||
+         prior.allowanceLedgerKey !== snapshot.allowanceLedgerKey) &&
+        start < oldEnd)
       return denied("overlapping_period");
   }
 
