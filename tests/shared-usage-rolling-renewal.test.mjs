@@ -11,7 +11,7 @@ const day=86400000,now=Date.now(),oldStart=new Date(now-5*day).toISOString(),
   earlierLaunch=new Date(now-15*day).toISOString();
 const memberKey="member_"+"a".repeat(64);
 
-function world({periodStart=oldStart,cutover=launch,mode="rolling_renewal",opening="false",memberPresent=true,memberActive=true}={}){
+function world({periodStart=oldStart,cutover=launch,mode="rolling_renewal",opening="false",memberPresent=true,memberActive=true,approvedPrice=true,subscriptionStatus="active"}={}){
  const calls=[];
  const sql=async(strings,...values)=>{
   const stmt=strings.join("?");
@@ -30,10 +30,10 @@ function world({periodStart=oldStart,cutover=launch,mode="rolling_renewal",openi
     memberHasFitnessAccess:async()=>{lookups++;return true;}},
   "./stripeServer":{stripeRequest:async path=>path.startsWith("/customers/")?
     {email:"member@example.test",deleted:false}:
-    {id:"sub_Verified",customer:"cus_Verified",status:"active"}},
+    {id:"sub_Verified",customer:"cus_Verified",status:subscriptionStatus}},
   "./stripeUsagePeriod":{stripeUsageWindowFromVerifiedRecord:()=>({ok:true,periodStart,periodEnd:nextEnd})},
   "./sharedUsageMemberIdentity":{sharedUsageMemberKey:()=>memberKey},
-  "./sharedUsagePriceApproval":{approvedSharedPriceIds:()=>["price_Approved"]}
+  "./sharedUsagePriceApproval":{approvedSharedPriceIds:()=>approvedPrice?["price_Approved"]:[]}
  };
  const env={VERCEL_ENV:"production",SHARED_USAGE_GATE_ENABLED:"true",
   SHARED_USAGE_PUBLIC_RELEASE_APPROVED:"true",SHARED_USAGE_OPENING_BALANCES_RECONCILED:opening,
@@ -72,4 +72,14 @@ test("unrecognized or inactive members never receive quota without independent a
   const result=await w.reserve();
   assert.notEqual(result.status,"reserved");
  }
+});
+
+test("old subscriber with unrecognized grandfathered price keeps original AI service and receives no invented wallet",async()=>{
+ const w=world({cutover:earlierLaunch,approvedPrice:false});
+ assert.equal((await w.reserve()).status,"pending_renewal");
+ assert.equal(w.calls.some(x=>x.stmt.includes("shared_ai_reserve")),false);
+});
+test("a canceled Stripe subscription never receives the old-provider migration fallback",async()=>{
+ const w=world({cutover:earlierLaunch,subscriptionStatus:"canceled"});
+ assert.equal((await w.reserve()).status,"not_entitled");
 });
