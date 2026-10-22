@@ -24,7 +24,7 @@ test("preview meter stays behind both environment flags and memory returns befor
  const indexSave=route.indexOf('await saveLifeTurn(member,id,message,response);');
  const indexRecall=route.indexOf('if(direct!==null)');
  const indexMeter=route.indexOf('PREVIEW_SHARED_USAGE_METER_ENABLED === "true"');
- const indexReservation=route.indexOf('runMeteredPreviewGeneration(');
+ const indexReservation=route.indexOf('runMeteredPreviewGeneration(',indexMeter);
  assert.ok(indexSave>0 && indexRecall>indexSave && indexMeter>indexRecall && indexReservation>indexMeter);
  assert.match(route,/process\.env\.VERCEL_ENV === "preview"/);
  assert.match(route,/process\.env\.VERCEL_GIT_COMMIT_REF === "feature\/life-coach-agent-sandbox-20261011"/);
@@ -43,6 +43,6 @@ test("preview counter separates completed uses from pending verification without
 test("private Life generation cannot bypass enrollment or the shared meter",()=> {
  assert.match(route,/if\(!enrollment\.active\) return json\(\{ok:false,error:"Private usage test enrollment is required\."\},403\)/);
  assert.match(route,/if \(!privateSandbox \|\| process\.env\.PREVIEW_SHARED_USAGE_METER_ENABLED !== "true"\)/);
- assert.match(route,/return json\(\{ok:false,error:"Private Life Coach generation is unavailable\."\},503\)/);
+ assert.match(route,/return json\(\{ok:false,error:"Private Life Coach generation is not enabled\."\},503\)/);
  assert.equal((route.match(/fetch\("https:\/\/api\.pickaxe\.co\/v1\/completions"/g)||[]).length,1);
 });
