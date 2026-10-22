@@ -14,7 +14,9 @@ test("Life Chat submits a request key but does not expose member identity or all
 
 test("retries reuse the request key for the same text and conversation",()=>{
  assert.match(client,/previous\?\.message===message && previous\?\.conversationId===id/);
- assert.match(client,/pendingRequest\.current=\{key:requestKey,message,conversationId:id\}/);
+ assert.match(client,/pendingRequest\.current=\{key:requestKey,message,conversationId:id,newConversationId\}/);
+ assert.match(client,/newConversationId=!id/);
+ assert.match(client,/source:"recovered-history"|\/api\/life\/chat\?id=/);
  assert.match(client,/pendingRequest\.current=null/);
 });
 
