@@ -5,6 +5,12 @@ export type LifeMessage = { role: "user" | "assistant"; text: string; createdAt:
 export type LifeThread = { id: string; title: string; updatedAt: string };
 const validId = (id: string) => /^life-coach-[a-zA-Z0-9_-]{8,90}$/.test(id);
 
+function productionOpeningReady(){
+ const mode=String(process.env.SHARED_USAGE_MIGRATION_MODE||"");
+ return mode==="rolling_renewal" ||
+  ((mode===""||mode==="reconciled") &&
+   process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true");
+}
 function productionCutoverReady(){
  const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
  const stamp=Date.parse(cutover);
@@ -14,7 +20,7 @@ function database() {
   const isProduction=process.env.VERCEL_ENV==="production" &&
     process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
-    process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
+    productionOpeningReady() &&
     productionCutoverReady() &&
     process.env.LIFE_COACH_LIVE_ENABLED==="true";
   const url=isProduction
@@ -34,7 +40,7 @@ async function db() {
   const productionReleased=process.env.VERCEL_ENV==="production" &&
     process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
-    process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
+    productionOpeningReady() &&
     productionCutoverReady() &&
     process.env.LIFE_COACH_LIVE_ENABLED==="true";
   if(!privatePreview&&!productionReleased)
