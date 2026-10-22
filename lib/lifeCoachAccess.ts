@@ -5,7 +5,11 @@ import { currentUser } from "@clerk/nextjs/server";
 export async function lifeTester() {
   const privatePreview=process.env.VERCEL_ENV==="preview" &&
       process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011";
+  const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
+  const stamp=Date.parse(cutover);
+  const cutoverReady=Number.isFinite(stamp)&&new Date(stamp).toISOString()===cutover;
   const released=process.env.VERCEL_ENV==="production" &&
+      cutoverReady &&
       process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
       process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
       process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
