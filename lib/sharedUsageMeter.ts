@@ -124,11 +124,21 @@ async function resolveCurrentSharedUsageWithState(email:string):Promise<QuotaPer
      !["active","trialing"].includes(String(sub.status||"")))return null;
   // Explicit current and grandfathered price IDs only: no product creation.
   const prices=await approvedPrices();
-  if(!prices.length)return null;
+  if(!prices.length)
+   return process.env.VERCEL_ENV==="production" &&
+    process.env.SHARED_USAGE_MIGRATION_MODE==="rolling_renewal"
+     ? "pending_renewal" : null;
   const windows=prices.map(priceId=>stripeUsageWindowFromVerifiedRecord(sub,{
    customerId,subscriptionId,priceId
   })).filter((x):x is Extract<typeof x,{ok:true}>=>x.ok);
-  if(windows.length!==1)return null;
+  // Some grandfathered active Stripe subscriptions carry older plan prices.
+  // Do not deny their existing coach access or guess that they have 400
+  // unused credits. They keep the original provider until an exact approved
+  // price and period can be verified for the shared ledger.
+  if(windows.length!==1)
+   return process.env.VERCEL_ENV==="production" &&
+    process.env.SHARED_USAGE_MIGRATION_MODE==="rolling_renewal"
+     ? "pending_renewal" : null;
   periodStart=windows[0].periodStart;
   periodEnd=windows[0].periodEnd;
  }else if(!customerId && !subscriptionId &&
