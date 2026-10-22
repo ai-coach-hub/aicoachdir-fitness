@@ -10,7 +10,21 @@ import { getVerifiedSubscription } from "@/lib/stripeMembershipState";
 import { stripeSubscriptionIsActive } from "@/lib/stripeServer";
 import { discoverVerifiedHistoricalBilling } from "@/lib/legacyBillingVerification";
 
+const PREVIEW_SANDBOX_BRANCH = "feature/life-coach-agent-sandbox-20261011";
+const PREVIEW_NEON_BRANCH_ID = "br-autumn-breeze-auw38rgr";
+
+function onFitnessPreviewSandbox() {
+  return process.env.VERCEL_ENV === "preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF === PREVIEW_SANDBOX_BRANCH;
+}
+
 function connectionString() {
+  // Never fall back to the inherited production database in this sandbox.
+  if (onFitnessPreviewSandbox()) {
+    const isolated = process.env.LIFE_COACH_DATABASE_URL;
+    if (!isolated) throw new Error("Sandbox membership database is not configured.");
+    return isolated;
+  }
   const value =
     process.env.STORAGE_URL ||
     process.env.DATABASE_URL ||
@@ -25,8 +39,19 @@ export function membershipDb() {
 
 let membershipSchemaReady: Promise<void> | null = null;
 
-export async function ensureFitnessMembershipSchema() {
+async function verifiedMembershipDb() {
   const sql = membershipDb();
+  if (onFitnessPreviewSandbox()) {
+    const rows = await sql`SELECT current_setting('neon.branch_id', true) AS branch_id`;
+    if (String(rows[0]?.branch_id || "") !== PREVIEW_NEON_BRANCH_ID) {
+      throw new Error("Sandbox membership database branch mismatch.");
+    }
+  }
+  return sql;
+}
+
+export async function ensureFitnessMembershipSchema() {
+  const sql = await verifiedMembershipDb();
   if (!membershipSchemaReady) {
     membershipSchemaReady = (async () => {
       await sql`
@@ -260,14 +285,35 @@ async function reconcileLegacyPaidMembership(email: string, clerkUserId?: string
   }
   const sql = await ensureFitnessMembershipSchema();
   if (!verified) {
-    await sql`
+    // No historical Stripe charge was found. Grandfathered members still
+    // qualify through their existing Pickaxe access group, but the absence
+    // of a Stripe match alone is never evidence of verified legacy access.
+    // Re-check that exact member's current legacy entitlement before issuing
+    // a fresh shared AI allowance. Existing Fitness access remains unchanged
+    // if either provider cannot be reached.
+    let legacyGroupActive = false;
+    try {
+      legacyGroupActive = await pickaxeUserHasFitnessAccess(email, {
+        fallbackToList: true,
+      });
+    } catch (error) {
+      console.error("[membership] legacy access verification deferred", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return current;
+    }
+    if (!legacyGroupActive) return current;
+    const rows = await sql`
       UPDATE fitness_memberships SET last_legacy_verified_at = NOW()
       WHERE email = ${canonicalMemberEmail(email)}
+        AND access_active = TRUE
         AND stripe_status = 'legacy_pickaxe_member'
+        AND stripe_customer_id IS NULL
         AND stripe_subscription_id IS NULL
         AND clerk_user_id = ${clerkUserId}
+      RETURNING *
     `;
-    return getFitnessMembership(email);
+    return rows[0] || getFitnessMembership(email);
   }
 
   const rows = await sql`
@@ -448,6 +494,13 @@ export async function memberHasFitnessAccess(
   options: { fallbackToPickaxeList?: boolean } = {},
 ) {
   const memberEmail = canonicalMemberEmail(email);
+  // Only verified, allowlisted Clerk testers may access private Fitness QA.
+  if (onFitnessPreviewSandbox()) {
+    const { lifeTester } = await import("@/lib/lifeCoachAccess");
+    const testerId = await lifeTester();
+    if (testerId && clerkUserId === testerId) return true;
+    return false;
+  }
   // Backfill only an independently verified historical paid subscription.
   // Unmatched grandfathered members remain fully active.
   let existing = await getFitnessMembership(memberEmail);
@@ -475,8 +528,8 @@ export async function memberHasFitnessAccess(
     return true;
   }
 
-  // An explicitly retired legacy login must never fall back to an old
-  // Pickaxe access group. Preserve its identity and saved history.
+  // Operator-retired legacy account must never be recreated by stale Pickaxe access.
+  // Preserve its Clerk identity, subscriptions and saved history.
   if (existing?.stripe_status === "retired_owner_requested") return false;
 
   // Once a customer is linked to paid billing, a canceled or lapsed
@@ -485,6 +538,8 @@ export async function memberHasFitnessAccess(
   if (existing?.stripe_customer_id || existing?.stripe_subscription_id) {
     return false;
   }
+
+  if (onFitnessPreviewSandbox()) return false;
 
   const legacyActive = await pickaxeUserHasFitnessAccess(memberEmail, {
     fallbackToList: options.fallbackToPickaxeList ?? true,

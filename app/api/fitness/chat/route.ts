@@ -2150,6 +2150,15 @@ export async function GET() {
     );
   }
 
+  // Private preview may not read or mutate real Pickaxe workout data.
+  if (process.env.VERCEL_ENV === "preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011") {
+    return Response.json({
+      ok: true, plan: null, historyEntries: [],
+      memberAuthenticated: true, previewWorkoutDataUnavailable: true,
+    }, { headers: { "Cache-Control": "private, no-store" } });
+  }
+
   const studioToken = getStudioToken();
   if (!studioToken) {
     return Response.json(
@@ -2248,6 +2257,44 @@ async function settleWorkoutSaveRace<R extends { finalDelivery?: string }>(optio
 }
 
 export async function POST(request: Request) {
+  // Only an explicitly authorized shared-wallet release may call the real
+  // provider through the quota reservation boundary. Default remains OFF.
+  // Keep this entrypoint independent of dynamically imported meter internals
+  // so all existing Fitness chat actions and test harnesses remain compatible.
+  // The production authorization conditions mirror sharedUsageGateEnabled().
+  const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
+  const cutoverStamp=Date.parse(cutover);
+  const cutoverReady=Number.isFinite(cutoverStamp) &&
+    new Date(cutoverStamp).toISOString()===cutover;
+  const sharedReady=process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
+    ((process.env.VERCEL_ENV==="preview" &&
+       process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011") ||
+     (process.env.VERCEL_ENV==="production" &&
+       process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
+       process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
+       cutoverReady));
+  // Never bypass shared metering if the release was partially enabled.
+  // Keep the existing production coach unchanged while both switches are OFF.
+  const partiallyEnabled=process.env.VERCEL_ENV==="production" &&
+    process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
+    process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true";
+  if(partiallyEnabled&&!sharedReady)
+    return Response.json({ok:false,error:"Shared usage launch configuration is incomplete. No AI request was made."},{status:503});
+  if(sharedReady){
+    const {gatedFitnessChat}=await import("@/lib/gatedFitnessChat");
+    return gatedFitnessChat(request,postFitnessWithoutPreviewMeter);
+  }
+  // Private shared usage testing is opt-in; production Fitness is unchanged.
+  if (process.env.VERCEL_ENV === "preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011" &&
+      process.env.PREVIEW_SHARED_USAGE_METER_ENABLED === "true") {
+    const { previewFitnessChat } = await import("@/lib/previewFitnessChat");
+    return previewFitnessChat(request, postFitnessWithoutPreviewMeter);
+  }
+  return postFitnessWithoutPreviewMeter(request);
+}
+
+async function postFitnessWithoutPreviewMeter(request: Request) {
   const user = await currentUser();
   const memberEmail = primaryEmailForUser(user);
   if (!user || !memberEmail) {

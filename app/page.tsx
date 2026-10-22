@@ -65,6 +65,18 @@ const upcomingCoaches = [
 export default function HomePage() {
   const memberLoginUrl = "/fitness/login";
 
+  // Release Life Coach to existing members with the same subscription only
+  // after both production services and their opening balances are approved.
+  const cutover = String(process.env.SHARED_USAGE_CUTOVER_AT || "");
+  const stamp = Date.parse(cutover);
+  const cutoverReady = Number.isFinite(stamp) && new Date(stamp).toISOString() === cutover;
+  const lifeAvailable = process.env.VERCEL_ENV === "production" &&
+    cutoverReady &&
+    process.env.SHARED_USAGE_GATE_ENABLED === "true" &&
+    process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED === "true" &&
+    process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED === "true" &&
+    process.env.LIFE_COACH_LIVE_ENABLED === "true";
+
   return (
     <main className="site-shell">
       <SiteHeader />
@@ -149,6 +161,35 @@ export default function HomePage() {
             </div>
           </div>
         </article>
+        {lifeAvailable && (
+          <article className="live-coach-card">
+            <div className="live-coach-status-row">
+              <span className="live-coach-badge">Available Now</span>
+            </div>
+            <div className="live-coach-image-wrap">
+              <Image
+                src="/images/ai-coaching-for-life.jpg"
+                alt="AI Coaching for Life"
+                width={1536}
+                height={1024}
+                sizes="(max-width: 900px) calc(100vw - 24px), 560px"
+                className="live-coach-image"
+              />
+            </div>
+            <div className="live-coach-copy">
+              <p className="eyebrow">AI COACHING FOR LIFE</p>
+              <h2>Build stronger habits, reflect on goals, and move forward.</h2>
+              <p>
+                Get focused support with routines, personal growth, reflection, and practical next steps.
+                Life Coach is included with your existing AI Coach Directory membership.
+              </p>
+              <div className="live-coach-feature">Same membership · 400 shared monthly AI uses</div>
+              <div className="cta-row">
+                <Link href="/life" className="primary-button">Start Life Coach</Link>
+              </div>
+            </div>
+          </article>
+        )}
       </section>
 
       <section className="coach-offer" aria-labelledby="coach-offer-title">
@@ -156,7 +197,7 @@ export default function HomePage() {
           <div>
             <p className="eyebrow compact-eyebrow">YOUR MEMBERSHIP</p>
             <h2 id="coach-offer-title">{plan.name}</h2>
-            <p>Access both the Fitness Coach with My Workouts and the Budgeting Coach with My Budget.</p>
+            <p>{lifeAvailable ? "Fitness with My Workouts, Budgeting with My Budget, and Life Coach are included with one membership." : "Access both the Fitness Coach with My Workouts and the Budgeting Coach with My Budget."}</p>
           </div>
         </div>
         <div className="offer-stat">
@@ -256,13 +297,13 @@ export default function HomePage() {
             <p className="eyebrow">COMING SOON</p>
             <h2 id="coming-soon-title">More AI coaching experiences are on the way.</h2>
             <p>
-              Fitness and Budgeting are available now. These additional coaching experiences are previews of what is coming next from AI Coach Directory.
+              {lifeAvailable ? "Fitness, Budgeting, and Life are available now. Other coaching experiences are in development." : "Fitness and Budgeting are available now. These additional coaching experiences are previews of what is coming next from AI Coach Directory."}
             </p>
           </div>
         </div>
 
         <div className="coming-soon-grid">
-          {upcomingCoaches.map((coach) => (
+          {upcomingCoaches.filter((coach) => !lifeAvailable || coach.name !== "AI Coaching for Life").map((coach) => (
             <article key={coach.name} className="coming-soon-card">
               <div className="coming-soon-status-row">
                 <span className="coming-soon-badge">Coming Soon</span>
