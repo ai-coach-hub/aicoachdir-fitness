@@ -74,7 +74,7 @@ test("reactivation in the SAME period preserves stable allowance despite new sub
 });
 
 test("renewal resets on legitimate new period only after prior period ends",()=>{
- const prior={clerkUserId:"user_accountA1234",allowanceLedgerKey:"approved_fitness_v2_legacy",...period()};
+ const prior={clerkUserId:"user_accountA1234",allowanceLedgerKey:"approved_fitness_v2_legacy",includedUses:400,...period()};
  const next = snapshot({...period("2026-11-01T00:00:00.000Z","2026-12-01T00:00:00.000Z"),
    verifiedAt:"2026-11-01T00:01:00.000Z"});
  const out=decideSharedAiUsage(next,request({now:"2026-11-01T00:02:00.000Z",priorPeriod:prior}));
@@ -84,10 +84,11 @@ test("renewal resets on legitimate new period only after prior period ends",()=>
 });
 
 test("reactivation and upgrade cannot double grant with an overlapping period or rekey",()=>{
- const old={clerkUserId:"user_accountA1234",allowanceLedgerKey:"approved_fitness_v2_legacy",...period()};
+ const old={clerkUserId:"user_accountA1234",allowanceLedgerKey:"approved_fitness_v2_legacy",includedUses:400,...period()};
  const overlap={...period("2026-10-15T00:00:00.000Z","2026-11-15T00:00:00.000Z")};
  assert.equal(judge(overlap,{priorPeriod:old}).reason,"overlapping_period");
  assert.equal(judge({allowanceLedgerKey:"unapproved_upgrade_same_period"},{priorPeriod:old}).reason,"overlapping_period");
+ assert.equal(judge({includedUses:600},{priorPeriod:old}).reason,"allowance_change_requires_review");
  assert.equal(judge({stripeSubscriptionId:"sub_NewSubscription2"},{priorPeriod:old}).allowed,true);
  assert.equal(judge({}, {priorPeriod:{...old,clerkUserId:"user_someoneelse"}}).reason,"invalid_identity");
 });
