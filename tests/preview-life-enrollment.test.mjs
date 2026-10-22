@@ -52,6 +52,12 @@ function setup(overrides={}){
  },current);
  const route=loadModule("app/api/life/usage-test/route.ts",{
   "@/lib/lifeCoachAccess":{lifeTester:async()=>member},
+  "@clerk/nextjs/server":{currentUser:async()=>({
+   id:member,primaryEmailAddressId:"primary",
+   emailAddresses:[{id:"primary",emailAddress:"tester@example.test",
+    verification:{status:"verified"}}]
+  })},
+  "@/lib/previewSharedMemberBinding":{bindPrivatePreviewMember:async()=> "member_test"},
   "@/lib/previewLifeTestEnrollment":enrollment
  },current);
  return {route,enrollment,writes:()=>writes,records,setMember:id=>member=id,setBranch:id=>dbBranch=id};
