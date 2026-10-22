@@ -14,10 +14,14 @@ export default async function LifePage() {
   const cutover = String(process.env.SHARED_USAGE_CUTOVER_AT || "");
   const stamp = Date.parse(cutover);
   const cutoverReady = Number.isFinite(stamp) && new Date(stamp).toISOString() === cutover;
+  const mode=String(process.env.SHARED_USAGE_MIGRATION_MODE||"");
+  const openingReady=mode==="rolling_renewal" ||
+   ((mode===""||mode==="reconciled") &&
+    process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true");
   const lifeReady = production && cutoverReady &&
     process.env.SHARED_USAGE_GATE_ENABLED === "true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED === "true" &&
-    process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED === "true" &&
+    openingReady &&
     process.env.LIFE_COACH_LIVE_ENABLED === "true";
   return <main className="site-shell" style={{padding:"48px 0"}}>
     <h1>{production ? "AI Coaching for Life" : "Private Life Coach Preview"}</h1>
