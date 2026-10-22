@@ -27,7 +27,7 @@ const binding={
  approvedPriceId:"price_Test123",
  approvedLedgerKey:"legacy_fitness_400",
  includedUses:400,
- allowedCoaches:["fitness","budgeting"]
+ allowedCoaches:["fitness","budgeting","life"]
 };
 const subscription=()=>({
  id:binding.stripeSubscriptionId,
@@ -63,9 +63,13 @@ test("verified paid-through member passes using Stripe item dates, never purchas
  assert.deepEqual(d.calls,["billing","ledger"]);
 });
 
-test("unapproved coach and wrong Clerk user fail closed",async()=>{
+test("current members include Life, while Career and forged Clerk identities fail closed",async()=>{
  const d=deps();
- assert.equal((await check(binding,{...request,coach:"life"},d.handlers)).reason,"coach_not_included");
+ const life=await check(binding,{...request,coach:"life"},d.handlers);
+ assert.equal(life.allowed,true);
+ assert.equal(life.limitUses,400);
+ assert.equal(life.subscriptionKey,binding.approvedLedgerKey);
+ assert.equal((await check(binding,{...request,coach:"career"},d.handlers)).reason,"coach_not_included");
  const wrong=deps();
  assert.equal((await check(binding,{...request,authenticatedClerkUserId:"user_OtherAccount22"},wrong.handlers)).reason,"invalid_identity");
  assert.equal(wrong.calls.length,0);
