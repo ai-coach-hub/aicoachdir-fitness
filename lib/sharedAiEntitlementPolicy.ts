@@ -27,6 +27,7 @@ export type VerifiedUsageSnapshot = {
 export type PriorUsagePeriod = {
   clerkUserId: string;
   allowanceLedgerKey: string;
+  includedUses: number;
   periodStart: string;
   periodEnd: string;
 };
@@ -46,7 +47,8 @@ export type SharedUsageDecision =
       allowed: false;
       reason: "invalid_identity" | "unapproved_entitlement" |
         "billing_unverified" | "subscription_inactive" |
-        "outside_billing_period" | "overlapping_period" | "coach_not_included";
+        "outside_billing_period" | "overlapping_period" | "coach_not_included" |
+        "allowance_change_requires_review";
     };
 
 const isoUtc = (value: unknown): number | null => {
@@ -117,8 +119,13 @@ export function decideSharedAiUsage(
       return denied("invalid_identity");
     const oldStart = isoUtc(prior.periodStart);
     const oldEnd = isoUtc(prior.periodEnd);
-    if (oldStart === null || oldEnd === null || !ledgerId(prior.allowanceLedgerKey))
+    if (oldStart === null || oldEnd === null || oldEnd <= oldStart ||
+        !ledgerId(prior.allowanceLedgerKey) ||
+        !Number.isSafeInteger(prior.includedUses) || prior.includedUses < 1)
       return denied("billing_unverified");
+    if (prior.periodStart === snapshot.periodStart &&
+        prior.includedUses !== snapshot.includedUses)
+      return denied("allowance_change_requires_review");
     // A new Stripe subscription, tier or ledger key cannot mint a second
     // allowance while the prior billing period is still running.
     if ((prior.periodStart !== snapshot.periodStart ||
