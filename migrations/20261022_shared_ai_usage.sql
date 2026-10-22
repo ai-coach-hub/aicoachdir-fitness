@@ -106,7 +106,7 @@ END $$;
 CREATE OR REPLACE FUNCTION public.shared_ai_reconcile(
  p_member text,p_entitlement text,p_start timestamptz,
  p_request text,p_actual text
-) RETURNS text LANGUAGE plpgsql AS $
+) RETURNS text LANGUAGE plpgsql AS $$
 DECLARE v_status text;
 BEGIN
  IF p_actual NOT IN ('completed','released')
@@ -130,7 +130,7 @@ BEGIN
  WHERE member_key=p_member AND entitlement_key=p_entitlement
  AND period_start=p_start;
  RETURN p_actual;
-END $;
+END $$;
 -- No anonymous/PUBLIC access to grant, debit or reconcile AI usage.
 -- The server-side database owner retains execution privileges.
 REVOKE ALL ON FUNCTION public.shared_ai_reserve(text,text,timestamptz,timestamptz,integer,text,text) FROM PUBLIC;
