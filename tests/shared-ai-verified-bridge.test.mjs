@@ -18,6 +18,7 @@ function load(name){
  return module.exports;
 }
 const {checkVerifiedSharedUsage:check}=load("sharedAiVerifiedUsageBridge");
+const {includeLifeForExistingMember:includeLife}=load("approvedExistingMemberLifeEntitlement");
 const now="2026-10-21T12:00:00.000Z";
 const binding={
  clerkUserId:"user_AccountAbc12345",
@@ -27,7 +28,7 @@ const binding={
  approvedPriceId:"price_Test123",
  approvedLedgerKey:"legacy_fitness_400",
  includedUses:400,
- allowedCoaches:["fitness","budgeting","life"]
+ allowedCoaches:["fitness","budgeting"]
 };
 const subscription=()=>({
  id:binding.stripeSubscriptionId,
@@ -65,11 +66,15 @@ test("verified paid-through member passes using Stripe item dates, never purchas
 
 test("current members include Life, while Career and forged Clerk identities fail closed",async()=>{
  const d=deps();
- const life=await check(binding,{...request,coach:"life"},d.handlers);
+ const withoutApproval=await check(binding,{...request,coach:"life"},d.handlers);
+ assert.equal(withoutApproval.reason,"coach_not_included");
+ const approved=includeLife(binding,["price_Test123","price_Older15"]);
+ assert.ok(approved);
+ const life=await check(approved,{...request,coach:"life"},d.handlers);
  assert.equal(life.allowed,true);
  assert.equal(life.limitUses,400);
  assert.equal(life.subscriptionKey,binding.approvedLedgerKey);
- assert.equal((await check(binding,{...request,coach:"career"},d.handlers)).reason,"coach_not_included");
+ assert.equal((await check(approved,{...request,coach:"career"},d.handlers)).reason,"coach_not_included");
  const wrong=deps();
  assert.equal((await check(binding,{...request,authenticatedClerkUserId:"user_OtherAccount22"},wrong.handlers)).reason,"invalid_identity");
  assert.equal(wrong.calls.length,0);
