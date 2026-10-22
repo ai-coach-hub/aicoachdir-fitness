@@ -23,7 +23,7 @@ const snapshot = (overrides={}) => ({
  ...period(),
  allowanceLedgerKey:"approved_fitness_v2_legacy",
  includedUses:400,
- allowedCoaches:["fitness","budgeting"],
+ allowedCoaches:["fitness","budgeting","life"],
  ...overrides
 });
 const request = (overrides={}) => ({
@@ -35,14 +35,17 @@ const request = (overrides={}) => ({
 });
 const judge=(s={},r={})=>decideSharedAiUsage(snapshot(s),request(r));
 
-test("existing 400-use legacy allowance stays explicitly Fitness and Budgeting only",()=>{
+test("current 400-use legacy membership includes Fitness, Budgeting and Life in one allowance",()=>{
  const a=judge();
  assert.equal(a.allowed,true);
  assert.equal(a.limitUses,400);
  assert.equal(a.subscriptionKey,"approved_fitness_v2_legacy");
  assert.equal(a.memberId,"user_accountA1234");
  assert.equal(judge({}, {coach:"budgeting"}).allowed,true);
- assert.deepEqual({ ...judge({}, {coach:"life"}) }, {allowed:false,reason:"coach_not_included"});
+ const life=judge({}, {coach:"life"});
+ assert.equal(life.allowed,true);
+ assert.equal(life.limitUses,400);
+ assert.equal(life.subscriptionKey,a.subscriptionKey);
  assert.equal(judge({}, {coach:"career"}).reason,"coach_not_included");
 });
 
