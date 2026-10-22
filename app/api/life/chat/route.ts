@@ -1,4 +1,5 @@
 import { cleanLifeCoachText } from "@/lib/lifeCoachFormatting";
+import { urgentLifeCoachReply } from "@/lib/lifeCoachSafetyFallback";
 import { lifeMemoryReply, guardLifeMemoryDenial, isLifeRecallQuestion } from "@/lib/lifeCoachMemory";
 import { lifeTester } from "@/lib/lifeCoachAccess";
 import { listLifeThreads,readLifeThread,recallLifeContext,recallLifeStatements,saveLifeTurn } from "@/lib/lifeCoachStore";
@@ -51,6 +52,11 @@ export async function POST(request:Request) {
    // Do not repeat older model replies denying access to history.
    const clean=existing.filter(m=>m.role==="user" || !/\b(?:can\x27t|cannot|don\x27t|do not|no)\b.{0,80}\b(?:access|see|remember|retrieve)\b.{0,80}\b(?:earlier|previous|past|conversation|chat|history)\b/i.test(m.text));
    prior=clean.slice(-8).map(m=>m.role+": "+m.text.slice(0,400)).join("\n").slice(0,2100);
+  }
+  const urgent=urgentLifeCoachReply(message);
+  if(urgent!==null) {
+   await saveLifeTurn(member,id,message,urgent);
+   return json({ok:true,response:urgent,conversationId:id,source:"safety"});
   }
   // Explicit new goal capture should not be routed to previous-history recall or paid model inference.
   if (/\bmy goal\b/i.test(message) && /\bplease remember (?:this|that|my|it)\b/i.test(message) && !/\b(?:suicid(?:al|e)|self[- ]?harm|kill myself|hurt(?:ing)? myself|overdose|starv(?:e|ing)|purging|danger to myself)\b/i.test(message)) {
