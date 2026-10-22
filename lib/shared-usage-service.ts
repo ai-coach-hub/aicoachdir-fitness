@@ -46,3 +46,10 @@ export function verifySharedUsageServiceRequest(
  const actual=Buffer.from(signature,"hex");
  return actual.length===expected.length&&timingSafeEqual(actual,expected);
 }
+
+/** Stable opaque wallet owner, derived only from a server-verified member email. */
+export function sharedMemberKeyForVerifiedEmail(email:string,secret:string):string {
+ if(!validEmail(email)||typeof secret!=="string"||secret.length<32)return "";
+ const salt=createHmac("sha256",secret).update("aicoachdir-member-ledger-key-v1").digest();
+ return "member_"+createHmac("sha256",salt).update(email,"utf8").digest("hex");
+}
