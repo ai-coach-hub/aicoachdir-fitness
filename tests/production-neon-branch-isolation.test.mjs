@@ -9,6 +9,7 @@ const live = {
   SHARED_USAGE_GATE_ENABLED:"true",
   SHARED_USAGE_PUBLIC_RELEASE_APPROVED:"true",
   LIFE_COACH_LIVE_ENABLED:"true",
+  DATABASE_URL:"postgresql://synthetic.invalid/private-test",
   BUDGET_MEMBERSHIP_HANDOFF_SECRET:"synthetic-internal-test-secret"
 };
 const PROD_BRANCH="br-sparkling-glitter-aucpz59d";
