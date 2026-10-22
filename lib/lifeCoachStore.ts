@@ -19,6 +19,7 @@ function database() {
 // Fail closed if a preview points at the wrong Neon branch or environment.
 const PRIVATE_PREVIEW_BRANCH = "feature/life-coach-agent-sandbox-20261011";
 const PRIVATE_NEON_BRANCH_ID = "br-autumn-breeze-auw38rgr";
+const PRODUCTION_NEON_BRANCH_ID = "br-sparkling-glitter-aucpz59d";
 
 async function db() {
   const privatePreview=process.env.VERCEL_ENV==="preview" &&
@@ -32,7 +33,14 @@ async function db() {
   const sql=database();
   // Production must be migrated explicitly; never silently create tables
   // or reuse the private Life Coach Neon branch for live members.
-  if(productionReleased)return sql;
+  if(productionReleased){
+    // Never read/write private Preview conversations if Production's database
+    // connection is accidentally pointed at another Neon branch.
+    const identity=await sql`SELECT current_setting('neon.branch_id', true) AS branch_id`;
+    if(String(identity[0]?.branch_id||"")!==PRODUCTION_NEON_BRANCH_ID)
+      throw new Error("Life Coach production database branch mismatch");
+    return sql;
+  }
   const identity = await sql`SELECT current_setting('neon.branch_id', true) AS branch_id`;
   if (String(identity[0]?.branch_id || "") !== PRIVATE_NEON_BRANCH_ID)
     throw new Error("Private Life Coach database branch mismatch");
