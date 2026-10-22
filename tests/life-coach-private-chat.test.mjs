@@ -25,9 +25,10 @@ test("all conversation SQL scopes membership to the Clerk user",()=>{
  assert.match(store,/LIMIT 80/);
  assert.match(store,/LIMIT 40/);
 });
-test("public coach cards and paid subscription logic were not changed in this PR",()=>{
+test("Life Coach does not create checkout or mutate unrelated coaching data",()=>{
  const api=load("app/api/life/chat/route.ts");
- assert.doesNotMatch(api,/stripe|checkout|fitness_memberships|budget_chat_threads/i);
+ assert.doesNotMatch(api,/create.checkout|checkout.sessions|budget_chat_threads|UPDATE fitness_memberships/i);
+ assert.match(api,/reserveSharedUsage\(email,"life",requestKey\)/);
 });
 
 test("life coach database is isolated from shared membership storage",()=>{
@@ -108,7 +109,8 @@ test("memory replies happen before any Pickaxe request, with source tag",()=>{
  const reply=route.indexOf('source:"saved-private-history"',direct);
  const token=route.indexOf("process.env.PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN");
  const provider=route.indexOf('await fetch("https://api.pickaxe.co');
- assert.ok(direct>0 && reply>direct && token>reply && provider>token);
+ const generationCall=route.indexOf("completeLifeCoachRequest(token,promptMessage,member,id)",reply);
+ assert.ok(provider>0 && direct>0 && reply>direct && token>reply && generationCall>token);
  assert.ok(route.includes("guardLifeMemoryDenial(rawAnswer,message,memories)"));
  assert.ok(route.includes("const promptMessage=prior||recalled ?"));
 });
