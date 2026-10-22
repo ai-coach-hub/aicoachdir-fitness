@@ -13,7 +13,7 @@ const midCutover=new Date(now-day).toISOString();
 const oldCutover=new Date(now-15*day).toISOString();
 const walletMember="member_"+"a".repeat(64);
 
-function scenario({cutover=midCutover,seed=null,periodStart=begin,periodEnd=ending}={}){
+function scenario({cutover=midCutover,seed=null,periodStart=begin,periodEnd=ending,exclude=""}={}){
  const dbCalls=[];
  const sql=async(strings,...values)=>{
   const query=strings.join("?");
@@ -42,7 +42,8 @@ function scenario({cutover=midCutover,seed=null,periodStart=begin,periodEnd=endi
  const mod={exports:{}};
  const env={VERCEL_ENV:"production",SHARED_USAGE_GATE_ENABLED:"true",
   SHARED_USAGE_PUBLIC_RELEASE_APPROVED:"true",SHARED_USAGE_OPENING_BALANCES_RECONCILED:"true",
-  BUDGET_MEMBERSHIP_HANDOFF_SECRET:"t".repeat(48),...(cutover?{SHARED_USAGE_CUTOVER_AT:cutover}:{})};
+  BUDGET_MEMBERSHIP_HANDOFF_SECRET:"t".repeat(48),...(cutover?{SHARED_USAGE_CUTOVER_AT:cutover}:{}),
+  ...(exclude?{SHARED_USAGE_NONBILLABLE_TEST_EMAILS:exclude}:{})};
  runInNewContext(js,{module:mod,exports:mod.exports,require:p=>{
   assert.ok(p in dependencies,"Unexpected import "+p);return dependencies[p];
  },process:{env},Date,console:{error:()=>{}}},{timeout:3000});
@@ -76,4 +77,10 @@ test("new billing period beginning after cutover can start fresh without histori
  const permit=await x.access();
  assert.equal(permit?.limitUses,400);
  assert.ok(!x.dbCalls.some(x=>x.includes("FROM public.shared_ai_usage_periods")));
+});
+
+test("internal QA accounts explicitly excluded by operator cannot receive a production customer wallet",async()=>{
+ const x=scenario({exclude:"member@example.test, other-qa@example.test"});
+ assert.equal(await x.access(),null);
+ assert.equal(x.dbCalls.length,0,"QA blocking must happen before provider or billing reads");
 });
