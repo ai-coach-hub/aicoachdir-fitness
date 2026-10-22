@@ -67,7 +67,11 @@ export default function HomePage() {
 
   // Release Life Coach to existing members with the same subscription only
   // after both production services and their opening balances are approved.
+  const cutover = String(process.env.SHARED_USAGE_CUTOVER_AT || "");
+  const stamp = Date.parse(cutover);
+  const cutoverReady = Number.isFinite(stamp) && new Date(stamp).toISOString() === cutover;
   const lifeAvailable = process.env.VERCEL_ENV === "production" &&
+    cutoverReady &&
     process.env.SHARED_USAGE_GATE_ENABLED === "true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED === "true" &&
     process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED === "true" &&
