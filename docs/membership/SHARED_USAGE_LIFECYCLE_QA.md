@@ -35,6 +35,13 @@ No Stripe customer records, payments, provider completions or live membership ta
 - Added `tests/preview-shared-counter-simulation.test.mjs` to validate shared cap, duplicate replay, invalid coach/key and provider-free isolation without any actual Neon writes. The existing owner-tested zero-credit privacy checks remain a separate completed gate.
 - The only authorized path to real sitewide enforcement is mapping verified entitlements to all three live coach handlers with the same safe reservation and provider cost reconciliation. Keep the old $15/400 plan unchanged until that path has been reviewed end to end.
 
+## Verified execution boundary — model calls remain blocked without entitlement (2026-10-21)
+
+- Added `lib/verifiedSharedUsageExecution.ts`, a separate preparatory request-flow boundary. It executes `authorize` first, creates a meter only after approval, reserves before calling the provider, and settles or retains ambiguous requests through the existing preview usage orchestration.
+- Added `tests/verified-shared-usage-execution.test.mjs`: checks denial on invalid identity, unapproved coach, billing failure and expired period; no generation when quota exhausted or duplicate; successful one-use settlement; non-model release; uncertain timeout reconciliation.
+- GitHub regression tests and TypeScript checks passed for commit `aa50e45f9eae0529b232c60be1134f04ee625447`. Tests use fake provider/meter fixtures without contacting Stripe, Neon or Pickaxe.
+- The module is **not imported by production coaching routes**. Connecting it to real request handlers and trusted billing records remains a release blocker. Current subscriber access and historical data were not changed.
+
 ## Remaining engineering gates before launch
 
 1. **Authoritative subscription data:** Extend the trusted backend-only Stripe verification boundary to bind customer email and subscription ID, then use the separately tested Stripe period parser against the verified response. Do not obtain billing-period data from client input, infer it from calendar months, or assume every subscription has exactly one item.
