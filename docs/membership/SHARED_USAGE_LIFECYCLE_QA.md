@@ -19,6 +19,14 @@ No Stripe customer records, payments, provider completions or live membership ta
 - `lib/stripeUsagePeriod.ts` and `tests/stripe-usage-period.test.mjs` parse a trusted subscription response **offline**, requiring the explicitly approved monthly price and a single unambiguous Stripe subscription item. Current Stripe API versions moved the billing-period fields from subscriptions to `items.data[]`; the parser supports that shape plus consistent older top-level fields, and rejects mismatches or ambiguous item configurations. See https://docs.stripe.com/changelog/basil/2025-03-31/deprecate-subscription-current-period-start-and-end.
 - This parser does **not** read a Stripe account, establish customer ownership or approve a plan. The existing `getVerifiedSubscription` access check must be extended and integrated by a separate reviewed change.
 
+## Verified billing-to-usage bridge (2026-10-21)
+
+- `lib/sharedAiVerifiedUsageBridge.ts` composes the isolated, tested Stripe billing-period parser and shared usage decision policy, with dependency-injected server-only billing and prior-ledger readers.
+- Identity must match the authenticated Clerk user ID; the verified billing customer's email, subscription ID, monthly approved price and billing-period timestamps must match the server-authorized membership binding.
+- The prior ledger read is mandatory; read failure blocks the request rather than issuing a replacement allowance. The bridge does not trust request-supplied customer IDs, prices, or tier limits, and has no Stripe, Neon or Pickaxe side effects.
+- `tests/shared-ai-verified-bridge.test.mjs` covers positive paid-through access, blocked Life access on the old Fitness/Budgeting plan, forged Clerk identities, wrong billing customers, wrong prices, canceled subscriptions, ledger outage and overlapping plan keys.
+- GitHub regression tests and type-check succeeded. **This is an offline verified-policy bridge, not proof that real Stripe verification and all coach provider routes are connected.** No production access, billing, or usage counter changed.
+
 ## Remaining engineering gates before launch
 
 1. **Authoritative subscription data:** Extend the trusted backend-only Stripe verification boundary to bind customer email and subscription ID, then use the separately tested Stripe period parser against the verified response. Do not obtain billing-period data from client input, infer it from calendar months, or assume every subscription has exactly one item.
