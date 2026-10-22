@@ -44,7 +44,8 @@ test("private Life Coach data remains on its dedicated Neon connection", () => {
   assert.ok(store.includes("process.env.LIFE_COACH_DATABASE_URL"));
   assert.ok(store.includes('process.env.DATABASE_URL'));
   assert.ok(store.includes('process.env.POSTGRES_URL'));
-  assert.ok(store.includes('if(productionReleased)return sql'));
+  assert.match(store,/if\(productionReleased\)\{[\s\S]*?current_setting\('neon\.branch_id', true\)[\s\S]*?return sql;/);
+  assert.ok(store.includes('PRODUCTION_NEON_BRANCH_ID'));
   assert.ok(store.includes('PRIVATE_NEON_BRANCH_ID'));
   assert.ok(store.includes("PRIMARY KEY (member_id,id)"));
   assert.ok(store.includes("FOREIGN KEY (member_id,conversation_id)"));
