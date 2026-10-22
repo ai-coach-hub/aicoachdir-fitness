@@ -14,6 +14,20 @@ function resultText(value: unknown): string {
  const nested=record.data;
  return nested&&typeof nested==="object"?resultText(nested):"";
 }
+async function completeLifeCoachRequest(token:string,promptMessage:string,member:string,id:string){
+ const completion=await fetch("https://api.pickaxe.co/v1/completions",{
+  method:"POST",
+  headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json",Accept:"application/json"},
+  body:JSON.stringify({message:promptMessage,userId:member,conversationId:id,stream:false}),
+  cache:"no-store",signal:AbortSignal.timeout(110000)
+ });
+ if(!completion.ok)throw Error("Provider did not complete");
+ const payload=await completion.json();
+ if(payload?.success===false)throw Error("Provider returned failure");
+ const answer=resultText(payload);
+ if(!answer)throw Error("Empty provider reply");
+ return answer;
+}
 export async function GET(request:Request) {
  const member=await lifeTester();
  if(!member)return json({ok:false,error:"Private Life Coach access is required."},403);
@@ -93,9 +107,14 @@ export async function POST(request:Request) {
   // Free goal capture and saved-history answers have already returned above.
   const privateSandbox = process.env.VERCEL_ENV === "preview" &&
     process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011";
-  if (!privateSandbox || process.env.PREVIEW_SHARED_USAGE_METER_ENABLED !== "true") {
+  const productionReleased=process.env.VERCEL_ENV==="production" &&
+    process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
+    process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
+    process.env.LIFE_COACH_LIVE_ENABLED==="true";
+  if(!privateSandbox&&!productionReleased)
+    return json({ok:false,error:"Life Coach generation is not enabled."},503);
+  if(privateSandbox && process.env.PREVIEW_SHARED_USAGE_METER_ENABLED !== "true")
     return json({ok:false,error:"Private Life Coach generation is not enabled."},503);
-  }
   // Only pay for model inference when the user needs actual coaching or new content.
   const token=(process.env.PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN||"").trim();
   if(!token)return json({ok:false,error:"Private Life Coach deployment is not configured."},503);
@@ -108,6 +127,37 @@ export async function POST(request:Request) {
    "[End site history]"
   ].join("\n");
   const promptMessage=prior||recalled ? message+"\n\n"+context : message;
+  // Production shares one authoritative wallet with Fitness and Budgeting.
+  // The caller's email and period are re-verified server-side before reserving;
+  // no second checkout, independent Life credits or client-supplied cap.
+  if(productionReleased){
+   const user=await (await import("@clerk/nextjs/server")).currentUser();
+   const primary=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
+   if(!user || user.id!==member || !primary || primary.verification?.status!=="verified")
+    return json({ok:false,error:"Verified membership required."},403);
+   const requestKey=typeof body.requestKey==="string"?body.requestKey.trim():"";
+   if(!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey))
+    return json({ok:false,error:"A valid AI request ID is required."},400);
+   const email=primary.emailAddress.trim().toLowerCase();
+   const {reserveSharedUsage,settleSharedUsage}=await import("@/lib/sharedUsageMeter");
+   const {runMeteredPreviewGeneration}=await import("@/lib/previewLifeUsageFlow");
+   const result=await runMeteredPreviewGeneration({
+    reserve:async()=>(await reserveSharedUsage(email,"life",requestKey)).status,
+    settle:outcome=>settleSharedUsage(email,"life",requestKey,outcome)
+   },async()=>{
+    const rawAnswer=await completeLifeCoachRequest(token,promptMessage,member,id);
+    const answer=cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories));
+    await saveLifeTurn(member,id,message,answer);
+    return {kind:"generated" as const,value:{ok:true,response:answer,conversationId:id,source:"coach"}};
+   });
+   if(result.status==="completed")return json(result.value);
+   if(result.status==="blocked")return json({ok:false,error:
+    result.reason==="exhausted"?"Your shared monthly AI allowance has been reached.":
+    result.reason.startsWith("duplicate_")?"This request was already submitted. Check Previous chats.":
+    "Membership or shared usage could not be verified."},
+    result.reason==="exhausted"?429:result.reason.startsWith("duplicate_")?409:403);
+   return json({ok:false,error:"The AI request needs usage reconciliation. Check Previous chats before retrying."},503);
+  }
   // Optional private-preview metering. OFF unless explicitly enabled with server-only
   // settings. Existing memory/goal replies already returned above and remain free.
   // Production never enters this branch, regardless of configuration.
@@ -130,17 +180,7 @@ export async function POST(request:Request) {
       reserve:()=>reservePreviewAiUse(usage),
       settle:outcome=>settlePreviewAiUse(usage,outcome)
     },async()=>{
-      const completion=await fetch("https://api.pickaxe.co/v1/completions",{
-        method:"POST",
-        headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json",Accept:"application/json"},
-        body:JSON.stringify({message:promptMessage,userId:member,conversationId:id,stream:false}),
-        cache:"no-store",signal:AbortSignal.timeout(110000)
-      });
-      if(!completion.ok)throw Error("Provider did not complete");
-      const payload=await completion.json();
-      if(payload?.success===false)throw Error("Provider returned failure");
-      const rawAnswer=resultText(payload);
-      if(!rawAnswer)throw Error("Empty provider reply");
+      const rawAnswer=await completeLifeCoachRequest(token,promptMessage,member,id);
       const answer=cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories));
       await saveLifeTurn(member,id,message,answer);
       return {kind:"generated" as const,value:{ok:true,response:answer,conversationId:id,source:"coach"}};
