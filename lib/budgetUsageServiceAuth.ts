@@ -18,7 +18,7 @@ export function validBudgetUsageCommand(value:unknown,nowSeconds:number):value i
   (v.operation==="reserve"||v.operation==="settle")&&
   (v.operation==="reserve"?(v.outcome===undefined):
    ["completed","released","uncertain"].includes(String(v.outcome)))&&
-  Number.isSafeInteger(v.issuedAt)&&Number.isSafeInteger(nowSeconds)&&
+  typeof v.issuedAt==="number"&&Number.isSafeInteger(v.issuedAt)&&Number.isSafeInteger(nowSeconds)&&
   Math.abs(nowSeconds-v.issuedAt)<=120;
 }
 function canonical(v:BudgetUsageCommand){
