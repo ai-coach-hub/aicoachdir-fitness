@@ -82,6 +82,7 @@ function mockLifeEnvironment(){
  const env={VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feature/life-coach-agent-sandbox-20261011",LIFE_COACH_DATABASE_URL:"postgresql://private.invalid",PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN:"unused-in-isolation-tests"};
  const memory=moduleFrom("lib/lifeCoachMemory.ts");
  const formatting=moduleFrom("lib/lifeCoachFormatting.ts");
+ const safety=moduleFrom("lib/lifeCoachSafetyFallback.ts");
  const store=moduleFrom("lib/lifeCoachStore.ts",{
   "./lifeCoachMemory":memory,
   "@neondatabase/serverless":{neon:(url)=>{
@@ -91,6 +92,7 @@ function mockLifeEnvironment(){
  },{process:{env}});
  const route=moduleFrom("app/api/life/chat/route.ts",{
   "@/lib/lifeCoachFormatting":formatting,
+  "@/lib/lifeCoachSafetyFallback":safety,
   "@/lib/lifeCoachMemory":memory,
   "@/lib/lifeCoachAccess":{lifeTester:async()=>signedInMember},
   "@/lib/lifeCoachStore":store
