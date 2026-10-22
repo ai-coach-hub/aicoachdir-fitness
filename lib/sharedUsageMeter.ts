@@ -10,9 +10,13 @@ export function sharedUsageGateEnabled(){
  if(process.env.SHARED_USAGE_GATE_ENABLED!=="true")return false;
  if(process.env.VERCEL_ENV==="preview")
   return process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011";
+ const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
+ const stamp=Date.parse(cutover);
+ const validCutover=Number.isFinite(stamp) && new Date(stamp).toISOString()===cutover;
  return process.env.VERCEL_ENV==="production" &&
         process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
-        process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true";
+        process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
+        validCutover;
 }
 export type QuotaCoach="fitness"|"budgeting"|"life";
 export type QuotaPermit={
@@ -120,7 +124,28 @@ export async function resolveCurrentSharedUsage(email:string):Promise<QuotaPermi
   periodEnd=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,1)).toISOString();
  }else return null;
  const now=Date.now();
- if(now<Date.parse(periodStart)||now>=Date.parse(periodEnd))return null;
+ const start=Date.parse(periodStart),end=Date.parse(periodEnd);
+ if(!Number.isFinite(start)||!Number.isFinite(end)||now<start||now>=end)return null;
+ if(process.env.VERCEL_ENV==="production"){
+  const cutover=Date.parse(String(process.env.SHARED_USAGE_CUTOVER_AT||""));
+  // A member who is already partway through a billing period MUST have an
+  // explicitly reconciled opening wallet, never an auto-created empty one.
+  // Periods starting after the approved cutover may begin normally at zero.
+  if(start<cutover){
+   const sql=await checkedDb();
+   const rows=await sql`SELECT period_end,limit_uses,completed_uses,reserved_uses
+    FROM public.shared_ai_usage_periods
+    WHERE member_key=${memberKey} AND entitlement_key=${"existing_400_v1"}
+    AND period_start=${periodStart}::timestamptz LIMIT 1`;
+   if(rows.length!==1)return null;
+   const wallet=rows[0],completed=Number(wallet.completed_uses),
+    reserved=Number(wallet.reserved_uses);
+   if(iso(wallet.period_end)!==periodEnd ||
+      Number(wallet.limit_uses)!==400 ||
+      !Number.isInteger(completed)||!Number.isInteger(reserved) ||
+      completed<0||reserved<0||completed+reserved>400)return null;
+  }
+ }
  return {memberKey,entitlementKey:"existing_400_v1",periodStart,periodEnd,limitUses:400};
 }
 export async function reserveSharedUsage(
