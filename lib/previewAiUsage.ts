@@ -33,9 +33,16 @@ async function verifiedUsageDb() {
 }
 
 function validRequest(v: PreviewUsageRequest): boolean {
-  return Boolean(v.memberId && v.subscriptionKey && v.requestKey?.length >= 8 &&
+  return Boolean(
+    typeof v.memberId === "string" && /^[A-Za-z0-9_-]{4,128}$/.test(v.memberId) &&
+    typeof v.subscriptionKey === "string" && /^[A-Za-z0-9_-]{4,128}$/.test(v.subscriptionKey) &&
+    typeof v.requestKey === "string" && /^[A-Za-z0-9_-]{16,100}$/.test(v.requestKey) &&
     ["fitness","budgeting","life","career"].includes(v.coach) &&
-    v.periodStart && !Number.isNaN(Date.parse(v.periodStart)));
+    typeof v.periodStart === "string" &&
+    /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/.test(v.periodStart) &&
+    !Number.isNaN(Date.parse(v.periodStart)) &&
+    new Date(v.periodStart).toISOString() === v.periodStart
+  );
 }
 
 export async function reservePreviewAiUse(v: PreviewUsageRequest): Promise<string> {
