@@ -26,7 +26,8 @@ function fixture({hasPickaxeAccess=true,billing=null,verifyError=null,groupError
    calls.push("linked-billing");
    row={...row,stripe_customer_id:values[0],stripe_subscription_id:values[1],
     stripe_status:values[2],access_active:values[3],
-    last_legacy_verified_at:new Date().toISOString()};
+    last_legacy_verified_at:new Date().toISOString(),
+    last_stripe_verified_at:new Date().toISOString()};
    return [{...row}];
   }
   throw Error("Unexpected SQL: "+statement.slice(0,200));
