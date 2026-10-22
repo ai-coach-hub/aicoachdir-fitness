@@ -110,6 +110,7 @@ export async function POST(request:Request) {
   const productionReleased=process.env.VERCEL_ENV==="production" &&
     process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
+    process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
     process.env.LIFE_COACH_LIVE_ENABLED==="true";
   if(!privateSandbox&&!productionReleased)
     return json({ok:false,error:"Life Coach generation is not enabled."},503);
