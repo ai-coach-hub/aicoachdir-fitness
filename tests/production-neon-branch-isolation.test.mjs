@@ -9,6 +9,7 @@ const live = {
   SHARED_USAGE_GATE_ENABLED:"true",
   SHARED_USAGE_PUBLIC_RELEASE_APPROVED:"true",
   SHARED_USAGE_OPENING_BALANCES_RECONCILED:"true",
+  SHARED_USAGE_CUTOVER_AT:"2026-01-01T00:00:00.000Z",
   LIFE_COACH_LIVE_ENABLED:"true",
   DATABASE_URL:"postgresql://synthetic.invalid/private-test",
   BUDGET_MEMBERSHIP_HANDOFF_SECRET:"synthetic-internal-test-secret"
