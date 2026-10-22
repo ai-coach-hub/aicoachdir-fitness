@@ -11,7 +11,10 @@ export default async function LifePage() {
   </main>;
   const user = await currentUser();
   const production = process.env.VERCEL_ENV === "production";
-  const lifeReady = production &&
+  const cutover = String(process.env.SHARED_USAGE_CUTOVER_AT || "");
+  const stamp = Date.parse(cutover);
+  const cutoverReady = Number.isFinite(stamp) && new Date(stamp).toISOString() === cutover;
+  const lifeReady = production && cutoverReady &&
     process.env.SHARED_USAGE_GATE_ENABLED === "true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED === "true" &&
     process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED === "true" &&
