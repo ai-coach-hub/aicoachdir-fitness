@@ -16,7 +16,7 @@ function harness(reserveStatus){
     settleSharedUsage:async()=>{settlements++;return "completed";}}
  };
  const m={exports:{}};
- runInNewContext(js,{module:m,exports:m.exports,process:{env:{VERCEL_ENV:"production"}},
+ runInNewContext(js,{module:m,exports:m.exports,process:{env:{VERCEL_ENV:"production",SHARED_USAGE_MIGRATION_MODE:"rolling_renewal"}},
   require:k=>{assert.ok(Object.hasOwn(modules,k),k);return modules[k]},
   Response:{json:(body,opts={})=>({status:opts.status||200,body})}
  },{timeout:3000});
