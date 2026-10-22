@@ -293,7 +293,7 @@ async function reconcileLegacyPaidMembership(email: string, clerkUserId?: string
     // if either provider cannot be reached.
     let legacyGroupActive = false;
     try {
-      legacyGroupActive = await pickaxeUserHasFitnessAccess(memberEmail, {
+      legacyGroupActive = await pickaxeUserHasFitnessAccess(email, {
         fallbackToList: true,
       });
     } catch (error) {
