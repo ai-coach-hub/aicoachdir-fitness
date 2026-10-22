@@ -103,3 +103,21 @@ Phase C: Stage a production-shaped build without public exposure; complete quali
 Phase D: Obtain separate explicit owner approval, then release only the approved member offering. Watch early cost/errors. Roll back safely on regressions.
 
 Release status today: NOT READY TO MERGE OR PUBLISH. The remaining gates are intentional and protect existing members and live billing.
+
+## Owner-approved legacy Life Coach access (2026-10-22)
+The owner explicitly approved giving **all existing paid $15/month subscribers**
+Life Coach access at **no added charge**, within their existing **400 total AI
+uses per billing month across Fitness, Budgeting and Life**. This extends the
+approved coach set without changing the price, usage cap, ledger identity,
+existing subscriber period or account, saved data or cancellation rights.
+Career remains unreleased and is not included by this decision.
+
+Policy is implemented in the private pure mapping module
+`lib/legacyLifeCoachEntitlement.ts` and its regression test. This is **not a
+production activation**: existing membership and webhook verification and
+all-coach shared atomic metering must still be connected and tested. Never
+interpret the policy module alone as proof of paid membership. Preserve the
+current allowed live coaches until that migration is ready, and do not
+create a second Stripe subscription or second monthly allowance.
+
+The provisional four-tier plan remains unpriced and unapproved.
