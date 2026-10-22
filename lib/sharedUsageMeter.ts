@@ -1,7 +1,7 @@
 import {membershipDb,getFitnessMembership} from "./fitnessMembershipDb";
 import {stripeRequest} from "./stripeServer";
 import {stripeUsageWindowFromVerifiedRecord} from "./stripeUsagePeriod";
-import {sharedMemberKeyForVerifiedEmail} from "./shared-usage-service";
+import {sharedUsageMemberKey} from "./sharedUsageMemberIdentity";
 
 // Production activation requires separate, explicit deployment configuration.
 // Off by default. Preview is pinned to the private Life Coach branch/database.
@@ -41,7 +41,7 @@ async function checkedDb(){
 export async function resolveCurrentSharedUsage(email:string):Promise<QuotaPermit|null>{
  if(!sharedUsageGateEnabled())return null;
  const normalized=email.trim().toLowerCase(), secret=root();
- const memberKey=sharedMemberKeyForVerifiedEmail(normalized,secret);
+ const memberKey=sharedUsageMemberKey(normalized,secret);
  if(!memberKey || normalized!==email || !approvedPrices().length)return null;
  const record=await getFitnessMembership(normalized);
  if(!record || record.access_active!==true)return null;
@@ -104,7 +104,7 @@ export async function settleSharedUsage(
  if(!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey) ||
     !["fitness","budgeting","life"].includes(coach) ||
     !["completed","released","uncertain"].includes(outcome))return "invalid";
- const memberKey=sharedMemberKeyForVerifiedEmail(email,root());
+ const memberKey=sharedUsageMemberKey(email,root());
  if(!memberKey)return "invalid";
  const sql=await checkedDb();
  // Settlement may finish after subscription state changes. Match the exact
