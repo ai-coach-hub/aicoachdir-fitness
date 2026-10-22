@@ -285,14 +285,35 @@ async function reconcileLegacyPaidMembership(email: string, clerkUserId?: string
   }
   const sql = await ensureFitnessMembershipSchema();
   if (!verified) {
-    await sql`
+    // No historical Stripe charge was found. Grandfathered members still
+    // qualify through their existing Pickaxe access group, but the absence
+    // of a Stripe match alone is never evidence of verified legacy access.
+    // Re-check that exact member's current legacy entitlement before issuing
+    // a fresh shared AI allowance. Existing Fitness access remains unchanged
+    // if either provider cannot be reached.
+    let legacyGroupActive = false;
+    try {
+      legacyGroupActive = await pickaxeUserHasFitnessAccess(memberEmail, {
+        fallbackToList: true,
+      });
+    } catch (error) {
+      console.error("[membership] legacy access verification deferred", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return current;
+    }
+    if (!legacyGroupActive) return current;
+    const rows = await sql`
       UPDATE fitness_memberships SET last_legacy_verified_at = NOW()
       WHERE email = ${canonicalMemberEmail(email)}
+        AND access_active = TRUE
         AND stripe_status = 'legacy_pickaxe_member'
+        AND stripe_customer_id IS NULL
         AND stripe_subscription_id IS NULL
         AND clerk_user_id = ${clerkUserId}
+      RETURNING *
     `;
-    return getFitnessMembership(email);
+    return rows[0] || getFitnessMembership(email);
   }
 
   const rows = await sql`
