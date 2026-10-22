@@ -12,7 +12,7 @@ const clerkId="user_LegacyExample12345";
 const base=()=>({email,clerk_user_id:clerkId,stripe_status:"legacy_pickaxe_member",
  access_active:true,stripe_customer_id:null,stripe_subscription_id:null,
  last_legacy_verified_at:null});
-function verifyFixture({row=base(),verified=true,env="production",onCheck}={}){
+function verifyFixture({row=base(),verified=true,revokeOnRefresh=false,env="production",onCheck}={}){
  const calls=[];
  let membership={...row};
  const mod={exports:{}};
@@ -27,7 +27,7 @@ function verifyFixture({row=base(),verified=true,env="production",onCheck}={}){
     assert.equal(memberEmail,email);
     assert.equal(id,clerkId);
     if(onCheck)await onCheck();
-    if(verified)membership={...membership,last_legacy_verified_at:new Date(now-60000).toISOString()};
+    if(verified)membership={...membership,access_active:!revokeOnRefresh,last_legacy_verified_at:new Date(now-60000).toISOString()};
     return verified;
    },
    membershipDb:()=>{throw Error("No Neon writes in unit test")}
@@ -76,7 +76,7 @@ test("legacy records without a stable bound Clerk identity never gain fresh allo
 });
 
 test("current non-Stripe member recheck cannot revive a revoked membership",async()=>{
- const s=verifyFixture({onCheck:async()=>{} ,verified:false});
+ const s=verifyFixture({verified:true,revokeOnRefresh:true});
  assert.equal(await s.verify(),null);
 });
 
