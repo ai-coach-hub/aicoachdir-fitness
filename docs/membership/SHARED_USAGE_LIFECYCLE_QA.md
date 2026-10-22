@@ -42,6 +42,17 @@ No Stripe customer records, payments, provider completions or live membership ta
 - GitHub regression tests and TypeScript checks passed for commit `aa50e45f9eae0529b232c60be1134f04ee625447`. Tests use fake provider/meter fixtures without contacting Stripe, Neon or Pickaxe.
 - The module is **not imported by production coaching routes**. Connecting it to real request handlers and trusted billing records remains a release blocker. Current subscriber access and historical data were not changed.
 
+## Consolidated integration audit and private read adapters (2026-10-21)
+
+- Confirmed the actual Fitness AI handler is `app/api/fitness/chat/route.ts`, and the Budgeting coach is entered via `app/budgeting/launch/route.ts`, which forwards to an independently hosted Budgeting application. Thus **one shared quota is not yet enforced across those two deployed providers**, even though private synthetic counter QA passed.
+- Added `lib/previewVerifiedBillingAdapters.ts`: server-authoritative, read-only Stripe customer/subscription verification and a branch-verified Neon prior-period reader. Both reject production environment, unexpected Vercel branch, and non-test Stripe keys before issuing a query.
+- Added `lib/previewVerifiedUsageResolver.ts` to combine the existing entitlement policy, verified Stripe billing-period parser and isolated prior-period read into one preparatory decision. It grants **no subscription or Life Coach access** and does not reserve a model use.
+- Added `tests/preview-verified-billing-adapters.test.mjs` for production/test isolation, correct Stripe customer/subscription lookup, wrong-email denial, private Neon branch denial, and past-period readback. Fixtures make no Stripe network requests and perform no DB writes.
+- The preview test adapter will only run when a separate test-mode Stripe key is configured. It cannot read the production $15 subscriber list; the live-site data, memberships, and saved data are unchanged.
+- **Do not directly insert a quota gate in the 133 KB Fitness chat route or the separately deployed Budgeting app without the corresponding approval, migration and integration test.** That could mistakenly deny paying users who currently rely on the legacy access path.
+- Independent Budgeting code ownership and production provider usage/cost records must be inspected before real cross-coach accounting can be certified.
+- Stripe subscription webhook coverage currently handles `checkout.session.completed` and `customer.subscription.updated/deleted`; invoice lifecycle reconciliation and billing period reset need additional tests before any public multi-tier migration.
+
 ## Remaining engineering gates before launch
 
 1. **Authoritative subscription data:** Extend the trusted backend-only Stripe verification boundary to bind customer email and subscription ID, then use the separately tested Stripe period parser against the verified response. Do not obtain billing-period data from client input, infer it from calendar months, or assume every subscription has exactly one item.
