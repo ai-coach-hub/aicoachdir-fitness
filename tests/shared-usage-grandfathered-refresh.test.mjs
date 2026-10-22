@@ -48,6 +48,7 @@ function verifyFixture({row=base(),verified=true,revokeOnRefresh=false,env="prod
    SHARED_USAGE_GATE_ENABLED:"true",
    SHARED_USAGE_PUBLIC_RELEASE_APPROVED:"true",
    SHARED_USAGE_OPENING_BALANCES_RECONCILED:"true",
+   SHARED_USAGE_CUTOVER_AT:"2026-01-01T00:00:00.000Z",
    BUDGET_MEMBERSHIP_HANDOFF_SECRET:"s".repeat(48),
    SHARED_USAGE_LEGACY_PERIOD_MODE:"utc_calendar"
   }}
