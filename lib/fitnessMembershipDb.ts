@@ -528,6 +528,10 @@ export async function memberHasFitnessAccess(
     return true;
   }
 
+  // Operator-retired legacy account must never be recreated by stale Pickaxe access.
+  // Preserve its Clerk identity, subscriptions and saved history.
+  if (existing?.stripe_status === "retired_owner_requested") return false;
+
   // Once a customer is linked to paid billing, a canceled or lapsed
   // subscription must never fall back to a stale Pickaxe access group.
   // Their Clerk identity and saved coach history remain untouched.
