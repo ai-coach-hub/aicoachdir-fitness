@@ -70,11 +70,16 @@ export default function HomePage() {
   const cutover = String(process.env.SHARED_USAGE_CUTOVER_AT || "");
   const stamp = Date.parse(cutover);
   const cutoverReady = Number.isFinite(stamp) && new Date(stamp).toISOString() === cutover;
+  const mode=String(process.env.SHARED_USAGE_MIGRATION_MODE||"");
+  const rollingLife=mode==="rolling_renewal";
+  const openingReady=rollingLife ||
+   ((mode===""||mode==="reconciled") &&
+    process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true");
   const lifeAvailable = process.env.VERCEL_ENV === "production" &&
     cutoverReady &&
     process.env.SHARED_USAGE_GATE_ENABLED === "true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED === "true" &&
-    process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED === "true" &&
+    openingReady &&
     process.env.LIFE_COACH_LIVE_ENABLED === "true";
 
   return (
@@ -135,7 +140,7 @@ export default function HomePage() {
 
         <article className="live-coach-card">
           <div className="live-coach-status-row">
-            <span className="live-coach-badge">Available Now</span>
+            <span className="live-coach-badge">{rollingLife ? "Rolling out at renewal" : "Available Now"}</span>
           </div>
           <div className="live-coach-image-wrap">
             <Image
@@ -181,7 +186,7 @@ export default function HomePage() {
               <h2>Build stronger habits, reflect on goals, and move forward.</h2>
               <p>
                 Get focused support with routines, personal growth, reflection, and practical next steps.
-                Life Coach is included with your existing AI Coach Directory membership.
+                {rollingLife ? "Life Coach unlocks at your next verified membership renewal; until then, Fitness and Budgeting continue as usual." : "Life Coach is included with your existing AI Coach Directory membership."}
               </p>
               <div className="live-coach-feature">Same membership · 400 shared monthly AI uses</div>
               <div className="cta-row">
