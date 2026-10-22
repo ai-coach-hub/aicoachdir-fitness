@@ -1,4 +1,4 @@
-import {membershipDb,getFitnessMembership} from "./fitnessMembershipDb";
+import {membershipDb,getFitnessMembership,memberHasFitnessAccess} from "./fitnessMembershipDb";
 import {stripeRequest} from "./stripeServer";
 import {stripeUsageWindowFromVerifiedRecord} from "./stripeUsagePeriod";
 import {sharedUsageMemberKey} from "./sharedUsageMemberIdentity";
@@ -56,8 +56,32 @@ export async function resolveCurrentSharedUsage(email:string):Promise<QuotaPermi
  const normalized=email.trim().toLowerCase(), secret=root();
  const memberKey=sharedUsageMemberKey(normalized,secret);
  if(!memberKey || normalized!==email)return null;
- const record=await getFitnessMembership(normalized);
+ let record=await getFitnessMembership(normalized);
  if(!record || record.access_active!==true)return null;
+ // Previously approved grandfathered members can have no Stripe IDs. Reuse
+ // the existing verified-member reconciliation process before granting a
+ // shared allowance; a stale timestamp alone must not lock out old members.
+ // Neither the preview sandbox nor a disabled legacy-period mode can trigger
+ // this live legacy reconciliation.
+ const legacyNoBilling=record.stripe_status==="legacy_pickaxe_member" &&
+   !record.stripe_customer_id&&!record.stripe_subscription_id;
+ if(legacyNoBilling){
+  const clerkId=String(record.clerk_user_id||"");
+  if(!/^user_[A-Za-z0-9_-]{8,128}$/.test(clerkId))return null;
+  const last=Date.parse(String(record.last_legacy_verified_at||""));
+  if(!Number.isFinite(last)||Date.now()-last>24*60*60_000){
+   if(process.env.VERCEL_ENV!=="production"||
+      process.env.SHARED_USAGE_LEGACY_PERIOD_MODE!=="utc_calendar")
+     return null;
+   // Existing service performs historical billing checks, rebinds verified
+   // subscriptions when found, and stamps only successful legacy reviews.
+   const current=await memberHasFitnessAccess(normalized,clerkId,
+    {fallbackToPickaxeList:false});
+   if(!current)return null;
+   record=await getFitnessMembership(normalized);
+   if(!record||record.access_active!==true)return null;
+  }
+ }
  const customerId=String(record.stripe_customer_id||"");
  const subscriptionId=String(record.stripe_subscription_id||"");
  let periodStart:string,periodEnd:string;
