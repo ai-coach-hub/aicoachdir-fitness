@@ -28,8 +28,8 @@ Do not merge this PR, promote a deployment, add a homepage Life Coach CTA, creat
 
 - Existing live membership shown on the site: $15/month, Fitness + Budgeting, with My Workouts and My Budget; 400 shared AI uses per month. No separate Budgeting checkout. The existing entitlement/checkout/webhook implementation must not be changed to launch this Preview.
 - Existing active, cancel-at-period-end, paid-through, recoverable/lapsed, restored old Pickaxe accounts, and returning subscribers must keep their currently supported treatment and their saved conversations.
-- Do not assume Life Coach is included in the $15 membership. No public Life Coach entitlement or Stripe price has been approved for this branch.
-- The code currently uses shared memberHasFitnessAccess() for live Fitness/Budgeting. That method must NOT be bolted onto Life Coach as an implicit free entitlement until product/plan allocation is approved.
+- **Approved 2026-10-22:** Existing eligible $15/month members, including verified older paid subscribers, receive Life Coach along with Fitness and Budgeting **within the same 400 monthly AI uses**, at no additional charge, with the original subscription, account, history and cancellation/reactivation preserved. This is a product-policy approval, NOT a claim that shared metering or public entitlement enforcement is deployed.
+- The code currently uses shared memberHasFitnessAccess() for live Fitness/Budgeting. Life membership is now approved in principle, but a new production Life Coach route MUST independently verify the current member, keep legacy access parity, and enforce one combined 400-use meter across Fitness, Budgeting and Life before enabling paid generation. Old/renewing/cancel-at-period-end members must not lose valid access or receive a second wallet.
 - Do not claim unused tracker page visits consume AI credits. Distinguish chat/model requests from non-AI page views; verify total-usage metering across coach providers before sharing a new allowance.
 
 The newer pricing direction is a single all-coach membership with four usage tiers (Starter, Standard, Plus, Pro). See ../membership/FOUR_TIER_ALL_ACCESS_PLAN.md. The older nine-combination bundle document is retained only as historical context; no prices or usage allowances are approved.
@@ -120,4 +120,4 @@ interpret the policy module alone as proof of paid membership. Preserve the
 current allowed live coaches until that migration is ready, and do not
 create a second Stripe subscription or second monthly allowance.
 
-The provisional four-tier plan remains unpriced and unapproved.
+The provisional four-tier plan remains unpriced and unapproved. Its future prices do not supersede the approved Life Coach inclusion for existing members.
