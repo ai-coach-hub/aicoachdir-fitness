@@ -2257,6 +2257,17 @@ async function settleWorkoutSaveRace<R extends { finalDelivery?: string }>(optio
 }
 
 export async function POST(request: Request) {
+  // Only an explicitly authorized shared-wallet release may call the real
+  // provider through the quota reservation boundary. Default remains OFF.
+  const sharedReady=process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
+    ((process.env.VERCEL_ENV==="preview" &&
+       process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011") ||
+     (process.env.VERCEL_ENV==="production" &&
+       process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true"));
+  if(sharedReady){
+    const {gatedFitnessChat}=await import("@/lib/gatedFitnessChat");
+    return gatedFitnessChat(request,postFitnessWithoutPreviewMeter);
+  }
   // Private shared usage testing is opt-in; production Fitness is unchanged.
   if (process.env.VERCEL_ENV === "preview" &&
       process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011" &&
