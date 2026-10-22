@@ -912,7 +912,7 @@ export default function FitnessChatPage() {
                 {previewAllowance?.active ? (
                   <p role="status">Private shared AI uses left: {previewAllowance.remaining} of {previewAllowance.limit}.</p>
                 ) : null}
-                <p className="microcopy">Private preview: live chat history and saved workouts are intentionally not loaded.</p>
+                {previewAllowance !== null && <p className="microcopy">Private preview: live chat history and saved workouts are intentionally not loaded.</p>}
               </div>
             </div>
 
