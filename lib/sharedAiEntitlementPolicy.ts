@@ -84,8 +84,9 @@ export function decideSharedAiUsage(
       !/^[A-Za-z0-9_-]{16,100}$/.test(request.requestKey))
     return denied("invalid_identity");
 
-  // No implicit entitlement for today's $15 plan or unreleased coaches.
-  // The approved plan and allowed coaches must be explicitly supplied.
+  // The owner approved Life for existing members within the current 400-use
+  // plan, but the approved coaches and wallet must still come from a trusted
+  // server mapping. Never infer permission from an unauthenticated request.
   if (!ledgerId(snapshot.allowanceLedgerKey) ||
       !Number.isSafeInteger(snapshot.includedUses) ||
       snapshot.includedUses < 1 || snapshot.includedUses > 10000 ||
