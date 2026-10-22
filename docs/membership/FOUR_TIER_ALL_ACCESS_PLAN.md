@@ -42,7 +42,7 @@ Use the historical screenshot as a benchmark, smoothing the progression and repl
 | Plus | $25 | 400 | $9.20 | $15.80 |
 | Pro | $35 | 600 | $13.80 | $21.20 |
 
-**These are illustrative only.** Prices, use limits, and the $0.023 assumption must be reevaluated after metering and provider-cost evidence. In particular, the current publicly offered $15/400 deal must not silently become $15/200: retain the original allowance and terms for current subscribers unless the owner approves a lawful and clearly communicated transition. Do not silently expand the old subscription to new coaches either; decide grandfathered coach access explicitly.
+**These are illustrative only.** Prices, use limits, and the $0.023 assumption must be reevaluated after metering and provider-cost evidence. In particular, the current publicly offered $15/400 deal must not silently become $15/200: retain the original allowance and terms for current subscribers unless the owner approves a lawful and clearly communicated transition. The owner explicitly approved adding Life Coach to current eligible members' existing 400-use wallet at no added charge on 2026-10-22. This does not approve new tier prices, overages or expanding the wallet.
 
 ### Cost sensitivity at the *entire cap* (before processing fees and fixed costs)
 
@@ -70,7 +70,7 @@ Keep each tier visibly different (at least roughly 2x the permitted coaching vol
 
 ## Confirmed current baseline / non-interference
 
-- Live site currently advertises $15/month with 400 shared AI uses and Fitness+Budgeting. That statement appears in the current homepage, subscription checkout copy, and Terms constants. Do not revise the live site while preparing tier pricing.
+- Live site currently advertises $15/month with 400 shared AI uses and Fitness+Budgeting. The owner approved adding Life Coach to active existing memberships within those same 400 uses, without a price change. Until the three-coach meter and full entitlement verification are implemented and production launch approved, public checkout and Terms copy remain unchanged.
 - Existing members keep their agreed price, access, paid-through cancellation, saved history, and ability to re-subscribe with the same login.
 - The live website currently has one recurring $15 price wired to membership. The connected Stripe catalog also has older Basic / Growth / Pro and bundle products. "Active" Stripe catalog items are NOT proof that those are sold or should be reused.
 - Never force a second subscription, downgrade, or new signup on a customer who has a valid paid membership.
