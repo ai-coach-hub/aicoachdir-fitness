@@ -33,7 +33,11 @@ export async function POST(request:Request){
     :await settleSharedUsage(command.memberEmail,"budgeting",command.requestKey,command.outcome!);
    const accepted=command.action==="reserve" ? result==="reserved" :
     result===command.outcome||result==="already_"+command.outcome;
+   // Explicit 409 informs the trusted Budgeting server that a verified
+   // existing member must remain on the old provider until next renewal.
+   // Unknown/ineligible members never receive this safe legacy fallback.
    const status=accepted?200:result==="exhausted"?429:
+    result==="pending_renewal"?409:
     result.startsWith("duplicate_")?409:result==="not_entitled"?403:503;
    return reply({ok:accepted,result,mode:"shared-wallet"},status);
   }catch{

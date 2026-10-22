@@ -110,11 +110,15 @@ export async function POST(request:Request) {
   const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
   const stamp=Date.parse(cutover);
   const cutoverReady=Number.isFinite(stamp)&&new Date(stamp).toISOString()===cutover;
+  const mode=String(process.env.SHARED_USAGE_MIGRATION_MODE||"");
+  const openingReady=mode==="rolling_renewal" ||
+   ((mode===""||mode==="reconciled") &&
+    process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true");
   const productionReleased=process.env.VERCEL_ENV==="production" &&
     cutoverReady &&
     process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
-    process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
+    openingReady &&
     process.env.LIFE_COACH_LIVE_ENABLED==="true";
   if(!privateSandbox&&!productionReleased)
     return json({ok:false,error:"Life Coach generation is not enabled."},503);
@@ -157,6 +161,7 @@ export async function POST(request:Request) {
    });
    if(result.status==="completed")return json(result.value);
    if(result.status==="blocked")return json({ok:false,error:
+    result.reason==="pending_renewal"?"Life Coach becomes available at your next billing period. Fitness and Budgeting remain available.":
     result.reason==="exhausted"?"Your shared monthly AI allowance has been reached.":
     result.reason.startsWith("duplicate_")?"This request was already submitted. Check Previous chats.":
     "Membership or shared usage could not be verified."},

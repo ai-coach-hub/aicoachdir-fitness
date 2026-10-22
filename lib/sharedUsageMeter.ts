@@ -13,10 +13,16 @@ export function sharedUsageGateEnabled(){
  const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
  const stamp=Date.parse(cutover);
  const validCutover=Number.isFinite(stamp) && new Date(stamp).toISOString()===cutover;
+ // No fixed account roster is needed. Under forward-only migration, an
+ // existing member keeps the old provider allowance until their individual
+ // verified renewal; a new shared wallet starts only with that new period.
+ const mode=String(process.env.SHARED_USAGE_MIGRATION_MODE||"");
+ const approvedOpening=mode==="rolling_renewal" ||
+   ((mode===""||mode==="reconciled")&&
+    process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true");
  return process.env.VERCEL_ENV==="production" &&
         process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
-        process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
-        validCutover;
+        approvedOpening && validCutover;
 }
 export type QuotaCoach="fitness"|"budgeting"|"life";
 export type QuotaPermit={
@@ -59,7 +65,7 @@ async function checkedDb(){
 }
 // Billing and account facts only come from the trusted membership database and
 // independently verified Stripe records, NEVER a browser or Budgeting claim.
-export async function resolveCurrentSharedUsage(email:string):Promise<QuotaPermit|null>{
+async function resolveCurrentSharedUsageWithState(email:string):Promise<QuotaPermit|"pending_renewal"|null>{
  if(!sharedUsageGateEnabled())return null;
  const normalized=email.trim().toLowerCase(), secret=root();
  const memberKey=sharedUsageMemberKey(normalized,secret);
@@ -83,7 +89,13 @@ export async function resolveCurrentSharedUsage(email:string):Promise<QuotaPermi
    !record.stripe_customer_id&&!record.stripe_subscription_id;
  if(legacyNoBilling){
   const clerkId=String(record.clerk_user_id||"");
-  if(!/^user_[A-Za-z0-9_-]{8,128}$/.test(clerkId))return null;
+  // Budgeting-only legacy logins may not yet have a bound Clerk ID. Keep
+  // their existing provider access, never create a paid shared wallet from
+  // a bare email; a verified Clerk login can bind them in the normal path.
+  if(!/^user_[A-Za-z0-9_-]{8,128}$/.test(clerkId))
+   return process.env.VERCEL_ENV==="production" &&
+     process.env.SHARED_USAGE_MIGRATION_MODE==="rolling_renewal"
+     ? "pending_renewal":null;
   const last=Date.parse(String(record.last_legacy_verified_at||""));
   if(!Number.isFinite(last)||Date.now()-last>24*60*60_000){
    if(process.env.VERCEL_ENV!=="production"||
@@ -112,11 +124,21 @@ export async function resolveCurrentSharedUsage(email:string):Promise<QuotaPermi
      !["active","trialing"].includes(String(sub.status||"")))return null;
   // Explicit current and grandfathered price IDs only: no product creation.
   const prices=await approvedPrices();
-  if(!prices.length)return null;
+  if(!prices.length)
+   return process.env.VERCEL_ENV==="production" &&
+    process.env.SHARED_USAGE_MIGRATION_MODE==="rolling_renewal"
+     ? "pending_renewal" : null;
   const windows=prices.map(priceId=>stripeUsageWindowFromVerifiedRecord(sub,{
    customerId,subscriptionId,priceId
   })).filter((x):x is Extract<typeof x,{ok:true}>=>x.ok);
-  if(windows.length!==1)return null;
+  // Some grandfathered active Stripe subscriptions carry older plan prices.
+  // Do not deny their existing coach access or guess that they have 400
+  // unused credits. They keep the original provider until an exact approved
+  // price and period can be verified for the shared ledger.
+  if(windows.length!==1)
+   return process.env.VERCEL_ENV==="production" &&
+    process.env.SHARED_USAGE_MIGRATION_MODE==="rolling_renewal"
+     ? "pending_renewal" : null;
   periodStart=windows[0].periodStart;
   periodEnd=windows[0].periodEnd;
  }else if(!customerId && !subscriptionId &&
@@ -140,6 +162,12 @@ export async function resolveCurrentSharedUsage(email:string):Promise<QuotaPermi
   // explicitly reconciled opening wallet, never an auto-created empty one.
   // Periods starting after the approved cutover may begin normally at zero.
   if(start<cutover){
+   // This member was already mid-cycle at cutover. Do not infer old usage,
+   // award free credits or block existing Fitness/Budgeting coaching.
+   // A subsequent verified Stripe renewal (or verified legacy UTC period)
+   // migrates automatically; no precompiled list of members is required.
+   if(process.env.SHARED_USAGE_MIGRATION_MODE==="rolling_renewal")
+    return "pending_renewal";
    const sql=await checkedDb();
    const rows=await sql`SELECT period_end,limit_uses,completed_uses,reserved_uses
     FROM public.shared_ai_usage_periods
@@ -156,12 +184,17 @@ export async function resolveCurrentSharedUsage(email:string):Promise<QuotaPermi
  }
  return {memberKey,entitlementKey:"existing_400_v1",periodStart,periodEnd,limitUses:400};
 }
+export async function resolveCurrentSharedUsage(email:string):Promise<QuotaPermit|null>{
+ const outcome=await resolveCurrentSharedUsageWithState(email);
+ return outcome==="pending_renewal"?null:outcome;
+}
 export async function reserveSharedUsage(
  email:string,coach:QuotaCoach,requestKey:string
 ):Promise<QuotaResult>{
  if(!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey))return {status:"invalid_request"};
  if(!["fitness","budgeting","life"].includes(coach))return {status:"invalid_coach"};
- const permit=await resolveCurrentSharedUsage(email);
+ const permit=await resolveCurrentSharedUsageWithState(email);
+ if(permit==="pending_renewal")return {status:"pending_renewal"};
  if(!permit)return {status:"not_entitled"};
  const sql=await checkedDb();
  const rows=await sql`SELECT public.shared_ai_reserve(

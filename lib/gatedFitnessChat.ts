@@ -35,6 +35,13 @@ export async function gatedFitnessChat(
  let status:string;
  try{status=(await reserveSharedUsage(email,"fitness",requestKey)).status;}
  catch{return Response.json({ok:false,error:"Shared allowance temporarily unavailable. No AI request was made."},{status:503});}
+ // Preserve the exact existing Fitness path through the member's current
+ // paid billing period. Only a verified renewal creates the central quota.
+ // This is never a fallback for invalid, canceled or exhausted membership.
+ if(status==="pending_renewal" &&
+    process.env.VERCEL_ENV==="production" &&
+    process.env.SHARED_USAGE_MIGRATION_MODE==="rolling_renewal")
+  return realHandler(request);
  if(status!=="reserved")return Response.json({ok:false,
   error:status==="exhausted"?"Shared monthly AI allowance reached.":
    status.startsWith("duplicate_")?"Request already submitted. Check saved chats before retrying.":
