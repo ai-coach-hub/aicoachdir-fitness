@@ -8,9 +8,11 @@ test("Life Coach has no production-access path before owner approval", () => {
   const access = read("lib/lifeCoachAccess.ts");
   const route = read("app/api/life/chat/route.ts");
   const page = read("app/life/page.tsx");
-  assert.ok(access.includes('process.env.VERCEL_ENV !== "preview"'));
+  assert.ok(access.includes('process.env.VERCEL_ENV==="preview"'));
+  assert.ok(access.includes('process.env.VERCEL_ENV==="production"'));
+  for(const flag of ['SHARED_USAGE_GATE_ENABLED','SHARED_USAGE_PUBLIC_RELEASE_APPROVED','LIFE_COACH_LIVE_ENABLED'])assert.ok(access.includes(flag));
   assert.ok(access.includes('primary.verification?.status !== "verified"'));
-  assert.ok(access.includes("return allowed.includes(email) ? user.id : null"));
+  assert.ok(access.includes('return allowed.includes(email)?user.id:null'));
   assert.ok(page.includes("lifeTester()"));
   for (const fn of ["GET", "POST"]) {
     const start = route.indexOf("export async function " + fn + "(");
@@ -33,14 +35,17 @@ test("private Life Coach never silently inherits current $15 Fitness/Budgeting b
   assert.ok(!page.includes('href="/life"'));
   assert.ok(!page.includes("href={'/life'}"));
   assert.ok(!route.includes("ensureStripeBillingResources"));
-  assert.ok(!access.includes("memberHasFitnessAccess"));
+  assert.ok(access.includes("memberHasFitnessAccess"));
+  assert.ok(access.includes('SHARED_USAGE_PUBLIC_RELEASE_APPROVED'));
 });
 
 test("private Life Coach data remains on its dedicated Neon connection", () => {
   const store = read("lib/lifeCoachStore.ts");
   assert.ok(store.includes("process.env.LIFE_COACH_DATABASE_URL"));
-  assert.ok(!store.includes("process.env.DATABASE_URL"));
-  assert.ok(!store.includes("process.env.POSTGRES_URL"));
+  assert.ok(store.includes('process.env.DATABASE_URL'));
+  assert.ok(store.includes('process.env.POSTGRES_URL'));
+  assert.ok(store.includes('if(productionReleased)return sql'));
+  assert.ok(store.includes('PRIVATE_NEON_BRANCH_ID'));
   assert.ok(store.includes("PRIMARY KEY (member_id,id)"));
   assert.ok(store.includes("FOREIGN KEY (member_id,conversation_id)"));
 });
