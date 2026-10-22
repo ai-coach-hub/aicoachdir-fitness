@@ -29,7 +29,7 @@ export default function LifeChat(){
  const [startingTest,setStartingTest]=useState(false);
  const [error,setError]=useState("");
  const end=useRef<HTMLDivElement>(null);
- const pendingRequest=useRef<{key:string;message:string;conversationId:string}|null>(null);
+ const pendingRequest=useRef<{key:string;message:string;conversationId:string;newConversationId:string}|null>(null);
  const [intro,setIntro]=useState(intros[0]);
  useEffect(()=>setIntro(intros[Math.floor(Math.random()*intros.length)]),[]);
  const loadThreads=async()=>{try{
@@ -69,17 +69,42 @@ export default function LifeChat(){
  async function send(e:FormEvent){
   e.preventDefault();const message=input.trim();if(!message||busy)return;
   const previous=pendingRequest.current;
-  const requestKey=previous?.message===message && previous?.conversationId===id
-   ? previous.key : `life-${crypto.randomUUID()}`;
-  pendingRequest.current={key:requestKey,message,conversationId:id};
+  const retry=previous?.message===message && previous?.conversationId===id;
+  const requestKey=retry ? previous!.key : `life-${crypto.randomUUID()}`;
+  const newConversationId=!id ? (retry ? previous!.newConversationId : `life-coach-${crypto.randomUUID()}`) : "";
+  pendingRequest.current={key:requestKey,message,conversationId:id,newConversationId};
   setBusy(true);setError("");setMessages(a=>[...a,{role:"user",text:message}]);setInput("");
   try{
-   const r=await fetch("/api/life/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,requestKey,...(id?{conversationId:id}:{})})});
+   const r=await fetch("/api/life/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,requestKey,...(id?{conversationId:id}:{newConversationId})})});
    const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"Life Coach reply could not be saved.");
    pendingRequest.current=null;
    if(usageTest?.active)void loadUsage();
    setId(j.conversationId);setMessages(a=>[...a,{role:"assistant",text:j.response}]);await loadThreads();
-  }catch(ex){if(usageTest?.active)void loadUsage();setError(ex instanceof Error?ex.message:"Request failed.");setInput(message);setMessages(a=>a.slice(0,-1));}finally{setBusy(false);}
+  }catch(ex){
+   if(usageTest?.active)void loadUsage();
+   // A lost HTTP response can occur after Neon committed the conversation.
+   // Read the known thread before offering a retry, never call Pickaxe again here.
+   const lookupId=id||newConversationId;
+   let restored=false;
+   try {
+    const history=await fetch("/api/life/chat?id="+encodeURIComponent(lookupId),{cache:"no-store"});
+    if(history.ok){
+     const data=await history.json();
+     const saved=data.messages||[];
+     if(data.ok && saved.length>=2 &&
+        saved[saved.length-2]?.role==="user" &&
+        saved[saved.length-2]?.text===message &&
+        saved[saved.length-1]?.role==="assistant"){
+       setId(lookupId);setMessages(saved);pendingRequest.current=null;
+       await loadThreads();restored=true;
+     }
+    }
+   }catch{/* Keep the original request ID; do not auto-resubmit. */}
+   if(!restored){
+    setError((ex instanceof Error?ex.message:"Request failed.")+" Check Previous chats before sending again.");
+    setInput(message);setMessages(a=>a.slice(0,-1));
+   }
+  }finally{setBusy(false);}
  }
  return <section className={styles.layout}>
   <aside className={styles.history} aria-label="Previous Life Coach conversations">
