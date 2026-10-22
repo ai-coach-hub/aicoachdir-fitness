@@ -21,7 +21,7 @@ test("uncertain model results can be reconciled later by a separate reviewed SQL
  assert.match(reconciler,/completed_uses\s*=\s*completed_uses\s*\+/);
  assert.match(reconciler,/AND request_key\s*=\s*p_request/);
  for(const name of ["reserve","settle","reconcile"]) {
-  assert.match(sql,new RegExp("REVOKE ALL ON FUNCTION public\\\\.shared_ai_"+name+"\\\\("));
+  assert.ok(sql.includes("REVOKE ALL ON FUNCTION public.shared_ai_"+name+"("));
  }
 
 });
