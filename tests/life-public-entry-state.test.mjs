@@ -45,7 +45,7 @@ function flatten(node,result={texts:[],links:[],cards:[]}){
 }
 const on={VERCEL_ENV:"production",SHARED_USAGE_GATE_ENABLED:"true",
  SHARED_USAGE_PUBLIC_RELEASE_APPROVED:"true",
- SHARED_USAGE_OPENING_BALANCES_RECONCILED:"true",LIFE_COACH_LIVE_ENABLED:"true"};
+ SHARED_USAGE_OPENING_BALANCES_RECONCILED:"true",SHARED_USAGE_CUTOVER_AT:"2026-01-01T00:00:00.000Z",LIFE_COACH_LIVE_ENABLED:"true"};
 
 test("Home shows Life Coach as included and available only with every production release approval",()=>{
  const live=flatten(component("app/page.tsx",on)());
