@@ -42,7 +42,8 @@ test("preview counter separates completed uses from pending verification without
 
 test("private Life generation cannot bypass enrollment or the shared meter",()=> {
  assert.match(route,/if\(!enrollment\.active\) return json\(\{ok:false,error:"Private usage test enrollment is required\."\},403\)/);
- assert.match(route,/if \(!privateSandbox \|\| process\.env\.PREVIEW_SHARED_USAGE_METER_ENABLED !== "true"\)/);
+ assert.match(route,/if\(privateSandbox && process\.env\.PREVIEW_SHARED_USAGE_METER_ENABLED !== "true"\)/);
+ assert.match(route,/if\(!privateSandbox&&!productionReleased\)/);
  assert.match(route,/return json\(\{ok:false,error:"Private Life Coach generation is not enabled\."\},503\)/);
  assert.equal((route.match(/fetch\("https:\/\/api\.pickaxe\.co\/v1\/completions"/g)||[]).length,1);
 });
