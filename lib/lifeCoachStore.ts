@@ -81,11 +81,19 @@ export async function recallLifeContext(member: string, currentId: string, query
 export async function saveLifeTurn(member: string,id: string,question: string,answer: string) {
   if(!validId(id)) throw new Error("Invalid Life Coach thread");
   const sql=await db();
-  await sql`INSERT INTO life_chat_threads(member_id,id,title)
-     VALUES(${member},${id},${question.slice(0,85)})
-     ON CONFLICT(member_id,id) DO UPDATE SET updated_at=NOW()`;
-  await sql`INSERT INTO life_chat_messages(member_id,conversation_id,role,body)
-     VALUES(${member},${id},'user',${question.slice(0,6000)})`;
-  await sql`INSERT INTO life_chat_messages(member_id,conversation_id,role,body)
-     VALUES(${member},${id},'assistant',${answer.slice(0,10000)})`;
+  // One SQL statement is atomic: neither participant's message is saved
+  // alone if inserting the other message fails. This also avoids publishing
+  // a conversation shell for an incomplete turn.
+  await sql`WITH thread AS (
+    INSERT INTO life_chat_threads(member_id,id,title)
+    VALUES(${member},${id},${question.slice(0,85)})
+    ON CONFLICT(member_id,id) DO UPDATE SET updated_at=NOW()
+    RETURNING member_id,id
+  )
+  INSERT INTO life_chat_messages(member_id,conversation_id,role,body)
+  SELECT thread.member_id,thread.id,turn.role,turn.body
+  FROM thread CROSS JOIN (VALUES
+    ('user',${question.slice(0,6000)}),
+    ('assistant',${answer.slice(0,10000)})
+  ) AS turn(role,body)`;
 }
