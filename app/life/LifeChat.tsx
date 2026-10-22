@@ -20,6 +20,7 @@ function CoachResponse({text}:{text:string}){
 }
 export default function LifeChat(){
  const [threads,setThreads]=useState<Thread[]>([]);
+ const [historyState,setHistoryState]=useState<"loading"|"ready"|"error">("loading");
  const [id,setId]=useState("");
  const [messages,setMessages]=useState<Msg[]>([]);
  const [input,setInput]=useState("");
@@ -31,7 +32,13 @@ export default function LifeChat(){
  const pendingRequest=useRef<{key:string;message:string;conversationId:string}|null>(null);
  const [intro,setIntro]=useState(intros[0]);
  useEffect(()=>setIntro(intros[Math.floor(Math.random()*intros.length)]),[]);
- const loadThreads=async()=>{try{const r=await fetch("/api/life/chat",{cache:"no-store"});const j=await r.json();if(j.ok)setThreads(j.threads||[]);}catch{}};
+ const loadThreads=async()=>{try{
+  const r=await fetch("/api/life/chat",{cache:"no-store"});
+  if(!r.ok)throw Error("History unavailable");
+  const j=await r.json();
+  if(!j.ok||!Array.isArray(j.threads))throw Error("History unavailable");
+  setThreads(j.threads);setHistoryState("ready");
+ }catch{setHistoryState("error");}};
  const loadUsage=async()=>{try{
   const r=await fetch("/api/life/usage-test",{cache:"no-store"});
   if(!r.ok)return;
@@ -79,6 +86,12 @@ export default function LifeChat(){
    <h3>Previous chats</h3>
    <button className={styles.newButton} type="button" disabled={busy} onClick={()=>{pendingRequest.current=null;setId("");setMessages([]);setError("");}}>New Chat</button>
    <div className={styles.threadList}>
+    {historyState==="loading"&&<p role="status" style={{color:"var(--muted)"}}>Loading previous chats…</p>}
+    {historyState==="error"&&<div role="alert">
+     <p>Previous chats couldn't be loaded. They have not been deleted.</p>
+     <button type="button" disabled={busy} onClick={()=>{setHistoryState("loading");void loadThreads();}}>Retry loading chats</button>
+    </div>}
+    {historyState==="ready"&&threads.length===0&&<p style={{color:"var(--muted)"}}>No previous chats yet.</p>}
     {threads.map(t=><button key={t.id} className={styles.threadButton} type="button" disabled={busy} aria-pressed={t.id===id} onClick={()=>void open(t.id)} style={{background:t.id===id?"#1b3440":"#0c1c2b"}}>{t.title}</button>)}
    </div>
   </aside>
