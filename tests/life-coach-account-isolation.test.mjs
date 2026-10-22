@@ -296,3 +296,16 @@ test("urgent message receives immediate zero-provider support scoped to member",
  assert.equal(e.providerCalls(),0);
  assert.equal(e.messages.length,2);
 });
+
+test("urgent support stays available when private chat storage is unavailable",async()=>{
+ const e=mockLifeEnvironment();
+ e.signIn(memberA);
+ e.setDatabaseBranch("br-storage-unavailable");
+ const result=await e.apiPost({message:"I might hurt myself right now"});
+ assert.equal(result.status,200);
+ assert.equal(result.data.source,"safety");
+ assert.equal(result.data.savedForHistory,false);
+ assert.match(result.data.response,/988/);
+ assert.equal(e.messages.length,0);
+ assert.equal(e.providerCalls(),0);
+});
