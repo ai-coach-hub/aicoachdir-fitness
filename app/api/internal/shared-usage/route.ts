@@ -2,6 +2,7 @@ import {verifySharedUsageServiceRequest,type SharedUsageServiceRequest} from "@/
 import {getFitnessMembership} from "@/lib/fitnessMembershipDb";
 import {lifeTestStatus,previewLifeTestPeriod,previewLifeTestSubscription} from "@/lib/previewLifeTestEnrollment";
 import {reservePreviewAiUse,settlePreviewAiUse} from "@/lib/previewAiUsage";
+import {reserveSharedUsage,settleSharedUsage,sharedUsageGateEnabled} from "@/lib/sharedUsageMeter";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -12,12 +13,30 @@ const privatePreview=()=>process.env.VERCEL_ENV==="preview" &&
 
 export async function POST(request:Request) {
  // Never enable service-to-service writes against an unverified production DB.
- if(!privatePreview())return reply({ok:false,error:"Internal private usage test unavailable."},404);
+ if(!privatePreview() && !sharedUsageGateEnabled())
+  return reply({ok:false,error:"Internal quota service is disabled."},404);
  let body:SharedUsageServiceRequest;
  try {body=await request.json();}catch{return reply({ok:false,error:"Malformed usage request."},400);}
  const secret=process.env.BUDGET_MEMBERSHIP_HANDOFF_SECRET||"";
  if(!verifySharedUsageServiceRequest(body,request.headers.get("x-shared-usage-signature")||"",
    secret,Date.now())) return reply({ok:false,error:"Internal usage authentication failed."},401);
+ // Real member/period validation stays on this hub, never the remote caller.
+ // Activated only with explicit environment switches and an applied wallet
+ // migration. The legacy 3-use tester endpoint remains separately available.
+ if(sharedUsageGateEnabled()){
+  try {
+   const status=body.action==="reserve"
+    ? (await reserveSharedUsage(body.memberEmail,"budgeting",body.requestKey)).status
+    : await settleSharedUsage(body.memberEmail,"budgeting",body.requestKey,body.outcome!);
+   if(body.action==="reserve"){
+    return status==="reserved"
+      ? reply({ok:true,result:"reserved",mode:"verified-shared-wallet"})
+      : reply({ok:false,result:status},status==="exhausted"?429:403);
+   }
+   const ok=status===body.outcome || status==="already_"+body.outcome;
+   return reply({ok,result:status,mode:"verified-shared-wallet"},ok?200:409);
+  }catch{return reply({ok:false,error:"Verified shared wallet is unavailable."},503);}
+ }
  const allow=(process.env.LIFE_COACH_TESTER_EMAILS||"")
   .split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);
  if(!allow.includes(body.memberEmail))return reply({ok:false,error:"Private membership not enrolled."},403);
