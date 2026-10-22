@@ -86,3 +86,16 @@ test("wrong Neon branch blocks all shared usage mutations",async()=>{
  assert.equal(calls.length,3);
  assert.ok(calls.every(c=>c.statement.includes("current_setting('neon.branch_id'")));
 });
+
+test("malformed identity, replay key, or period cannot reach the quota ledger",async()=>{
+ const {api,calls}=load(preview());
+ for (const change of [
+   {memberId:""}, {memberId:"a b"}, {subscriptionKey:"wrong/account"},
+   {requestKey:"short"}, {requestKey:"a".repeat(101)},
+   {periodStart:"2026-10-01"}, {periodStart:"2026-10-01T00:00:00Z"},
+   {periodStart:"2026-13-01T00:00:00.000Z"}
+ ]) {
+   assert.equal(await api.reservePreviewAiUse({...member,...change}),"invalid");
+ }
+ assert.equal(calls.length,0);
+});
