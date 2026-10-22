@@ -33,6 +33,15 @@ function mockLifeEnvironment(){
   if(query.includes("current_setting('neon.branch_id'"))
     return [{branch_id:databaseBranch}];
   if(query.startsWith("CREATE TABLE IF NOT EXISTS"))return [];
+  if(query.startsWith("WITH thread AS (") && query.includes("INSERT INTO life_chat_messages")){
+   const [member,id,title,question,answer]=values;
+   const existing=threads.find(t=>t.member_id===member&&t.id===id);
+   if(existing){existing.updated_at=new Date().toISOString();}
+   else threads.push({member_id:member,id,title,updated_at:new Date().toISOString()});
+   messages.push({id:++serial,member_id:member,conversation_id:id,role:"user",body:question,created_at:new Date().toISOString()});
+   messages.push({id:++serial,member_id:member,conversation_id:id,role:"assistant",body:answer,created_at:new Date().toISOString()});
+   return [];
+  }
   if(query.startsWith("INSERT INTO life_chat_threads")){
    const [member,id,title]=values;
    const existing=threads.find(t=>t.member_id===member&&t.id===id);
