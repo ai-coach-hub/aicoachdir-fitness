@@ -5,11 +5,17 @@ export type LifeMessage = { role: "user" | "assistant"; text: string; createdAt:
 export type LifeThread = { id: string; title: string; updatedAt: string };
 const validId = (id: string) => /^life-coach-[a-zA-Z0-9_-]{8,90}$/.test(id);
 
+function productionCutoverReady(){
+ const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
+ const stamp=Date.parse(cutover);
+ return Number.isFinite(stamp)&&new Date(stamp).toISOString()===cutover;
+}
 function database() {
   const isProduction=process.env.VERCEL_ENV==="production" &&
     process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
     process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
+    productionCutoverReady() &&
     process.env.LIFE_COACH_LIVE_ENABLED==="true";
   const url=isProduction
     ? (process.env.STORAGE_URL||process.env.DATABASE_URL||process.env.POSTGRES_URL)
@@ -29,6 +35,7 @@ async function db() {
     process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
     process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
+    productionCutoverReady() &&
     process.env.LIFE_COACH_LIVE_ENABLED==="true";
   if(!privatePreview&&!productionReleased)
     throw new Error("Life Coach storage is disabled until release");
