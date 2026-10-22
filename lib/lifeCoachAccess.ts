@@ -30,6 +30,19 @@ export async function lifeTester() {
   // One existing verified subscription unlocks Life; no new checkout.
   // Production is otherwise unreachable until the three release gates above
   // and the shared quota migration have been explicitly enabled.
-  const {memberHasFitnessAccess}=await import("./fitnessMembershipDb");
+  const {getFitnessMembership,restoreVerifiedHistoricalBillingForMember,
+    memberHasFitnessAccess}=await import("./fitnessMembershipDb");
+  // Neon is not a complete member directory. On a VERIFIED Clerk sign-in,
+  // attempt historical paid-status recovery before the normal Pickaxe fallback.
+  // Existing account data, subscription and history are never overwritten by
+  // an unverified lookup; errors do not prevent normal existing-member checks.
+  try {
+    if(!await getFitnessMembership(email))
+      await restoreVerifiedHistoricalBillingForMember(email,user.id);
+  }catch(error){
+    console.error("[life] historical membership lookup deferred",{
+      message:error instanceof Error?error.message:String(error)
+    });
+  }
   return await memberHasFitnessAccess(email,user.id)?user.id:null;
 }
