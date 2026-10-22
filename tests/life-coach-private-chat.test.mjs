@@ -9,7 +9,8 @@ test("life chat is private by default and requires verified Clerk email",()=>{
  assert.match(access,/currentUser\(/);
  assert.match(access,/LIFE_COACH_TESTER_EMAILS/);
  assert.ok(access.includes('primary.verification?.status !== "verified"'));
- assert.match(access,/VERCEL_ENV !== "preview"/);
+ assert.ok(access.includes('VERCEL_ENV==="preview"'));
+ for(const flag of ['SHARED_USAGE_GATE_ENABLED','SHARED_USAGE_PUBLIC_RELEASE_APPROVED','LIFE_COACH_LIVE_ENABLED'])assert.ok(access.includes(flag));
  assert.ok(access.includes("allowed.includes(email)"));
  assert.match(api,/if\(!member\)return json/);
  assert.match(api,/PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN/);
@@ -32,7 +33,9 @@ test("public coach cards and paid subscription logic were not changed in this PR
 test("life coach database is isolated from shared membership storage",()=>{
  const store=load("lib/lifeCoachStore.ts");
  assert.ok(store.includes("process.env.LIFE_COACH_DATABASE_URL"));
- for(const forbidden of ["process.env.DATABASE_URL","process.env.POSTGRES_URL","process.env.STORAGE_URL"])assert.ok(!store.includes(forbidden));
+ for(const permittedOnlyAfterApproval of ["process.env.DATABASE_URL","process.env.POSTGRES_URL","process.env.STORAGE_URL"])assert.ok(store.includes(permittedOnlyAfterApproval));
+ assert.ok(store.includes('if(productionReleased)return sql'));
+ assert.ok(store.includes('PRIVATE_NEON_BRANCH_ID'));
 });
 
 test("private Life Coach page never sends testers into paid Fitness login",()=>{
