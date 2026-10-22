@@ -20,6 +20,10 @@ test("uncertain model results can be reconciled later by a separate reviewed SQL
  assert.match(reconciler,/reserved_uses\s*=\s*reserved_uses\s*-\s*1/);
  assert.match(reconciler,/completed_uses\s*=\s*completed_uses\s*\+/);
  assert.match(reconciler,/AND request_key\s*=\s*p_request/);
+ for(const name of ["reserve","settle","reconcile"]) {
+  assert.match(sql,new RegExp("REVOKE ALL ON FUNCTION public\\\\.shared_ai_"+name+"\\\\("));
+ }
+
 });
 test("reconciliation is not callable from any member-facing request route",()=>{
  const hub=readFileSync(new URL("../app/api/internal/shared-usage/route.ts",import.meta.url),"utf8");
