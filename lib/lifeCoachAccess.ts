@@ -8,6 +8,7 @@ export async function lifeTester() {
   const released=process.env.VERCEL_ENV==="production" &&
       process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
       process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
+      process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
       process.env.LIFE_COACH_LIVE_ENABLED==="true";
   if(!privatePreview&&!released)return null;
   const user = await currentUser();
