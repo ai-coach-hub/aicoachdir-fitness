@@ -3,7 +3,7 @@
 Evidence reviewed: 2026-10-22. Status: **NOT RELEASED**. This file is the release checklist; do not infer launch approval from CI or a ready Preview.
 
 ## Confirmed implementation and automated QA
-- Fitness/Life: GitHub branch `feature/life-coach-agent-sandbox-20261011`, commit `5cb60ede2113402e9b3b6057ef05d611dc9fff8e`. Full GitHub regression tests and TypeScript passed, CI run #512.
+- Fitness/Life: GitHub branch `feature/life-coach-agent-sandbox-20261011`. Full GitHub regression tests and TypeScript passed, CI run #39857859239 (2026-10-22). The branch includes main's retired-login protection and a verified production Neon branch check; this CI success does not authorize merge or release.
 - Matching Fitness Vercel Preview deployment: `https://aicoachdir-fitness-5dm9qkv34-kcb3.vercel.app`, state READY, target preview.
 - Budgeting: branch `feature/shared-usage-cross-app-qa-20261021`, commit `a107b2c3259b61a6705c9425f2f7d0f4f18979f9`. Vercel Preview READY.
 - The Budgeting-to-Fitness signed hub adapter now verifies result status and approved hostnames; the Fitness hub has a production implementation behind release flags.
@@ -11,21 +11,24 @@ Evidence reviewed: 2026-10-22. Status: **NOT RELEASED**. This file is the releas
 - Previously approved grandfathered accounts can be rechecked with the already-existing historical membership verifier, then the quota resolver reloads their current membership row before approval. A failed check, stale result, missing stable Clerk link, or revoked access cannot grant fresh allowance.
 - New SQL migration includes operator-only reconciliation of uncertain provider outcomes. No public AI endpoint can reconcile ambiguous usage; the `shared_ai_*` SQL functions revoke PUBLIC execution privileges.
 
-## Read-only production Neon audit, 2026-10-22
+## Verified production Neon state, 2026-10-22
 Project `aicoachdir-terms-db`, production branch `br-sparkling-glitter-aucpz59d`.
-Aggregate (no member identities exported):
-- 3 active Stripe-linked memberships.
-- 2 active, previously registered `legacy_pickaxe_member` records with no Stripe IDs. Both have Clerk bindings; neither has a recent legacy verification timestamp. These **must** be refreshed with the trusted membership reconciliation at activation.
-- 1 canceled Stripe-linked membership.
-- Production has neither `shared_ai_usage_periods` / `shared_ai_usage_requests` nor the Life Coach tables. The private branch `br-autumn-breeze-auw38rgr` has those objects, but is not the production database.
-- Preview schema is **not** a drop-in replacement for production. The preview branch is missing the newer production `fitness_checkout_reservations` table.
+Confirmed directly in production (aggregate membership data; no user content exported):
+- 3 active Stripe-linked memberships (including the owner account); 1 canceled Stripe-linked membership.
+- 1 owner-approved retired former school login (`retired_owner_requested`); 1 separate active private QA legacy login (no Stripe subscription). The retired login remains blocked by the live fallback guard. Neither account should be counted as a paid grandfathered subscriber.
+- All 6 membership records remain intact and production fitness checkout reservations still exist.
+- Both shared-wallet tables and both Life Coach conversation tables were installed in production.
+- Production functions `shared_ai_reserve`, `shared_ai_settle`, and `shared_ai_reconcile` were installed and checked for limited public privileges.
+- Usage wallet records: **0**; current-cycle balances have NOT been imported or reconciled. Life Coach conversation rows in production: **0**.
+- Production SQL reports `br-sparkling-glitter-aucpz59d`; private Preview SQL reports `br-autumn-breeze-auw38rgr`. Both Life storage and shared wallet now reject a wrong production branch in tests.
+- The preview schema is not a drop-in replacement for production. Do not copy or overwrite live membership or workout data.
 
-## Reviewed additive migrations — not executed in production
-Run ONLY these two additive SQL files after separately verifying the intended Neon production branch and obtaining migration approval:
-1. `migrations/20261022_shared_ai_usage.sql`: shared wallet ledger/functions with uncertainty reconciliation and explicit privilege revocations.
-2. `migrations/20261022_life_chat_private_to_production.sql`: isolated, member-scoped Life Coach history tables.
+## Additive migrations — INSTALLED, NOT A RELEASE
+Production SQL Editor migration completed, then three wallet functions installed via connected Neon. Direct read-back verified tables/functions. The source migrations remain at:
+1. `migrations/20261022_shared_ai_usage.sql`
+2. `migrations/20261022_life_chat_private_to_production.sql`
 
-Do not restore, copy, synchronize or overwrite the preview schema. Do not touch `fitness_memberships`, checkout reservations, saved workouts, or budgets. A temporary-branch migration preparation attempt was blocked by safety controls; **no production migration was applied**.
+**Do not rerun these migrations to try to activate the feature.** No public coach release flags are enabled. Prior verification and usage reconciliation remain required.
 
 Read-only post-migration checks (run on the production branch):
 ```sql
@@ -42,12 +45,12 @@ SELECT
 ```
 
 ## Release blockers that MUST pass before switching on shared billing
-1. **Migration**: deploy additive SQL to the verified production branch, confirm old checkout table and all existing membership rows remain intact. Production DB changes require separate approval.
+1. **Migration and environment pinning — COMPLETE**: four additive tables and three wallet functions are present in production; six existing membership records and checkout table preserved. Exact production Neon branch checks pass CI. Do not reapply migration or silently rekey customer identities.
 2. **Initial usage accounting**: reconcile existing member usage within their current billing periods from the actual Fitness/Budgeting model providers, or explicitly approve a one-time starting-balance policy. The new Neon wallet starts empty; activating midcycle without this decision could grant more than 400 total AI requests. Never make up balances or silently reset them.
    Existing server integration already supports the documented read-only Pickaxe `GET /studio/user/<email>` API. Pickaxe reports `currentUses`, `extraUses`, and `totalUses` fields in its user records (see https://pickaxe.co/v1/documentation/user and the linked Pickaxe community support discussion). Their meaning relative to monthly consumed AI requests MUST be verified before seeding balances; do not assume that any one field is the usage consumed this billing period. Obtain a provider-side timestamped activity reconciliation for Fitness and Budgeting where necessary, without sending user conversations to another service.
-3. **Legacy parity**: verify existing grandfathered members with the current production Pickaxe/Stripe account authority (no member repurchase); explicitly review `SHARED_USAGE_LEGACY_PERIOD_MODE=utc_calendar` if a verified non-Stripe entitlement uses a calendar month. Retain current cancellation/reactivation behavior.
+3. **Legacy parity**: the school login is retired and the other unlinked legacy row is a QA account, not a verified paid grandfathered customer. Keep both identities and saved data intact. Independently verify any genuinely grandfathered/restored paid subscriber against current Pickaxe/Stripe authority before issuing a wallet (no repurchase). Review `SHARED_USAGE_LEGACY_PERIOD_MODE=utc_calendar` only for an actually verified non-Stripe entitlement. Preserve existing cancellation/reactivation behavior.
 4. **Billing IDs**: audit old/current Stripe price IDs against the existing $15 plan. Only explicitly approved historical price IDs belong in `SHARED_USAGE_APPROVED_PRICE_IDS`. The current live price comes from `billing_config`; do not create a Stripe price or checkout here.
-5. **Service credentials**: verify the existing `BUDGET_MEMBERSHIP_HANDOFF_SECRET` matches between the two production apps without exposing its contents. Budgeting's `SHARED_USAGE_HUB_ORIGIN` must be the canonical verified Fitness production hostname.
+5. **Service credentials**: Budgeting's production `SHARED_USAGE_HUB_ORIGIN` is configured with the canonical verified Fitness hostname. The `BUDGET_MEMBERSHIP_HANDOFF_SECRET` remains sensitive and equality across the two projects still needs a signed server-to-server test without disclosure. Fitness production has no `PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN` configured; provision an independently authorized production Life Coach deployment credential before activating Life generation.
 6. **Production-shaped private verification**: prove server-authorized reservation and settlement against the correct database from all three coach handlers; quota exhaustion, cross-member isolation, duplicate retries, provider-timeout reconciliation, canceled vs. cancel-at-period-end access, and non-AI workout/budget operations. A synthetic preview counter by itself is not sufficient.
 7. **Feature flags/release**: keep `SHARED_USAGE_GATE_ENABLED`, `SHARED_USAGE_PUBLIC_RELEASE_APPROVED`, and `LIFE_COACH_LIVE_ENABLED` disabled until every above gate passes. Stage and verify production-configured builds **without** public aliases first; then release all affected services in a coordinated, reversible window.
 8. **Postrelease**: watch generated requests, pending reservations, provider spend, payment/webhook errors and customer access. Keep the last known-good production deployments available for rollback.
