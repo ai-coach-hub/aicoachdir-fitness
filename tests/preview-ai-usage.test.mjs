@@ -5,11 +5,12 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 
 const source=readFileSync(new URL("../lib/previewAiUsage.ts",import.meta.url),"utf8");
-function load(env){
+function load(env, actualBranch="br-autumn-breeze-auw38rgr"){
   const calls=[];
   const sql=async (parts,...values)=>{
     const statement=parts.join(" ? ");
     calls.push({statement,values});
+    if(statement.includes("current_setting('neon.branch_id'")) return [{branch_id:actualBranch}];
     if(statement.includes("preview_ai_reserve")) return [{result:"reserved"}];
     if(statement.includes("preview_ai_settle")) return [{result:"completed"}];
     if(statement.includes("preview_ai_reconcile")) return [{result:"released"}];
@@ -61,18 +62,27 @@ test("reserve, settle and reconcile use server-provided identity and one request
  assert.equal(await api.reservePreviewAiUse(member),"reserved");
  assert.equal(await api.settlePreviewAiUse(member,"completed"),"completed");
  assert.equal(await api.reconcilePreviewAiUse(member,"released"),"released");
- assert.equal(calls.length,3);
- assert.ok(calls.every(c=>c.values[0]===member.memberId));
- assert.ok(calls.every(c=>c.values[1]===member.subscriptionKey));
- assert.ok(calls.every(c=>c.values[3]===member.requestKey));
- assert.ok(calls[0].statement.includes("preview_ai_reserve"));
- assert.ok(calls[1].statement.includes("preview_ai_settle"));
- assert.ok(calls[2].statement.includes("preview_ai_reconcile"));
+ assert.equal(calls.length,6);
+ assert.ok(calls.filter(c=>c.statement.includes("preview_ai_")).every(c=>c.values[0]===member.memberId));
+ assert.ok(calls.filter(c=>c.statement.includes("preview_ai_")).every(c=>c.values[1]===member.subscriptionKey));
+ assert.ok(calls.filter(c=>c.statement.includes("preview_ai_")).every(c=>c.values[3]===member.requestKey));
+ assert.ok(calls[1].statement.includes("preview_ai_reserve"));
+ assert.ok(calls[3].statement.includes("preview_ai_settle"));
+ assert.ok(calls[5].statement.includes("preview_ai_reconcile"));
 });
 
 test("the adapter does not perform AI requests or log customer message content",async()=>{
  const {api,calls}=load(preview());
  await api.reservePreviewAiUse(member);
- assert.equal(calls.length,1);
+ assert.equal(calls.length,2);
  assert.ok(!JSON.stringify(calls).includes("member message"));
+});
+
+test("wrong Neon branch blocks all shared usage mutations",async()=>{
+ const {api,calls}=load(preview(),"br-unexpected");
+ await assert.rejects(api.reservePreviewAiUse(member),/branch mismatch/);
+ await assert.rejects(api.settlePreviewAiUse(member,"completed"),/branch mismatch/);
+ await assert.rejects(api.reconcilePreviewAiUse(member,"released"),/branch mismatch/);
+ assert.equal(calls.length,3);
+ assert.ok(calls.every(c=>c.statement.includes("current_setting('neon.branch_id'")));
 });
