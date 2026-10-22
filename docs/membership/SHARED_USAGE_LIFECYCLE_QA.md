@@ -27,6 +27,14 @@ No Stripe customer records, payments, provider completions or live membership ta
 - `tests/shared-ai-verified-bridge.test.mjs` covers positive paid-through access, blocked Life access on the old Fitness/Budgeting plan, forged Clerk identities, wrong billing customers, wrong prices, canceled subscriptions, ledger outage and overlapping plan keys.
 - GitHub regression tests and type-check succeeded. **This is an offline verified-policy bridge, not proof that real Stripe verification and all coach provider routes are connected.** No production access, billing, or usage counter changed.
 
+## Preview-only three-coach shared-counter simulation (2026-10-21)
+
+- Added `lib/previewSharedCounterSimulation.ts` and `POST /api/life/shared-counter-qa`. Authentication requires the verified, allowlisted private Clerk tester and existing opt-in preview test enrollment. Nothing is exposed from production, and no customer message is accepted.
+- Fitness, Budgeting, and Life use the exact same synthetic preview subscription/period and atomic reservation/settlement SQL functions. A fourth or replayed request is rejected as appropriate when the synthetic cap is exhausted.
+- This API returns only a plainly labeled synthetic result. It **never calls the real Fitness, Budgeting, or Life model**, does not modify workouts, budgets, Stripe, or production metering, and is not a proof of real-world cross-coach enforcement.
+- Added `tests/preview-shared-counter-simulation.test.mjs` to validate shared cap, duplicate replay, invalid coach/key and provider-free isolation without any actual Neon writes. The existing owner-tested zero-credit privacy checks remain a separate completed gate.
+- The only authorized path to real sitewide enforcement is mapping verified entitlements to all three live coach handlers with the same safe reservation and provider cost reconciliation. Keep the old $15/400 plan unchanged until that path has been reviewed end to end.
+
 ## Remaining engineering gates before launch
 
 1. **Authoritative subscription data:** Extend the trusted backend-only Stripe verification boundary to bind customer email and subscription ID, then use the separately tested Stripe period parser against the verified response. Do not obtain billing-period data from client input, infer it from calendar months, or assume every subscription has exactly one item.
