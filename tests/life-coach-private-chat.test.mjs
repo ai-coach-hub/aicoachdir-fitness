@@ -35,7 +35,8 @@ test("life coach database is isolated from shared membership storage",()=>{
  const store=load("lib/lifeCoachStore.ts");
  assert.ok(store.includes("process.env.LIFE_COACH_DATABASE_URL"));
  for(const permittedOnlyAfterApproval of ["process.env.DATABASE_URL","process.env.POSTGRES_URL","process.env.STORAGE_URL"])assert.ok(store.includes(permittedOnlyAfterApproval));
- assert.ok(store.includes('if(productionReleased)return sql'));
+ assert.ok(store.includes('PRODUCTION_NEON_BRANCH_ID'));
+ assert.match(store,/if\(productionReleased\)\{[\s\S]*?current_setting\('neon\.branch_id', true\)[\s\S]*?return sql;/);
  assert.ok(store.includes('PRIVATE_NEON_BRANCH_ID'));
 });
 
