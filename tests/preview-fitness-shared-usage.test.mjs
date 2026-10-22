@@ -30,7 +30,8 @@ test("Fitness chat uses shared Life test allowance and reserves before provider 
   assert.match(adapter, /result\.reason === "exhausted"/);
 });
 test("Fitness provides a request key from the browser and retains old handler", () => {
-  assert.match(client, /requestKey: `fitness-\$\{crypto\.randomUUID\(\)\}`/);
+  assert.ok(client.includes('? previous.requestKey : `fitness-${crypto.randomUUID()}`'));
+  assert.ok(client.includes('pendingChatRequest.current={message,conversationId,requestKey}'));
   assert.match(route, /previewFitnessChat\(request, postFitnessWithoutPreviewMeter\)/);
   assert.match(route, /async function postFitnessWithoutPreviewMeter\(request: Request\)/);
 });
