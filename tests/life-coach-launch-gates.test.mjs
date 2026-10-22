@@ -32,8 +32,12 @@ test("private Life Coach never silently inherits current $15 Fitness/Budgeting b
   assert.ok(page.includes('uses: "400"'));
   assert.ok(page.includes("const upcomingCoaches"));
   assert.ok(page.includes('name: "AI Coaching for Life"'));
-  assert.ok(!page.includes('href="/life"'));
-  assert.ok(!page.includes("href={'/life'}"));
+  // The member entry may exist in source but must only render after all release gates.
+  // The runtime branch behavior is independently verified in life-public-entry-state.test.mjs.
+  assert.ok(page.includes("const lifeAvailable"));
+  assert.ok(page.includes("lifeAvailable && ("));
+  assert.ok(page.includes('href="/life"'));
+  assert.ok(page.includes("SHARED_USAGE_OPENING_BALANCES_RECONCILED"));
   assert.ok(!route.includes("ensureStripeBillingResources"));
   assert.ok(access.includes("memberHasFitnessAccess"));
   assert.ok(access.includes('SHARED_USAGE_PUBLIC_RELEASE_APPROVED'));
