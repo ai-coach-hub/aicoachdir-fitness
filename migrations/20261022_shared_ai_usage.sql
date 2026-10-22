@@ -100,4 +100,40 @@ BEGIN
  WHERE member_key=p_member AND entitlement_key=p_entitlement AND period_start=p_start;
  RETURN p_outcome;
 END $$;
+-- Operator-only resolution of uncertain provider outcomes.
+-- A retry cannot mint fresh uses; only a verified provider outcome allows
+-- a held slot to be counted or released. No customer-facing route calls this.
+CREATE OR REPLACE FUNCTION public.shared_ai_reconcile(
+ p_member text,p_entitlement text,p_start timestamptz,
+ p_request text,p_actual text
+) RETURNS text LANGUAGE plpgsql AS $
+DECLARE v_status text;
+BEGIN
+ IF p_actual NOT IN ('completed','released')
+ THEN RETURN 'invalid'; END IF;
+ PERFORM 1 FROM public.shared_ai_usage_periods
+ WHERE member_key=p_member AND entitlement_key=p_entitlement
+ AND period_start=p_start FOR UPDATE;
+ IF NOT FOUND THEN RETURN 'ineligible'; END IF;
+ SELECT status INTO v_status FROM public.shared_ai_usage_requests
+ WHERE member_key=p_member AND entitlement_key=p_entitlement
+ AND period_start=p_start AND request_key=p_request FOR UPDATE;
+ IF NOT FOUND THEN RETURN 'missing'; END IF;
+ IF v_status <> 'uncertain' THEN RETURN 'already_'||v_status; END IF;
+ UPDATE public.shared_ai_usage_requests
+ SET status=p_actual,changed_at=now()
+ WHERE member_key=p_member AND entitlement_key=p_entitlement
+ AND period_start=p_start AND request_key=p_request;
+ UPDATE public.shared_ai_usage_periods
+ SET reserved_uses=reserved_uses-1,
+ completed_uses=completed_uses+CASE WHEN p_actual='completed' THEN 1 ELSE 0 END
+ WHERE member_key=p_member AND entitlement_key=p_entitlement
+ AND period_start=p_start;
+ RETURN p_actual;
+END $;
+-- No anonymous/PUBLIC access to grant, debit or reconcile AI usage.
+-- The server-side database owner retains execution privileges.
+REVOKE ALL ON FUNCTION public.shared_ai_reserve(text,text,timestamptz,timestamptz,integer,text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.shared_ai_settle(text,text,timestamptz,text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.shared_ai_reconcile(text,text,timestamptz,text,text) FROM PUBLIC;
 COMMIT;
