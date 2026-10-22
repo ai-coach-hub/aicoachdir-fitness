@@ -19,7 +19,7 @@ export function legacyLifeVerifiedBinding(
    !["active","trialing"].includes(String(row.stripe_status))||
    !valid(session.clerkUserId,/^user_[A-Za-z0-9_-]{8,128}$/)||
    row.clerk_user_id!==session.clerkUserId||
-   !valid(session.verifiedPrimaryEmail,/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/)||
+   !valid(session.verifiedPrimaryEmail,/^[^\s@]+@[^\s@]+\.[^\s@]+$/)||
    row.email!==session.verifiedPrimaryEmail.trim().toLowerCase()||
    !valid(row.stripe_customer_id,/^cus_[A-Za-z0-9]+$/)||
    !valid(row.stripe_subscription_id,/^sub_[A-Za-z0-9]+$/)||
