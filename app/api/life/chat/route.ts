@@ -39,12 +39,25 @@ export async function POST(request:Request) {
  try{body=await request.json();}catch{return json({ok:false,error:"Invalid request."},400);}
  const message=typeof body.message==="string"?body.message.trim():"";
  const supplied=typeof body.conversationId==="string"?body.conversationId.trim():"";
- const id=supplied||`life-coach-${crypto.randomUUID()}`;
+ const newConversationId=typeof body.newConversationId==="string"?body.newConversationId.trim():"";
+ if(supplied && newConversationId) return json({ok:false,error:"Conflicting conversation identifiers."},400);
+ const id=supplied||newConversationId||`life-coach-${crypto.randomUUID()}`;
  if(!/^life-coach-[a-zA-Z0-9_-]{8,90}$/.test(id)||!message||message.length>6000)
   return json({ok:false,error:"Invalid conversation or message."},400);
  let prior="";
  let sameThreadUserEntries: {text:string;date:string}[]=[];
  try {
+  // Client-stable new thread IDs allow safe response recovery after timeouts.
+  // A completed matching first turn is returned without another model call.
+  if(newConversationId) {
+   const previous=await readLifeThread(member,id);
+   if(previous!==null) {
+    if(previous.length===2 && previous[0].role==="user" &&
+       previous[0].text===message && previous[1].role==="assistant")
+      return json({ok:true,response:previous[1].text,conversationId:id,source:"recovered-history"});
+    return json({ok:false,error:"This conversation already exists. Open it from Previous chats."},409);
+   }
+  }
   if(supplied) {
    const existing=await readLifeThread(member,id);
    if(!existing)return json({ok:false,error:"Conversation not found."},404);
