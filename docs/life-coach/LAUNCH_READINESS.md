@@ -52,7 +52,7 @@ The owner has discussed a three-bundle x three-tier model before, but the exact 
 - In read-only SQL, the exact member-scoped queries used by the chat store returned 0 cross-account thread or message matches in either direction.
 - The store now independently checks the Neon branch identity before executing reads or writes. In mocked-branch-mismatch regression tests, both GET and POST fail without accessing chat data.
 - No messages, account identifiers, secrets, live Stripe records, provider calls or production database rows were included in this audit. No Pickaxe generation was used.
-- **Still needed:** Test the current preview in two separate verified Clerk sessions; verify private chat lists, foreign conversation IDs, direct-memory recall and signed-out denials. Keep this gate blocked until real-session evidence is recorded.
+- **Completed:** Two independently authenticated Clerk sessions passed the zero-credit private cross-account check. Additional goal-recall and broader production safeguards remain separate launch requirements.
 
 ### Zero-credit authenticated verification (private preview)
 
@@ -60,7 +60,16 @@ The sandbox now exposes `/life/privacy-check` for approved, verified internal Cl
 
 A successful check records only the authenticated Clerk member ID, passing status and timestamp in the private `life_privacy_test_checks` table. Two different accounts must each pass within 48 hours to mark `twoAccountCheckComplete: true`. Repeated checks by a single account never count as a second session. This page streamlines the **real authenticated session** part of the release gate; the owner should still confirm each account's own historical goal is correct and not the other's using the zero-model memory pathway. Do not change the gate to passed until two sessions have actually run the check.
 
-## Dedicated internal real-account privacy check - BLOCKING
+## Two-account authenticated privacy check — VERIFIED (2026-10-21)
+
+- Two distinct approved Clerk test accounts successfully submitted the zero-credit privacy check using separate authenticated sessions in the private Life Coach preview.
+- The private Neon `life_privacy_test_checks` table independently confirms **2 distinct successful account checks** within 48 hours (verified on 2026-10-21); the user-facing check displayed **2 of 2**.
+- Each check reported the requesting member's own history scoped correctly and access to a different account's conversation denied. No Pickaxe completion request was made by the privacy-check endpoint.
+- The earlier simulated cross-account tests and GitHub CI also passed.
+- **Real authenticated two-account privacy-check gate: PASSED.** This does not by itself certify all production privacy, paid access, complete memory recall, or launch readiness. Other release blockers below remain active.
+- Temporary second tester email remains authorized in the private preview only until further QA concludes, then it should be removed from the preview allowlist. No production login or billing configuration changed.
+
+## Dedicated internal real-account privacy check - VERIFIED; ADDITIONAL RELEASE CHECKS OPEN
 
 Do not involve any existing paying customer. The prior signup test email did not work; don't force that path again.
 
