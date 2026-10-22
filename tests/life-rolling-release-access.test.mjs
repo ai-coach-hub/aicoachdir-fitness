@@ -48,6 +48,7 @@ test("verified Life Coach sign-in restores an unlisted historical subscriber bef
     emailAddresses:[{id:"e1",emailAddress:email,verification:{status:"verified"}}]
    })};
    if(name==="./fitnessMembershipDb")return {
+    getFitnessMembership:async()=>null,
     restoreVerifiedHistoricalBillingForMember:async(userEmail,userId)=>{
      calls.push(["restore",userEmail,userId]);return null;
     },
