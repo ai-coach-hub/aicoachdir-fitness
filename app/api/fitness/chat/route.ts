@@ -2259,8 +2259,20 @@ async function settleWorkoutSaveRace<R extends { finalDelivery?: string }>(optio
 export async function POST(request: Request) {
   // Only an explicitly authorized shared-wallet release may call the real
   // provider through the quota reservation boundary. Default remains OFF.
-  const {sharedUsageGateEnabled}=await import("@/lib/sharedUsageMeter");
-  const sharedReady=sharedUsageGateEnabled();
+  // Keep this entrypoint independent of dynamically imported meter internals
+  // so all existing Fitness chat actions and test harnesses remain compatible.
+  // The production authorization conditions mirror sharedUsageGateEnabled().
+  const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
+  const cutoverStamp=Date.parse(cutover);
+  const cutoverReady=Number.isFinite(cutoverStamp) &&
+    new Date(cutoverStamp).toISOString()===cutover;
+  const sharedReady=process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
+    ((process.env.VERCEL_ENV==="preview" &&
+       process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011") ||
+     (process.env.VERCEL_ENV==="production" &&
+       process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
+       process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
+       cutoverReady));
   // Never bypass shared metering if the release was partially enabled.
   // Keep the existing production coach unchanged while both switches are OFF.
   const partiallyEnabled=process.env.VERCEL_ENV==="production" &&
