@@ -2266,12 +2266,16 @@ export async function POST(request: Request) {
   const cutoverStamp=Date.parse(cutover);
   const cutoverReady=Number.isFinite(cutoverStamp) &&
     new Date(cutoverStamp).toISOString()===cutover;
+  const mode=String(process.env.SHARED_USAGE_MIGRATION_MODE||"");
+  const openingReady=mode==="rolling_renewal" ||
+    ((mode===""||mode==="reconciled") &&
+     process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true");
   const sharedReady=process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
     ((process.env.VERCEL_ENV==="preview" &&
        process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011") ||
      (process.env.VERCEL_ENV==="production" &&
        process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
-       process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
+       openingReady &&
        cutoverReady));
   // Never bypass shared metering if the release was partially enabled.
   // Keep the existing production coach unchanged while both switches are OFF.
