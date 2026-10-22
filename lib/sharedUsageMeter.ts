@@ -42,10 +42,13 @@ const iso=(v:unknown)=>{
 async function checkedDb(){
  if(!sharedUsageGateEnabled())throw Error("Shared AI usage is not enabled");
  const sql=membershipDb();
- if(process.env.VERCEL_ENV==="preview"){
+ if(process.env.VERCEL_ENV==="preview"||process.env.VERCEL_ENV==="production"){
   const rows=await sql`SELECT current_setting('neon.branch_id',true) AS branch_id`;
-  if(String(rows[0]?.branch_id||"")!=="br-autumn-breeze-auw38rgr")
+  const actual=String(rows[0]?.branch_id||"");
+  if(process.env.VERCEL_ENV==="preview"&&actual!=="br-autumn-breeze-auw38rgr")
    throw Error("Shared quota preview database branch mismatch");
+  if(process.env.VERCEL_ENV==="production"&&actual!=="br-sparkling-glitter-aucpz59d")
+   throw Error("Shared wallet production database branch mismatch");
  }
  return sql;
 }
