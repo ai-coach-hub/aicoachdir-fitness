@@ -12,7 +12,7 @@ function gate(env){
  runInNewContext(compiled,{module:m,exports:m.exports,require:()=>({}),process:{env}}, {timeout:3000});
  return m.exports.sharedUsageGateEnabled();
 }
-const live={VERCEL_ENV:"production",SHARED_USAGE_GATE_ENABLED:"true",SHARED_USAGE_PUBLIC_RELEASE_APPROVED:"true"};
+const live={VERCEL_ENV:"production",SHARED_USAGE_GATE_ENABLED:"true",SHARED_USAGE_PUBLIC_RELEASE_APPROVED:"true",SHARED_USAGE_CUTOVER_AT:"2026-01-01T00:00:00.000Z"};
 
 test("existing two release switches never reset live billing-period usage without verified opening balances",()=>{
  assert.equal(gate(live),false);
