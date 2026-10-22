@@ -269,3 +269,30 @@ test("wrong Neon preview branch rejects Life reads and writes before any persona
  assert.ok(e.traces.every(t=>t.query.includes("current_setting('neon.branch_id'")));
  assert.equal(e.messages.length,0);
 });
+
+test("same client-generated thread replay recovers saved answer without another provider call",async()=>{
+ const e=mockLifeEnvironment();
+ e.signIn(memberA);
+ const fresh="life-coach-newretry-12345678";
+ const message="My goal is to read for 5 minutes each night. Please remember this goal.";
+ const initial=await e.apiPost({message,newConversationId:fresh,requestKey:"life-retry-key-123456"});
+ assert.equal(initial.status,200);
+ const again=await e.apiPost({message,newConversationId:fresh,requestKey:"life-retry-key-123456"});
+ assert.equal(again.status,200);
+ assert.equal(again.data.source,"recovered-history");
+ assert.equal(again.data.response,initial.data.response);
+ assert.equal(e.messages.length,2);
+ assert.equal(e.providerCalls(),0);
+ const conflict=await e.apiPost({message:"Different goal",newConversationId:fresh});
+ assert.equal(conflict.status,409);
+ assert.equal(e.messages.length,2);
+});
+test("urgent message receives immediate zero-provider support scoped to member",async()=>{
+ const e=mockLifeEnvironment();e.signIn(memberA);
+ const result=await e.apiPost({message:"I want to kill myself tonight."});
+ assert.equal(result.status,200);
+ assert.equal(result.data.source,"safety");
+ assert.match(result.data.response,/988/);
+ assert.equal(e.providerCalls(),0);
+ assert.equal(e.messages.length,2);
+});
