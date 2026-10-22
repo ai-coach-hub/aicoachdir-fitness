@@ -8,11 +8,15 @@ export async function lifeTester() {
   const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
   const stamp=Date.parse(cutover);
   const cutoverReady=Number.isFinite(stamp)&&new Date(stamp).toISOString()===cutover;
+  const mode=String(process.env.SHARED_USAGE_MIGRATION_MODE||"");
+  const openingReady=mode==="rolling_renewal" ||
+    ((mode===""||mode==="reconciled") &&
+      process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true");
   const released=process.env.VERCEL_ENV==="production" &&
       cutoverReady &&
       process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
       process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
-      process.env.SHARED_USAGE_OPENING_BALANCES_RECONCILED==="true" &&
+      openingReady &&
       process.env.LIFE_COACH_LIVE_ENABLED==="true";
   if(!privatePreview&&!released)return null;
   const user = await currentUser();
