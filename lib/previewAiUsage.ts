@@ -39,7 +39,7 @@ function validRequest(v: PreviewUsageRequest): boolean {
     typeof v.requestKey === "string" && /^[A-Za-z0-9_-]{16,100}$/.test(v.requestKey) &&
     ["fitness","budgeting","life","career"].includes(v.coach) &&
     typeof v.periodStart === "string" &&
-    /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/.test(v.periodStart) &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v.periodStart) &&
     !Number.isNaN(Date.parse(v.periodStart)) &&
     new Date(v.periodStart).toISOString() === v.periodStart
   );
