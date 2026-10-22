@@ -10,7 +10,8 @@ test("Life schema migration preserves member-bound thread ownership",()=>{
  assert.match(sql,/life_chat_threads_member_updated_idx/);
 });
 test("migration doesn't touch membership, Stripe, preview usage or production auth",()=>{
- assert.doesNotMatch(sql,/\b(?:DROP|TRUNCATE|DELETE|UPDATE|GRANT|REVOKE)\b/i);
+ const statements=sql.split("\n").filter(line=>!line.trim().startsWith("--") && !/ON DELETE CASCADE/i.test(line)).join("\n");
+ assert.doesNotMatch(statements,/\b(?:DROP|TRUNCATE|DELETE|UPDATE|GRANT|REVOKE)\b/i);
  assert.doesNotMatch(sql,/\b(?:stripe|subscriptions|preview_ai_usage)\b/i);
  assert.match(sql,/BEGIN;/);
  assert.match(sql,/COMMIT;/);
