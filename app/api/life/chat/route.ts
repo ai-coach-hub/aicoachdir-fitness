@@ -68,8 +68,12 @@ export async function POST(request:Request) {
   }
   const urgent=urgentLifeCoachReply(message);
   if(urgent!==null) {
-   await saveLifeTurn(member,id,message,urgent);
-   return json({ok:true,response:urgent,conversationId:id,source:"safety"});
+   // Urgent guidance must not be withheld if preview conversation storage
+   // temporarily fails. This response never calls a paid AI provider.
+   let savedForHistory=true;
+   try { await saveLifeTurn(member,id,message,urgent); }
+   catch { savedForHistory=false; }
+   return json({ok:true,response:urgent,conversationId:id,source:"safety",savedForHistory});
   }
   // Explicit new goal capture should not be routed to previous-history recall or paid model inference.
   if (/\bmy goal\b/i.test(message) && /\bplease remember (?:this|that|my|it)\b/i.test(message) && !/\b(?:suicid(?:al|e)|self[- ]?harm|kill myself|hurt(?:ing)? myself|overdose|starv(?:e|ing)|purging|danger to myself)\b/i.test(message)) {
