@@ -90,5 +90,5 @@ test("already recently verified grandfathered accounts avoid extra billing looku
 test("preview never executes live grandfathered membership refresh",async()=>{
  const s=verifyFixture({env:"preview"});
  assert.equal(await s.verify(),null);
- assert.deepEqual(s.calls,["read"]);
+ assert.deepEqual(s.calls,[]);
 });
