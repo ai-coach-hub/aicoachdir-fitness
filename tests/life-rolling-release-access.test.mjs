@@ -36,3 +36,28 @@ test("Life Coach model, history and page all enforce the same explicit rolling t
  assert.match(read("app/page.tsx"),/Rolling out/);
  assert.match(read("app/api/life/chat/route.ts"),/next billing period/);
 });
+
+test("verified Life Coach sign-in restores an unlisted historical subscriber before checking existing access",async()=>{
+ const js=ts.transpileModule(read("lib/lifeCoachAccess.ts"),{compilerOptions:{
+  module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ const calls=[],m={exports:{}},email="older-subscriber@example.test",id="user_VerifiedPrevious123";
+ runInNewContext(js,{module:m,exports:m.exports,process:{env:rolling},Date,
+  require:name=>{
+   if(name==="@clerk/nextjs/server")return {currentUser:async()=>({
+    id,primaryEmailAddressId:"e1",
+    emailAddresses:[{id:"e1",emailAddress:email,verification:{status:"verified"}}]
+   })};
+   if(name==="./fitnessMembershipDb")return {
+    restoreVerifiedHistoricalBillingForMember:async(userEmail,userId)=>{
+     calls.push(["restore",userEmail,userId]);return null;
+    },
+    memberHasFitnessAccess:async(userEmail,userId)=>{
+     calls.push(["access",userEmail,userId]);return true;
+    }
+   };
+   throw Error("unexpected import "+name);
+  }
+ },{timeout:3000});
+ assert.equal(await m.exports.lifeTester(),id);
+ assert.deepEqual(calls,[["restore",email,id],["access",email,id]]);
+});
