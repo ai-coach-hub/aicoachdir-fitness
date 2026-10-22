@@ -22,6 +22,16 @@ function usageDb() {
   return neon(url);
 }
 
+async function verifiedUsageDb() {
+  const sql = usageDb();
+  // Confirm the isolated Neon branch before any usage reservation or settlement.
+  const branch = await sql`SELECT current_setting('neon.branch_id', true) AS branch_id`;
+  if (String(branch[0]?.branch_id || "") !== "br-autumn-breeze-auw38rgr") {
+    throw new Error("Private usage meter database branch mismatch");
+  }
+  return sql;
+}
+
 function validRequest(v: PreviewUsageRequest): boolean {
   return Boolean(v.memberId && v.subscriptionKey && v.requestKey?.length >= 8 &&
     ["fitness","budgeting","life","career"].includes(v.coach) &&
@@ -30,7 +40,7 @@ function validRequest(v: PreviewUsageRequest): boolean {
 
 export async function reservePreviewAiUse(v: PreviewUsageRequest): Promise<string> {
   if (!validRequest(v)) return "invalid";
-  const sql = usageDb();
+  const sql = await verifiedUsageDb();
   const rows = await sql`SELECT preview_ai_reserve(
     ${v.memberId}, ${v.subscriptionKey}, ${v.periodStart}::timestamptz, ${v.requestKey}, ${v.coach}
   ) AS result`;
@@ -41,7 +51,7 @@ export async function settlePreviewAiUse(
   v: PreviewUsageRequest, outcome: "completed" | "released" | "uncertain"
 ): Promise<string> {
   if (!validRequest(v)) return "invalid";
-  const sql = usageDb();
+  const sql = await verifiedUsageDb();
   const rows = await sql`SELECT preview_ai_settle(
     ${v.memberId}, ${v.subscriptionKey}, ${v.periodStart}::timestamptz, ${v.requestKey}, ${outcome}
   ) AS result`;
@@ -52,7 +62,7 @@ export async function reconcilePreviewAiUse(
   v: PreviewUsageRequest, outcome: "completed" | "released"
 ): Promise<string> {
   if (!validRequest(v)) return "invalid";
-  const sql = usageDb();
+  const sql = await verifiedUsageDb();
   const rows = await sql`SELECT preview_ai_reconcile(
     ${v.memberId}, ${v.subscriptionKey}, ${v.periodStart}::timestamptz, ${v.requestKey}, ${outcome}
   ) AS result`;
