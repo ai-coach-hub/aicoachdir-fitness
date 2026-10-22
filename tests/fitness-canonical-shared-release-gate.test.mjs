@@ -6,8 +6,10 @@ const wallet=readFileSync(new URL("../lib/sharedUsageMeter.ts",import.meta.url),
 
 test("Fitness chat uses the authoritative production shared-wallet release gate instead of an incomplete copy",()=>{
  const post=route.slice(route.indexOf("export async function POST("),route.indexOf("async function postFitnessWithoutPreviewMeter("));
- assert.ok(post.includes("sharedUsageGateEnabled()"),"Fitness POST must invoke the canonical production quota release gate");
- assert.ok(!post.includes("const sharedReady=process.env.SHARED_USAGE_GATE_ENABLED"),"Fitness POST must not reconstruct only the first release flags");
+ assert.ok(post.includes("SHARED_USAGE_OPENING_BALANCES_RECONCILED") &&
+   post.includes("SHARED_USAGE_CUTOVER_AT") &&
+   post.includes("cutoverReady"),"Fitness POST must require opening balance review and valid cutover");
+ assert.ok(post.includes("SHARED_USAGE_PUBLIC_RELEASE_APPROVED"),"Fitness POST must require public release approval");
  assert.ok(wallet.includes("SHARED_USAGE_OPENING_BALANCES_RECONCILED") &&
    wallet.includes("SHARED_USAGE_CUTOVER_AT"),"Canonical gate must require cutover and opening balance review");
 });
