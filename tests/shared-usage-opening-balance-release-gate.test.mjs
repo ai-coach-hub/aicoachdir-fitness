@@ -29,7 +29,8 @@ test("Life Coach production access, history and generation require reconciled ba
  const store=read("lib/lifeCoachStore.ts");
  const chat=read("app/api/life/chat/route.ts");
  assert.match(life,/SHARED_USAGE_OPENING_BALANCES_RECONCILED/);
- assert.ok((store.match(/SHARED_USAGE_OPENING_BALANCES_RECONCILED/g)||[]).length>=2);
+ assert.match(store,/SHARED_USAGE_OPENING_BALANCES_RECONCILED/);
+ assert.ok((store.match(/productionOpeningReady\(\)/g)||[]).length>=2);
  assert.match(chat,/SHARED_USAGE_OPENING_BALANCES_RECONCILED/);
  let clerkCalls=0;
  const js=ts.transpileModule(life,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
