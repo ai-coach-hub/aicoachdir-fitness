@@ -6,8 +6,14 @@ export type LifeThread = { id: string; title: string; updatedAt: string };
 const validId = (id: string) => /^life-coach-[a-zA-Z0-9_-]{8,90}$/.test(id);
 
 function database() {
-  const url = process.env.LIFE_COACH_DATABASE_URL;
-  if (!url) throw new Error("Private Life Coach database is not configured");
+  const isProduction=process.env.VERCEL_ENV==="production" &&
+    process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
+    process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
+    process.env.LIFE_COACH_LIVE_ENABLED==="true";
+  const url=isProduction
+    ? (process.env.STORAGE_URL||process.env.DATABASE_URL||process.env.POSTGRES_URL)
+    : process.env.LIFE_COACH_DATABASE_URL;
+  if (!url) throw new Error("Life Coach database is not configured");
   return neon(url);
 }
 // Fail closed if a preview points at the wrong Neon branch or environment.
@@ -15,10 +21,18 @@ const PRIVATE_PREVIEW_BRANCH = "feature/life-coach-agent-sandbox-20261011";
 const PRIVATE_NEON_BRANCH_ID = "br-autumn-breeze-auw38rgr";
 
 async function db() {
-  if (process.env.VERCEL_ENV !== "preview" ||
-      process.env.VERCEL_GIT_COMMIT_REF !== PRIVATE_PREVIEW_BRANCH)
-    throw new Error("Private Life Coach storage is disabled outside its preview branch");
-  const sql = database();
+  const privatePreview=process.env.VERCEL_ENV==="preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF===PRIVATE_PREVIEW_BRANCH;
+  const productionReleased=process.env.VERCEL_ENV==="production" &&
+    process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
+    process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
+    process.env.LIFE_COACH_LIVE_ENABLED==="true";
+  if(!privatePreview&&!productionReleased)
+    throw new Error("Life Coach storage is disabled until release");
+  const sql=database();
+  // Production must be migrated explicitly; never silently create tables
+  // or reuse the private Life Coach Neon branch for live members.
+  if(productionReleased)return sql;
   const identity = await sql`SELECT current_setting('neon.branch_id', true) AS branch_id`;
   if (String(identity[0]?.branch_id || "") !== PRIVATE_NEON_BRANCH_ID)
     throw new Error("Private Life Coach database branch mismatch");
