@@ -80,7 +80,8 @@ export default function HomePage() {
     process.env.SHARED_USAGE_GATE_ENABLED === "true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED === "true" &&
     openingReady &&
-    process.env.LIFE_COACH_LIVE_ENABLED === "true";
+    process.env.LIFE_COACH_LIVE_ENABLED === "true" &&
+    Boolean(process.env.PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN?.trim());
 
   return (
     <main className="site-shell">
@@ -140,7 +141,7 @@ export default function HomePage() {
 
         <article className="live-coach-card">
           <div className="live-coach-status-row">
-            <span className="live-coach-badge">{rollingLife ? "Rolling out at renewal" : "Available Now"}</span>
+            <span className="live-coach-badge">Available Now</span>
           </div>
           <div className="live-coach-image-wrap">
             <Image
