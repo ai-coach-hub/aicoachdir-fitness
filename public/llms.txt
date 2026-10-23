@@ -2,9 +2,9 @@
 
 > AI Coach Directory is operated by KCB Integrative LLC and provides purpose-built AI coaching experiences designed around specific user goals.
 
-AI Fitness Coach 2.0 is the current live coaching experience. It provides personalized AI fitness guidance, workout planning, accountability, and progress support.
+AI Coaching for Fitness is the current live coaching experience. It provides personalized AI fitness guidance, workout planning, accountability, and progress support.
 
-Planned coaching areas include AI Coaching for Budgeting for monthly budgeting and smarter spending, Life for mindset and personal growth, and Career for professional development.
+Available coaching areas include Fitness and Budgeting; Life and Career coaching experiences are planned.
 
 Use the canonical www domain for AI Coach Directory: https://www.aicoachdir.com
 
@@ -14,7 +14,7 @@ AI-generated coaching is informational and motivational. It is not medical care 
 
 ## Key pages
 
-- [AI Coach Directory](https://www.aicoachdir.com/): Primary website and current AI Fitness Coach 2.0 offering.
+- [AI Coach Directory](https://www.aicoachdir.com/): Primary website and current AI Coaching for Fitness offering.
 - [Terms & Conditions](https://www.aicoachdir.com/terms): Terms governing AI Coach Directory services, subscriptions, AI-generated content, data practices, and user responsibilities.
 
 ## Optional

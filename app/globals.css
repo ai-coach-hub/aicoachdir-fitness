@@ -1551,3 +1551,7 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
     font-size: 12px;
   }
 }
+
+/* Keep workout completion count and history link legible together. */
+.workout-history-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
+.workout-history-summary a { display: inline-flex; line-height: 1.45; }

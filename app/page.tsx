@@ -134,15 +134,12 @@ export default function HomePage() {
             <div className="live-coach-feature">Coach chat + personalized workout planning</div>
             <div className="cta-row">
               <Link href="/fitness/signup?destination=fitness" className="primary-button">Start Fitness Coach</Link>
-              <Link href={`${memberLoginUrl}?destination=fitness`} className="secondary-button">Fitness Member Login</Link>
+              
             </div>
           </div>
         </article>
 
         <article className="live-coach-card">
-          <div className="live-coach-status-row">
-            <span className="live-coach-badge">Available Now</span>
-          </div>
           <div className="live-coach-image-wrap">
             <Image
               src="/images/ai-coaching-for-budgeting.avif"
@@ -163,7 +160,7 @@ export default function HomePage() {
             <div className="live-coach-feature">Coach chat + detailed monthly budget tracking</div>
             <div className="cta-row">
               <Link href="/fitness/signup?destination=budget-coach" className="primary-button">Start Budgeting Coach</Link>
-              <Link href={`${memberLoginUrl}?destination=budget-coach`} className="secondary-button">Budgeting Member Login</Link>
+              
             </div>
           </div>
         </article>
@@ -216,7 +213,7 @@ export default function HomePage() {
           <span> shared AI uses / month</span>
         </div>
         <div className="offer-action">
-          <Link href="/fitness/signup" className="primary-button">New Member — Review Terms</Link>
+          <Link href="/fitness/signup" className="primary-button">New Member — Get Started</Link>
           <Link href={memberLoginUrl} className="secondary-button member-login-offer">Returning Member Login</Link>
         </div>
       </section>
@@ -291,7 +288,7 @@ export default function HomePage() {
           AI-generated responses may be incomplete, inaccurate, or unsuitable for your circumstances. The service is not medical care or a substitute for professional medical, nutritional, or fitness advice. Review the complete Terms & Conditions before subscribing.
         </p>
         <div className="cta-row">
-          <Link href="/fitness/signup" className="primary-button">New Member — Review Terms & Subscribe</Link>
+          <Link href="/fitness/signup" className="primary-button">New Member — Get Started</Link>
           <Link href={memberLoginUrl} className="secondary-button">Returning Member Login</Link>
           <Link href="/terms" className="secondary-button">Read Full Terms</Link>
         </div>

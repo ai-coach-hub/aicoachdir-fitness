@@ -349,6 +349,11 @@ function canResumeThread(id: string) {
 export default function FitnessChatPage() {
   const { signOut } = useClerk();
   const [tab, setTab] = useState<"coach" | "workouts" | "history">("coach");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("view") === "workouts") {
+      setTab("workouts");
+    }
+  }, []);
   const [conversationId, setConversationId] = useState(() => `fitness-chat-${crypto.randomUUID()}`);
   const pendingChatRequest = useRef<{message:string;conversationId:string;requestKey:string}|null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -807,12 +812,12 @@ export default function FitnessChatPage() {
     <main className="member-hub-shell">
       <header className="member-hub-header">
         <div>
-          <p className="eyebrow compact-eyebrow">AI FITNESS COACH 2.0</p>
+          <p className="eyebrow compact-eyebrow">AI COACHING FOR FITNESS</p>
           <h1>Welcome back.</h1>
           <p>Your coach and saved workouts are connected in one place.</p>
         </div>
         <div className="member-hub-actions">
-          <Link href="/" className="secondary-button">Home</Link>
+          <Link href="/dashboard" className="secondary-button">Home</Link>
           <Link href="/manage-subscription" className="member-billing-link">Manage Subscription</Link>
           <button
             type="button"
@@ -1023,7 +1028,7 @@ export default function FitnessChatPage() {
               <div className="workout-summary-strip">
                 <div><span>Plan style</span><strong>{scheduleMode}</strong></div>
                 <div><span>Workouts</span><strong>{workoutList.length}</strong></div>
-                <div><span>Recent completions</span><strong>{completedCount}</strong><a href="#workout-history" className="text-button">View workout history</a></div>
+                <div><span>Recent completions</span><div className="workout-history-summary"><strong>{completedCount}</strong><a href="#workout-history" className="text-button">View workout history</a></div></div>
               </div>
 
               {completionNotice ? <p role="status">{completionNotice}</p> : null}
