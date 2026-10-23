@@ -32,7 +32,7 @@ export default async function DashboardPage() {
       <article className={styles.card}><Image src="/images/ai-coaching-for-budgeting.avif" alt="Budgeting coaching" width={800} height={500}/><div><h3>Budgeting Coach</h3><p>Plan your money and reach your financial goals.</p><Link href="/budgeting/launch?destination=coach">Open Budgeting Coach</Link></div></article>
       <article className={styles.card}><Image src="/images/ai-coaching-for-life.jpg" alt="Life coaching" width={800} height={500}/><div><h3>Life Coach</h3><p>Find clarity, build habits, and move forward.</p>{lifeAvailable ? <Link href="/life">Open Life Coach</Link> : <span className={styles.pending}>Coming soon for your membership</span>}</div></article>
     </div></section>
-    <section id="tools" className={styles.section}><h2>Your Tools</h2><div className={styles.tools}><Link href="/fitness/chat"><strong>My Workouts</strong><span>Training plans and tracking</span></Link><Link href="/budgeting/launch?destination=tracker"><strong>My Budget</strong><span>Monthly budget and spending</span></Link></div></section>
+    <section id="tools" className={styles.section}><h2>Your Tools</h2><div className={styles.tools}><Link href="/fitness/chat?view=workouts"><strong>My Workouts</strong><span>Training plans and tracking</span></Link><Link href="/budgeting/launch?destination=tracker"><strong>My Budget</strong><span>Monthly budget and spending</span></Link></div></section>
     <footer className={styles.footer}><Link href="/manage-subscription">Manage Membership</Link></footer>
   </main>;
 }
