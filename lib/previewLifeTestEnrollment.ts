@@ -38,3 +38,20 @@ export async function enrollLifeTest(member:string){
  ON CONFLICT (member_id,subscription_key,period_start) DO NOTHING`;
  return lifeTestStatus(member);
 }
+
+export const budgetCrossAppQaSubscription="preview-budget-crossapp-qa-20261023";
+export const budgetCrossAppQaPeriod="2026-10-23T00:00:00.000Z";
+// Preview-only, one-time, idempotent QA enrollment for a pre-enrolled tester.
+// Does not reset or modify the exhausted Life/Fitness three-use test period.
+export async function ensureBudgetCrossAppQaPeriod(member:string){
+ if(!/^user_[A-Za-z0-9_-]{8,128}$/.test(member))throw Error("Invalid private QA member");
+ const sql=await database();
+ await sql`INSERT INTO preview_ai_usage_periods
+  (member_id,subscription_key,period_start,period_end,limit_uses)
+ SELECT member_id,${budgetCrossAppQaSubscription},${budgetCrossAppQaPeriod}::timestamptz,
+        '2026-11-01T00:00:00.000Z'::timestamptz,3
+ FROM preview_ai_usage_periods
+ WHERE member_id=${member} AND subscription_key=${previewLifeTestSubscription}
+ AND period_start=${previewLifeTestPeriod}::timestamptz AND period_end>NOW()
+ ON CONFLICT (member_id,subscription_key,period_start) DO NOTHING`;
+}
