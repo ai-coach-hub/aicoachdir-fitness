@@ -1,8 +1,11 @@
 import {verifyBudgetSharedCall,type BudgetSharedCall} from "@/lib/privateBudgetUsageProtocol";
 import {resolvePrivatePreviewBudgetMember} from "@/lib/previewSharedMemberBinding";
-import {lifeTestStatus,previewTestAvailable,previewLifeTestPeriod,previewLifeTestSubscription} from "@/lib/previewLifeTestEnrollment";
+import {lifeTestStatus,previewTestAvailable} from "@/lib/previewLifeTestEnrollment";
 import {reservePreviewAiUse,settlePreviewAiUse} from "@/lib/previewAiUsage";
 
+// Isolated Budgeting QA allowance; preserves the existing three-use Life/Fitness test history.
+const budgetCrossAppQaSubscription="preview-budget-crossapp-qa-20261023";
+const budgetCrossAppQaPeriod="2026-10-23T00:00:00.000Z";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const json=(data:unknown,status=200)=>Response.json(data,{
@@ -26,8 +29,8 @@ export async function POST(request:Request){
   if(!member)return json({ok:false,error:"Private tester binding required"},403);
   const enrollment=await lifeTestStatus(member);
   if(!enrollment.active)return json({ok:false,error:"Private enrollment required"},403);
-  const usage={memberId:member,subscriptionKey:previewLifeTestSubscription,
-   periodStart:previewLifeTestPeriod,requestKey:call.requestKey,coach:"budgeting" as const};
+  const usage={memberId:member,subscriptionKey:budgetCrossAppQaSubscription,
+   periodStart:budgetCrossAppQaPeriod,requestKey:call.requestKey,coach:"budgeting" as const};
   const status=call.action==="reserve"
     ? await reservePreviewAiUse(usage)
     : await settlePreviewAiUse(usage,call.outcome!);
