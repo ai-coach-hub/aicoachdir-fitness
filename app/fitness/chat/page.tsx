@@ -817,7 +817,7 @@ export default function FitnessChatPage() {
           <p>Your coach and saved workouts are connected in one place.</p>
         </div>
         <div className="member-hub-actions">
-          <Link href="/" className="secondary-button">Home</Link>
+          <Link href="/dashboard" className="secondary-button">Home</Link>
           <Link href="/manage-subscription" className="member-billing-link">Manage Subscription</Link>
           <button
             type="button"
