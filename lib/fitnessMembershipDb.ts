@@ -504,6 +504,12 @@ export async function memberHasFitnessAccess(
   // Backfill only an independently verified historical paid subscription.
   // Unmatched grandfathered members remain fully active.
   let existing = await getFitnessMembership(memberEmail);
+  // Recover verified historical billing before falling back to legacy access.
+  // Never infer paid status from an email or Terms acceptance alone.
+  if (!existing && clerkUserId) {
+    const recovered = await restoreVerifiedHistoricalBillingForMember(memberEmail, clerkUserId);
+    if (recovered) existing = recovered;
+  }
   if (existing?.stripe_status === "legacy_pickaxe_member" &&
       !existing.stripe_subscription_id && clerkUserId) {
     existing = await reconcileLegacyPaidMembership(memberEmail, clerkUserId);
