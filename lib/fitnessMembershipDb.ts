@@ -511,7 +511,8 @@ export async function memberHasFitnessAccess(
   // Budgeting's signed-email bridge passes no Clerk ID: it keeps its existing
   // access-group fallback, but cannot backfill a paid account from email alone.
   if (!existing && clerkUserId) {
-    existing = await restoreVerifiedHistoricalBillingForMember(memberEmail, clerkUserId);
+    const recovered = await restoreVerifiedHistoricalBillingForMember(memberEmail, clerkUserId);
+    if (recovered) existing = recovered;
   }
   if (existing?.stripe_status === "legacy_pickaxe_member" &&
       !existing.stripe_subscription_id && clerkUserId) {
