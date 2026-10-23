@@ -9,7 +9,7 @@ test("My Workouts dashboard tile requests the workout view rather than Coach Cha
 });
 test("Fitness member page switches to the workout tab when explicitly requested",()=>{
  const chat=read("app/fitness/chat/page.tsx");
- assert.match(chat,/searchParams\.get\("view"\) === "workouts"/);
+ assert.match(chat,/new URLSearchParams\(window\.location\.search\)\.get\("view"\) === "workouts"/);
  assert.match(chat,/setTab\("workouts"\)/);
 });
 test("visible Fitness heading drops obsolete versioned brand",()=>{
