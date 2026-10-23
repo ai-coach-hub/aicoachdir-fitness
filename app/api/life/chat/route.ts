@@ -14,11 +14,11 @@ function resultText(value: unknown): string {
  const nested=record.data;
  return nested&&typeof nested==="object"?resultText(nested):"";
 }
-async function completeLifeCoachRequest(token:string,promptMessage:string,member:string,id:string){
+async function completeLifeCoachRequest(token:string,promptMessage:string,verifiedEmail:string,id:string){
  const completion=await fetch("https://api.pickaxe.co/v1/completions",{
   method:"POST",
   headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json",Accept:"application/json"},
-  body:JSON.stringify({message:promptMessage,userId:member,conversationId:id,stream:false}),
+  body:JSON.stringify({message:promptMessage,userId:verifiedEmail,conversationId:id,stream:false}),
   cache:"no-store",signal:AbortSignal.timeout(110000)
  });
  if(!completion.ok)throw Error("Provider did not complete");
@@ -49,6 +49,13 @@ export async function GET(request:Request) {
 export async function POST(request:Request) {
  const member=await lifeTester();
  if(!member)return json({ok:false,error:"Private Life Coach access is required."},403);
+ // A single verified email identifies the member in Pickaxe across all coaches.
+ // Keep the stable Clerk ID for private Neon chat ownership.
+ const signedIn=await (await import("@clerk/nextjs/server")).currentUser();
+ const verifiedPrimary=signedIn?.emailAddresses.find(e=>e.id===signedIn.primaryEmailAddressId);
+ if(!signedIn || signedIn.id!==member || !verifiedPrimary || verifiedPrimary.verification?.status!=="verified")
+  return json({ok:false,error:"Verified membership required."},403);
+ const email=verifiedPrimary.emailAddress.trim().toLowerCase();
  let body:Record<string,unknown>;
  try{body=await request.json();}catch{return json({ok:false,error:"Invalid request."},400);}
  const message=typeof body.message==="string"?body.message.trim():"";
@@ -140,21 +147,18 @@ export async function POST(request:Request) {
   // The caller's email and period are re-verified server-side before reserving;
   // no second checkout, independent Life credits or client-supplied cap.
   if(productionReleased){
-   const user=await (await import("@clerk/nextjs/server")).currentUser();
-   const primary=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
-   if(!user || user.id!==member || !primary || primary.verification?.status!=="verified")
-    return json({ok:false,error:"Verified membership required."},403);
+
    const requestKey=typeof body.requestKey==="string"?body.requestKey.trim():"";
    if(!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey))
     return json({ok:false,error:"A valid AI request ID is required."},400);
-   const email=primary.emailAddress.trim().toLowerCase();
+
    const {reserveSharedUsage,settleSharedUsage}=await import("@/lib/sharedUsageMeter");
    const {runMeteredPreviewGeneration}=await import("@/lib/previewLifeUsageFlow");
    const result=await runMeteredPreviewGeneration({
     reserve:async()=>(await reserveSharedUsage(email,"life",requestKey)).status,
     settle:outcome=>settleSharedUsage(email,"life",requestKey,outcome)
    },async()=>{
-    const rawAnswer=await completeLifeCoachRequest(token,promptMessage,member,id);
+    const rawAnswer=await completeLifeCoachRequest(token,promptMessage,email,id);
     const answer=cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories));
     await saveLifeTurn(member,id,message,answer);
     return {kind:"generated" as const,value:{ok:true,response:answer,conversationId:id,source:"coach"}};
@@ -190,7 +194,7 @@ export async function POST(request:Request) {
       reserve:()=>reservePreviewAiUse(usage),
       settle:outcome=>settlePreviewAiUse(usage,outcome)
     },async()=>{
-      const rawAnswer=await completeLifeCoachRequest(token,promptMessage,member,id);
+      const rawAnswer=await completeLifeCoachRequest(token,promptMessage,email,id);
       const answer=cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories));
       await saveLifeTurn(member,id,message,answer);
       return {kind:"generated" as const,value:{ok:true,response:answer,conversationId:id,source:"coach"}};
