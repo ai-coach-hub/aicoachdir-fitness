@@ -89,6 +89,8 @@ export default async function MemberLoginPage({
     redirect(continuePath);
   }
 
+  if (user && hasAccess && !destination) redirect("/dashboard");
+
   const loginReturnUrl = destination
     ? `/fitness/login?destination=${encodeURIComponent(destination)}`
     : "/fitness/login";
