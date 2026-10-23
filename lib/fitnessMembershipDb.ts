@@ -504,6 +504,16 @@ export async function memberHasFitnessAccess(
   // Backfill only an independently verified historical paid subscription.
   // Unmatched grandfathered members remain fully active.
   let existing = await getFitnessMembership(memberEmail);
+  // This is the ONE discovery path for every verified Clerk member, not a
+  // Life-Coach-only signup workaround. Neon may not contain older customers
+  // previously paid through Pickaxe. Recover only a verified historical
+  // Stripe subscription, never a Terms acceptance or caller-supplied plan.
+  // Budgeting's signed-email bridge passes no Clerk ID: it keeps its existing
+  // access-group fallback, but cannot backfill a paid account from email alone.
+  if (!existing && clerkUserId) {
+    const recovered = await restoreVerifiedHistoricalBillingForMember(memberEmail, clerkUserId);
+    if (recovered) existing = recovered;
+  }
   if (existing?.stripe_status === "legacy_pickaxe_member" &&
       !existing.stripe_subscription_id && clerkUserId) {
     existing = await reconcileLegacyPaidMembership(memberEmail, clerkUserId);
