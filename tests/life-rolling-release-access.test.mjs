@@ -33,7 +33,8 @@ test("Life Coach model, history and page all enforce the same explicit rolling t
  for(const path of ["app/api/life/chat/route.ts","lib/lifeCoachStore.ts","app/life/page.tsx","app/page.tsx"]){
   assert.match(read(path),/SHARED_USAGE_MIGRATION_MODE/,path);
  }
- assert.match(read("app/page.tsx"),/Rolling out/);
+ assert.match(read("app/page.tsx"),/rollingLife/);
+ assert.match(read("app/page.tsx"),/next verified membership renewal/);
  assert.match(read("app/api/life/chat/route.ts"),/next billing period/);
 });
 

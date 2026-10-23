@@ -22,7 +22,8 @@ export default async function LifePage() {
     process.env.SHARED_USAGE_GATE_ENABLED === "true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED === "true" &&
     openingReady &&
-    process.env.LIFE_COACH_LIVE_ENABLED === "true";
+    process.env.LIFE_COACH_LIVE_ENABLED === "true" &&
+    Boolean(process.env.PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN?.trim());
   return <main className="site-shell" style={{padding:"48px 0"}}>
     <h1>{production ? "AI Coaching for Life" : "Private Life Coach Preview"}</h1>
     {production ? (
