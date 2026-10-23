@@ -95,6 +95,7 @@ function mockLifeEnvironment(){
   "@/lib/lifeCoachSafetyFallback":safety,
   "@/lib/lifeCoachMemory":memory,
   "@/lib/lifeCoachAccess":{lifeTester:async()=>signedInMember},
+  "@clerk/nextjs/server":{currentUser:async()=>signedInMember ? ({id:signedInMember,primaryEmailAddressId:"primary",emailAddresses:[{id:"primary",emailAddress:signedInMember==="test-clerk-member-a"?"a@example.test":"b@example.test",verification:{status:"verified"}}]}) : null},
   "@/lib/lifeCoachStore":store
  },{
   process:{env},Request,Response,URL,AbortSignal,
