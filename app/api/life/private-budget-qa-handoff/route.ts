@@ -8,7 +8,13 @@ export async function GET(request:Request){
  if(process.env.VERCEL_ENV!=="preview"||
     process.env.VERCEL_GIT_COMMIT_REF!=="feature/life-coach-agent-sandbox-20261011"||
     process.env.PREVIEW_SHARED_USAGE_METER_ENABLED!=="true")return denied();
- if(!(await lifeTester()))return denied();
+ if(!(await lifeTester())){
+  const u=await currentUser();
+  if(u)return denied();
+  const login=new URL("/sign-in",request.url);
+  login.searchParams.set("redirect_url",new URL(request.url).pathname+new URL(request.url).search);
+  return Response.redirect(login,302);
+ }
  const user=await currentUser();
  const primary=user?.emailAddresses.find(x=>x.id===user.primaryEmailAddressId);
  if(!primary||primary.verification?.status!=="verified")return denied();
