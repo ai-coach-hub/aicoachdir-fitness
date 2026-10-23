@@ -45,13 +45,15 @@ function flatten(node,result={texts:[],links:[],cards:[]}){
 }
 const on={VERCEL_ENV:"production",SHARED_USAGE_GATE_ENABLED:"true",
  SHARED_USAGE_PUBLIC_RELEASE_APPROVED:"true",
- SHARED_USAGE_OPENING_BALANCES_RECONCILED:"true",SHARED_USAGE_CUTOVER_AT:"2026-01-01T00:00:00.000Z",LIFE_COACH_LIVE_ENABLED:"true"};
+ SHARED_USAGE_OPENING_BALANCES_RECONCILED:"true",SHARED_USAGE_CUTOVER_AT:"2026-01-01T00:00:00.000Z",LIFE_COACH_LIVE_ENABLED:"true",PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN:"synthetic-test-token"};
 
 test("Home shows Life Coach as included and available only with every production release approval",()=>{
  const live=flatten(component("app/page.tsx",on)());
  assert.ok(live.cards.some(x=>x.kind==="live-coach-card"&&x.text.includes("AI COACHING FOR LIFE")&&x.links.includes("/life")));
  assert.ok(!live.cards.some(x=>x.kind==="coming-soon-card"&&x.text.includes("AI Coaching for Life")));
  assert.ok(live.texts.join(" ").includes("Life"));
+ const withoutProvider=flatten(component("app/page.tsx",{...on,PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN:""})());
+ assert.ok(!withoutProvider.links.includes("/life"));
  const before=flatten(component("app/page.tsx",{...on,SHARED_USAGE_OPENING_BALANCES_RECONCILED:"false"})());
  assert.ok(!before.links.includes("/life"));
  assert.ok(before.cards.some(x=>x.kind==="coming-soon-card"&&x.text.includes("AI Coaching for Life")));
