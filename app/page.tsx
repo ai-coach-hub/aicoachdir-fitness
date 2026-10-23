@@ -140,9 +140,6 @@ export default function HomePage() {
         </article>
 
         <article className="live-coach-card">
-          <div className="live-coach-status-row">
-            <span className="live-coach-badge">Available Now</span>
-          </div>
           <div className="live-coach-image-wrap">
             <Image
               src="/images/ai-coaching-for-budgeting.avif"
