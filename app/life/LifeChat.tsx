@@ -124,6 +124,7 @@ export default function LifeChat(){
    <h1 style={{margin:0}}>AI Coaching for Life</h1>
    <p style={{color:"var(--muted)",margin:0}}>Private test • goals, habits and accountability</p>
    {usageTest&&!usageTest.active&&<button type="button" disabled={startingTest||busy} onClick={()=>void startUsageTest()}>Start optional 3-use test</button>}
+   {usageTest?.active&&<button type="button" disabled={startingTest||busy} onClick={()=>void startUsageTest()}>Reconnect private usage test</button>}
    {usageTest?.active&&<p role="status" style={{margin:0}}>Private AI uses left: {usageTest.remaining} of {usageTest.limit}. {usageTest.used} completed{usageTest.pending>0 ? `; ${usageTest.pending} pending verification` : ""}. Saved-memory recall remains free.</p>}
    <div role="log" aria-live="polite" className={styles.messageLog}>
     {!messages.length&&!input.trim()&&<p style={{color:"var(--muted)"}}>{intro}</p>}
