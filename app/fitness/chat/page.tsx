@@ -349,6 +349,11 @@ function canResumeThread(id: string) {
 export default function FitnessChatPage() {
   const { signOut } = useClerk();
   const [tab, setTab] = useState<"coach" | "workouts" | "history">("coach");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("view") === "workouts") {
+      setTab("workouts");
+    }
+  }, []);
   const [conversationId, setConversationId] = useState(() => `fitness-chat-${crypto.randomUUID()}`);
   const pendingChatRequest = useRef<{message:string;conversationId:string;requestKey:string}|null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -807,7 +812,7 @@ export default function FitnessChatPage() {
     <main className="member-hub-shell">
       <header className="member-hub-header">
         <div>
-          <p className="eyebrow compact-eyebrow">AI FITNESS COACH 2.0</p>
+          <p className="eyebrow compact-eyebrow">AI COACHING FOR FITNESS</p>
           <h1>Welcome back.</h1>
           <p>Your coach and saved workouts are connected in one place.</p>
         </div>
