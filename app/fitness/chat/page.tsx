@@ -1028,7 +1028,7 @@ export default function FitnessChatPage() {
               <div className="workout-summary-strip">
                 <div><span>Plan style</span><strong>{scheduleMode}</strong></div>
                 <div><span>Workouts</span><strong>{workoutList.length}</strong></div>
-                <div><span>Recent completions</span><strong>{completedCount}</strong><a href="#workout-history" className="text-button">View workout history</a></div>
+                <div><span>Recent completions</span><div className="workout-history-summary"><strong>{completedCount}</strong><a href="#workout-history" className="text-button">View workout history</a></div></div>
               </div>
 
               {completionNotice ? <p role="status">{completionNotice}</p> : null}
