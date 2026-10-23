@@ -69,11 +69,8 @@ export default function FitnessMemberLoginClient({
           </div>
 
           <div className="cta-row">
-            <Link href="/fitness/chat" className="primary-button">
-              Open Fitness Coach
-            </Link>
-            <Link href="/budgeting/launch?destination=coach" className="primary-button">
-              Open Budgeting Coach
+            <Link href="/dashboard" className="primary-button">
+              Open My Dashboard
             </Link>
             <button
               type="button"
