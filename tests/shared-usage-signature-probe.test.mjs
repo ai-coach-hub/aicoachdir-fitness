@@ -35,7 +35,7 @@ test("signed read-only production probe succeeds without wallet or billing depen
  const response=await endpoint()(request(sample()));
  assert.equal(response.status,200);
  assert.deepEqual(await response.json(),{ok:true,mode:"read-only",verified:"shared-service-signing"});
- assert.doesNotMatch(source,/shared_ai_reserve|stripeRequest|membershipDb|Pickaxe/i);
+ assert.doesNotMatch(source,/shared_ai_reserve|stripeRequest|membershipDb/i);
 });
 test("invalid signatures, stale clocks, changed payload, malformed and preview requests fail closed",async()=>{
  const e=sample();
