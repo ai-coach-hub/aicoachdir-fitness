@@ -23,9 +23,9 @@ function setup({verified=true,active=true,reservation="reserved",failProvider=fa
  runInNewContext(code,{module:m,exports:m.exports,require:key=>{
   assert.ok(Object.hasOwn(ports,key),"Unknown "+key);return ports[key];
  },Date,process:{env:{VERCEL_ENV:"production"}}},{timeout:3000});
- return {calls,run:(coach="life",generation="generated")=>
+ return {calls,run:(coach="life",generation="generated",requestKey="stable-coach-request-00001")=>
   m.exports.runExistingMemberCoachGeneration({
-   coach,requestKey:"stable-coach-request-00001",generate:async()=>{
+   coach,requestKey,generate:async()=>{
     calls.push("provider");if(failProvider)throw Error("timeout");
     return generation==="generated"?
      {kind:"generated",value:{answer:"Grounded coaching response"}}:{kind:"no-model"};
@@ -60,6 +60,8 @@ test("free lookup releases reservation; upstream ambiguity keeps one uncertain r
 });
 test("malformed client request IDs are rejected before membership and provider calls",async()=>{
  const w=setup();
- const result=await w.run();
- assert.equal(result.status,"completed");
+ const result=await w.run("life","generated","invalid key");
+ assert.equal(result.status,"blocked");
+ assert.equal(result.reason,"invalid_request");
+ assert.deepEqual(w.calls,[]);
 });
