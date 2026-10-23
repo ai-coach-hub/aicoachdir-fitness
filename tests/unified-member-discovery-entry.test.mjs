@@ -18,7 +18,7 @@ function scenario({historical={customerId:"cus_OldMember01",subscriptionId:"sub_
     operations.push("saved");
     row={email:vals[0],clerk_user_id:vals[1],stripe_customer_id:vals[2],
      stripe_subscription_id:vals[3],stripe_status:vals[4],access_active:vals[5],
-     access_group_id:vals[6],last_event_type:vals[7]};
+     access_group_id:vals[6],last_event_type:vals[7],last_stripe_verified_at:vals[3]?new Date().toISOString():null};
     return [{...row}];
   }
   throw Error("Unexpected SQL "+q.slice(0,180));
