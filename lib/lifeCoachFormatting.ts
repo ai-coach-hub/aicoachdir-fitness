@@ -16,7 +16,7 @@ export function cleanLifeCoachText(input: string): string {
       .replace(/^>\s+/, "")
       .replace(/^[-*+]\s+/, "")
       .replace(/\*\*(.+?)\*\*/g, "$1")
-      .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, "$1")
+      .replace(/(?<!\*)\*([^\s*](?:[^*\n]*?[^\s*])?)\*(?!\*)/g, "$1")
       .replace(/__(.+?)__/g, "$1")
       .replace(/~~(.+?)~~/g, "$1")
       .replace(/\x60([^\x60\n]+)\x60/g, "$1")
