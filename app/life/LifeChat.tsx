@@ -18,7 +18,7 @@ function CoachResponse({text}:{text:string}){
    : <span key={index} aria-hidden="true" className={styles.replySpacer}/>)}
  </span>;
 }
-export default function LifeChat(){
+export default function LifeChat({privatePreview=false}:{privatePreview?:boolean}){
  const [threads,setThreads]=useState<Thread[]>([]);
  const [historyState,setHistoryState]=useState<"loading"|"ready"|"error">("loading");
  const [id,setId]=useState("");
@@ -45,7 +45,7 @@ export default function LifeChat(){
   const j=await r.json();
   if(j.ok)setUsageTest({active:j.active,remaining:j.remaining,used:j.used,pending:j.pending,limit:j.limit});
  }catch{}};
- useEffect(()=>{void loadThreads();void loadUsage();},[]);
+ useEffect(()=>{void loadThreads();if(privatePreview)void loadUsage();},[privatePreview]);
  async function startUsageTest(){
   if(startingTest||busy)return;
   setStartingTest(true);setError("");
@@ -78,10 +78,10 @@ export default function LifeChat(){
    const r=await fetch("/api/life/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,requestKey,...(id?{conversationId:id}:{newConversationId})})});
    const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"Life Coach reply could not be saved.");
    pendingRequest.current=null;
-   if(usageTest?.active)void loadUsage();
+   if(privatePreview && usageTest?.active)void loadUsage();
    setId(j.conversationId);setMessages(a=>[...a,{role:"assistant",text:j.response}]);await loadThreads();
   }catch(ex){
-   if(usageTest?.active)void loadUsage();
+   if(privatePreview && usageTest?.active)void loadUsage();
    // A lost HTTP response can occur after Neon committed the conversation.
    // Read the known thread before offering a retry, never call Pickaxe again here.
    const lookupId=id||newConversationId;
@@ -101,7 +101,8 @@ export default function LifeChat(){
     }
    }catch{/* Keep the original request ID; do not auto-resubmit. */}
    if(!restored){
-    setError((ex instanceof Error?ex.message:"Request failed.")+" Check Previous chats before sending again.");
+    const msg=ex instanceof Error?ex.message:"Request failed.";
+     setError(msg.startsWith("Life Coach becomes available at your next billing period.") ? msg : msg+" Check Previous chats before sending again.");
     setInput(message);setMessages(a=>a.slice(0,-1));
    }
   }finally{setBusy(false);}
@@ -122,9 +123,9 @@ export default function LifeChat(){
   </aside>
   <div className={styles.chatPanel}>
    <h1 style={{margin:0}}>AI Coaching for Life</h1>
-   <p style={{color:"var(--muted)",margin:0}}>Private test • goals, habits and accountability</p>
-   {usageTest&&!usageTest.active&&<button type="button" disabled={startingTest||busy} onClick={()=>void startUsageTest()}>Start optional 3-use test</button>}
-   {usageTest?.active&&<p role="status" style={{margin:0}}>Private AI uses left: {usageTest.remaining} of {usageTest.limit}. {usageTest.used} completed{usageTest.pending>0 ? `; ${usageTest.pending} pending verification` : ""}. Saved-memory recall remains free.</p>}
+   <p style={{color:"var(--muted)",margin:0}}>{privatePreview ? "Private test • goals, habits and accountability" : "Goals, habits and accountability"}</p>
+   {privatePreview&&usageTest&&!usageTest.active&&<button type="button" disabled={startingTest||busy} onClick={()=>void startUsageTest()}>Start optional 3-use test</button>}
+   {privatePreview&&usageTest?.active&&<p role="status" style={{margin:0}}>Private AI uses left: {usageTest.remaining} of {usageTest.limit}. {usageTest.used} completed{usageTest.pending>0 ? `; ${usageTest.pending} pending verification` : ""}. Saved-memory recall remains free.</p>}
    <div role="log" aria-live="polite" className={styles.messageLog}>
     {!messages.length&&!input.trim()&&<p style={{color:"var(--muted)"}}>{intro}</p>}
     {messages.map((m,i)=><p key={i} className={styles.message} style={{background:m.role==="user"?"#17323b":"#101d2a"}}><strong>{m.role==="user"?"You":"Life Coach"}</strong><span style={{display:"block",marginTop:4}}>{m.role==="assistant"?<CoachResponse text={m.text}/>:m.text}</span></p>)}

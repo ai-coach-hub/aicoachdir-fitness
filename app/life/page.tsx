@@ -7,7 +7,7 @@ export default async function LifePage() {
   const id = await lifeTester();
   if (id) return <main className="site-shell" style={{padding:"32px 0"}}>
     <Link href="/" style={{color:"#80d84e"}}>← AI Coach Directory</Link>
-    <LifeChat/>
+    <LifeChat privatePreview={process.env.VERCEL_ENV==="preview"}/>
   </main>;
   const user = await currentUser();
   const production = process.env.VERCEL_ENV === "production";
