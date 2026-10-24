@@ -135,6 +135,7 @@ export default function HomePage() {
             </p>
             <div className="cta-row">
               <Link href="/fitness/signup?destination=fitness" className="primary-button">Start Fitness Coach</Link>
+              <Link href="/fitness/chat?view=workouts" className="secondary-button">My Workouts</Link>
               
             </div>
           </div>
@@ -160,6 +161,7 @@ export default function HomePage() {
             </p>
             <div className="cta-row">
               <Link href="/fitness/signup?destination=budget-coach" className="primary-button">Start Budgeting Coach</Link>
+              <Link href="/budgeting/launch?destination=tracker" className="secondary-button">My Budget</Link>
               
             </div>
           </div>
