@@ -213,8 +213,8 @@ export default function HomePage() {
           <span> AI Coach Messages / month</span>
         </div>
         <div className="offer-action">
-          <Link href="/fitness/signup" className="primary-button">New Member — Get Started</Link>
-          <Link href={memberLoginUrl} className="secondary-button member-login-offer">Returning Member Login</Link>
+          <Link href="/fitness/signup" className="primary-button">Get Started</Link>
+          <Link href={memberLoginUrl} className="secondary-button member-login-offer">Member Login</Link>
         </div>
       </section>
 
@@ -288,8 +288,8 @@ export default function HomePage() {
           AI-generated responses may be incomplete, inaccurate, or unsuitable for your circumstances. The service is not medical care or a substitute for professional medical, nutritional, or fitness advice. Review the complete Terms & Conditions before subscribing.
         </p>
         <div className="cta-row">
-          <Link href="/fitness/signup" className="primary-button">New Member — Get Started</Link>
-          <Link href={memberLoginUrl} className="secondary-button">Returning Member Login</Link>
+          <Link href="/fitness/signup" className="primary-button">Get Started</Link>
+          <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
           <Link href="/terms" className="secondary-button">Read Full Terms</Link>
         </div>
       </section>
