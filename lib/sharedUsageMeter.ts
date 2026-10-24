@@ -184,6 +184,11 @@ async function resolveCurrentSharedUsageWithState(email:string):Promise<QuotaPer
  }
  return {memberKey,entitlementKey:"existing_400_v1",periodStart,periodEnd,limitUses:400};
 }
+// Read-only eligibility check for Life Coach UI. Never reserves a credit.
+export async function lifeGenerationAvailability(email:string):Promise<"available"|"pending_renewal"|"not_entitled">{
+ const result=await resolveCurrentSharedUsageWithState(email);
+ return result==="pending_renewal"?"pending_renewal":result?"available":"not_entitled";
+}
 export async function resolveCurrentSharedUsage(email:string):Promise<QuotaPermit|null>{
  const outcome=await resolveCurrentSharedUsageWithState(email);
  return outcome==="pending_renewal"?null:outcome;
