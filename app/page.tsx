@@ -210,7 +210,7 @@ export default function HomePage() {
         </div>
         <div className="offer-stat">
           <strong>{plan.uses}</strong>
-          <span> shared AI uses / month</span>
+          <span> AI Coach Messages / month</span>
         </div>
         <div className="offer-action">
           <Link href="/fitness/signup" className="primary-button">New Member — Get Started</Link>
