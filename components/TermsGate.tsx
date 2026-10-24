@@ -121,7 +121,7 @@ export default function TermsGate({ children, destination = "fitness" }: { child
       <div className="plan-summary" aria-label="Subscription summary">
         <div><span>Plan</span><strong>{FITNESS_PLAN}</strong></div>
         <div><span>Price</span><strong>$15 / month</strong></div>
-        <div><span>Included usage</span><strong>{FITNESS_INCLUDED_USES} shared AI uses / month</strong></div>
+        <div><span>AI Coach Messages</span><strong>{FITNESS_INCLUDED_USES} messages / month</strong></div>
         <div><span>Renewal</span><strong>Automatic until canceled</strong></div>
       </div>
 
