@@ -28,6 +28,7 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
  const [usageTest,setUsageTest]=useState<{active:boolean;remaining:number;used:number;pending:number;limit:number}|null>(null);
  const [startingTest,setStartingTest]=useState(false);
  const [error,setError]=useState("");
+  const [availability,setAvailability]=useState<"loading"|"available"|"pending_renewal"|"not_entitled"|"preview"|"unavailable">("loading");
  const end=useRef<HTMLDivElement>(null);
  const pendingRequest=useRef<{key:string;message:string;conversationId:string;newConversationId:string}|null>(null);
  const [intro,setIntro]=useState(intros[0]);
@@ -45,7 +46,14 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
   const j=await r.json();
   if(j.ok)setUsageTest({active:j.active,remaining:j.remaining,used:j.used,pending:j.pending,limit:j.limit});
  }catch{}};
- useEffect(()=>{void loadThreads();if(privatePreview)void loadUsage();},[privatePreview]);
+ useEffect(()=>{void loadThreads();if(privatePreview){setAvailability("preview");void loadUsage();return;}
+   let alive=true;
+   fetch("/api/life/chat?availability=1",{cache:"no-store"})
+    .then(async r=>{if(!r.ok)throw Error("unavailable");return r.json();})
+    .then(j=>{if(alive)setAvailability(j.availability==="available"||j.availability==="pending_renewal"?j.availability:"not_entitled");})
+    .catch(()=>{if(alive)setAvailability("unavailable");});
+   return ()=>{alive=false;};
+  },[privatePreview]);
  async function startUsageTest(){
   if(startingTest||busy)return;
   setStartingTest(true);setError("");
