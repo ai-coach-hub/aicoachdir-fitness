@@ -44,7 +44,7 @@ function world({periodStart=oldStart,cutover=launch,mode="rolling_renewal",openi
   require:id=>{assert.ok(Object.hasOwn(dependencies,id),id);return dependencies[id];},
   console:{error:()=>{}}},{timeout:3000});
  return {gate:()=>mod.exports.sharedUsageGateEnabled(),
-  reserve:()=>mod.exports.reserveSharedUsage("member@example.test","fitness","fitness-request-00000001"),
+  reserve:(coach="fitness")=>mod.exports.reserveSharedUsage("member@example.test",coach,coach+"-request-00000001"),
   calls,get lookups(){return lookups}};
 }
 test("explicit forward-only migration can go live without fabricating opening balances",()=>{
@@ -82,4 +82,24 @@ test("old subscriber with unrecognized grandfathered price keeps original AI ser
 test("a canceled Stripe subscription never receives the old-provider migration fallback",async()=>{
  const w=world({cutover:earlierLaunch,subscriptionStatus:"canceled"});
  assert.equal((await w.reserve()).status,"not_entitled");
+});
+
+test("cutover boundary: old periods are preserved, exact cutover joins a single shared wallet for all coaches",async()=>{
+ const cutoff="2026-10-25T00:00:00.000Z";
+ const before=world({periodStart:"2026-10-24T23:59:59.000Z",cutover:cutoff});
+ assert.equal((await before.reserve("fitness")).status,"pending_renewal");
+ assert.equal(before.calls.some(x=>x.stmt.includes("shared_ai_reserve")),false);
+ const after=world({periodStart:cutoff,cutover:cutoff});
+ for(const coach of ["fitness","budgeting","life"]){
+  const result=await after.reserve(coach);
+  assert.equal(result.status,"reserved");
+  assert.equal(result.permit?.entitlementKey,"existing_400_v1");
+  assert.equal(result.permit?.limitUses,400);
+  assert.equal(result.permit?.periodStart,cutoff);
+ }
+ const requests=after.calls.filter(x=>x.stmt.includes("shared_ai_reserve"));
+ assert.equal(requests.length,3);
+ assert.equal(new Set(requests.map(x=>x.values[0])).size,1,"all coaches use one member wallet");
+ assert.equal(new Set(requests.map(x=>x.values[1])).size,1,"all coaches use one entitlement");
+ assert.equal(new Set(requests.map(x=>x.values[2])).size,1,"all coaches use one period");
 });
