@@ -85,8 +85,8 @@ test("a canceled Stripe subscription never receives the old-provider migration f
 });
 
 test("cutover boundary: old periods are preserved, exact cutover joins a single shared wallet for all coaches",async()=>{
- const cutoff="2026-10-25T00:00:00.000Z";
- const before=world({periodStart:"2026-10-24T23:59:59.000Z",cutover:cutoff});
+ const cutoff=new Date(now-3*day).toISOString();
+ const before=world({periodStart:new Date(now-3*day-1000).toISOString(),cutover:cutoff});
  assert.equal((await before.reserve("fitness")).status,"pending_renewal");
  assert.equal(before.calls.some(x=>x.stmt.includes("shared_ai_reserve")),false);
  const after=world({periodStart:cutoff,cutover:cutoff});
