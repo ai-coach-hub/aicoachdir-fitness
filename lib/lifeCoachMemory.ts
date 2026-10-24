@@ -47,7 +47,9 @@ export function lifeMemoryReply(query: string, entries: LifeMemoryEntry[]): stri
   const fact=asksGoal
     ? selected.find(entry=>isLifeGoalStatement(entry.text))
     : selected[0];
-  if (!fact) return "I couldn't find that detail in your saved Life Coach conversations. What would you like me to work from?";
+  // No confirmed site memory: defer to the normal metered coach, which may have
+  // additional authenticated Pickaxe memories. Never claim those are absent here.
+  if (!fact) return null;
   if (requiresSpecialCare.test(fact.text)) return null;
   const quoted=fact.text.replace(/\s+/g," ").trim();
   const first="You previously told me: “"+quoted+"”";

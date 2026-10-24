@@ -214,3 +214,14 @@ test("API cleans new model replies and UI cleans old replies, without altering u
  assert.ok(api.includes('value:{ok:true,response:answer,conversationId:id'));
  assert.ok(api.includes("Private usage test enrollment is required."));
 });
+
+test("missing site-local goals defer to the metered coach instead of falsely denying Pickaxe memories",()=>{
+ const {lifeMemoryReply}=lifeLogic();
+ assert.equal(lifeMemoryReply("What goals have I told you about before?",[]),null);
+ assert.equal(lifeMemoryReply("What goal did I tell you about earlier?",[]),null);
+ assert.equal(lifeMemoryReply("What goals have I told you about before?",[failedQuiz]),null);
+ assert.equal(lifeMemoryReply("What goals have I told you about before?",[goal]),
+  'You previously told me: “My goal this month is to improve my time management.”');
+ const route=load("app/api/life/chat/route.ts");
+ assert.ok(route.indexOf("const direct=lifeMemoryReply(message,memories)")<route.indexOf("reserveSharedUsage(email,\"life\",requestKey)"));
+});
