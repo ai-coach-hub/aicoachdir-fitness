@@ -33,6 +33,17 @@ export async function GET(request:Request) {
  if(!member)return json({ok:false,error:"Private Life Coach access is required."},403);
  try {
   const params=new URL(request.url).searchParams;
+  if(params.get("availability")==="1"){
+   if(process.env.VERCEL_ENV!=="production")
+    return json({ok:true,availability:"preview"});
+   const signedIn=await (await import("@clerk/nextjs/server")).currentUser();
+   const primary=signedIn?.emailAddresses.find(e=>e.id===signedIn.primaryEmailAddressId);
+   if(!signedIn||signedIn.id!==member||!primary||primary.verification?.status!=="verified")
+    return json({ok:false,error:"Verified membership required."},403);
+   const {lifeGenerationAvailability}=await import("@/lib/sharedUsageMeter");
+   const availability=await lifeGenerationAvailability(primary.emailAddress.trim().toLowerCase());
+   return json({ok:true,availability});
+  }
   if(params.get("recall")==="goal") {
    const saved=await recallLifeStatements(member,"", "What goal did I tell you about earlier?");
    const goal=saved.find(entry=>/\b(my goal|i want to|i(?:\x27d| would) like to|i aim to|my priority)\b/i.test(entry.text));
