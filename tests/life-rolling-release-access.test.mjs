@@ -34,7 +34,8 @@ test("Life Coach model, history and page all enforce the same explicit rolling t
   assert.match(read(path),/SHARED_USAGE_MIGRATION_MODE/,path);
  }
  assert.match(read("app/page.tsx"),/rollingLife/);
- assert.match(read("app/page.tsx"),/next verified membership renewal/);
+ assert.match(read("app/page.tsx"),/complimentary launch allowance/);
+ assert.doesNotMatch(read("app/page.tsx"),/Life Coach unlocks at your next verified membership renewal/);
  assert.match(read("app/api/life/chat/route.ts"),/next billing period/);
 });
 

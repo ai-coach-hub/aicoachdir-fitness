@@ -62,6 +62,8 @@ const upcomingCoaches = [
   },
 ];
 
+// Availability depends on production environment switches; never bake the retired Coming Soon state at build time.
+export const dynamic = "force-dynamic";
 export default function HomePage() {
   const memberLoginUrl = "/fitness/login";
 
@@ -184,9 +186,9 @@ export default function HomePage() {
               <h2>Build stronger habits, reflect on goals, and move forward.</h2>
               <p>
                 Get focused support with routines, personal growth, reflection, and practical next steps.
-                {rollingLife ? "Life Coach unlocks at your next verified membership renewal; until then, Fitness and Budgeting continue as usual." : "Life Coach is included with your existing AI Coach Directory membership."}
+                 Life Coach is included with your existing AI Coach Directory membership. Eligible current members can start with a complimentary launch allowance before the shared monthly plan takes effect.
               </p>
-              <div className="live-coach-feature">Same membership · 400 shared monthly AI uses</div>
+              <div className="live-coach-feature">Same membership · complimentary launch access for eligible current members · 400 shared monthly AI uses after renewal</div>
               <div className="cta-row">
                 <Link href="/life" className="primary-button">Start Life Coach</Link>
               </div>
