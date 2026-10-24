@@ -5,7 +5,8 @@ const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 test("membership calls to action omit review terms wording",()=>{
  const page=read("app/page.tsx");
  assert.doesNotMatch(page,/New Member — Review Terms/);
- assert.match(page,/New Member — Get Started/);
+ assert.match(page,/href="\/fitness\/signup" className="primary-button">Get Started<\/Link>/);
+ assert.doesNotMatch(page,/New Member — Get Started|Returning Member Login/);
 });
 test("workout completed count and history link use distinct layout wrappers",()=>{
  const page=read("app/fitness/chat/page.tsx");
