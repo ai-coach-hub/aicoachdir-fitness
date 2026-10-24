@@ -36,7 +36,7 @@ export async function verifiedLifeLaunchPermit(email:string):Promise<LifeLaunchP
  const prices=approvedSharedPriceIds({environment:"production",billingCurrentPrice:rows[0]?.config_value,
   extraApprovedPrices:String(process.env.SHARED_USAGE_APPROVED_PRICE_IDS||"")});
  const matches=prices.map(priceId=>stripeUsageWindowFromVerifiedRecord(sub,{customerId,subscriptionId,priceId}))
-  .filter((w):w is {ok:true;periodStart:string;periodEnd:string}=>w.ok);
+  .filter((w):w is Extract<typeof w,{ok:true}>=>w.ok);
  if(matches.length!==1)return null;
  const start=Date.parse(matches[0].periodStart),end=Date.parse(matches[0].periodEnd);
  const cutover=Date.parse(String(process.env.SHARED_USAGE_CUTOVER_AT||""));
