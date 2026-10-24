@@ -10,6 +10,7 @@ test("homepage availability is dynamic and never freezes release flags in a stat
 });
 test("Life Coach live card does not claim paying members must wait until renewal",()=>{
  assert.match(page,/Start Life Coach/);
- assert.match(page,/complimentary launch allowance/);
+ assert.match(page,/Get personalized guidance for daily routines, meaningful goals, and personal growth/);
+ assert.doesNotMatch(page,/complimentary launch allowance|Same membership ·/);
  assert.doesNotMatch(page,/Life Coach unlocks at your next verified membership renewal/);
 });
