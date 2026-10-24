@@ -41,7 +41,12 @@ export async function GET(request:Request) {
    if(!signedIn||signedIn.id!==member||!primary||primary.verification?.status!=="verified")
     return json({ok:false,error:"Verified membership required."},403);
    const {lifeGenerationAvailability}=await import("@/lib/sharedUsageMeter");
-   const availability=await lifeGenerationAvailability(primary.emailAddress.trim().toLowerCase());
+   let availability=await lifeGenerationAvailability(primary.emailAddress.trim().toLowerCase());
+   if(availability==="pending_renewal"){
+    const {lifeLaunchAvailability}=await import("@/lib/lifeLaunchAllowance");
+    if(await lifeLaunchAvailability(primary.emailAddress.trim().toLowerCase())==="available")
+     availability="available";
+   }
    return json({ok:true,availability});
   }
   if(params.get("recall")==="goal") {
@@ -164,10 +169,21 @@ export async function POST(request:Request) {
     return json({ok:false,error:"A valid AI request ID is required."},400);
 
    const {reserveSharedUsage,settleSharedUsage}=await import("@/lib/sharedUsageMeter");
+   const {reserveLifeLaunch,settleLifeLaunch}=await import("@/lib/lifeLaunchAllowance");
+   let benefit:"shared"|"launch"|null=null;
    const {runMeteredPreviewGeneration}=await import("@/lib/previewLifeUsageFlow");
    const result=await runMeteredPreviewGeneration({
-    reserve:async()=>(await reserveSharedUsage(email,"life",requestKey)).status,
-    settle:outcome=>settleSharedUsage(email,"life",requestKey,outcome)
+    reserve:async()=>{
+     const main=await reserveSharedUsage(email,"life",requestKey);
+     if(main.status==="reserved"){benefit="shared";return "reserved";}
+     if(main.status!=="pending_renewal")return main.status;
+     const promo=await reserveLifeLaunch(email,requestKey);
+     if(promo==="reserved")benefit="launch";
+     return promo;
+    },
+    settle:outcome=>benefit==="launch"
+      ?settleLifeLaunch(email,requestKey,outcome)
+      :settleSharedUsage(email,"life",requestKey,outcome)
    },async()=>{
     const rawAnswer=await completeLifeCoachRequest(token,promptMessage,email,id);
     const answer=cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories));
@@ -177,6 +193,7 @@ export async function POST(request:Request) {
    if(result.status==="completed")return json(result.value);
    if(result.status==="blocked")return json({ok:false,error:
     result.reason==="pending_renewal"?"Life Coach becomes available at your next billing period. Fitness and Budgeting remain available.":
+    result.reason==="not_entitled"?"Life Coach launch allowance is available to verified active paid members. Please check your membership.":
     result.reason==="exhausted"?"Your shared monthly AI allowance has been reached.":
     result.reason.startsWith("duplicate_")?"This request was already submitted. Check Previous chats.":
     "Membership or shared usage could not be verified."},
