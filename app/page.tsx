@@ -129,11 +129,10 @@ export default function HomePage() {
           </div>
           <div className="live-coach-copy">
             <p className="eyebrow">AI COACHING FOR FITNESS</p>
-            <h2>Fitness coaching with My Workouts built in.</h2>
+            <h2>Build a stronger fitness routine that works for you.</h2>
             <p>
-              Get personalized guidance, workout planning, accountability, and adjustments based on your goals, schedule, preferences, and available equipment.
+              Get personalized guidance for workouts, progress, and staying consistent with your goals.
             </p>
-            <div className="live-coach-feature">Coach chat + personalized workout planning</div>
             <div className="cta-row">
               <Link href="/fitness/signup?destination=fitness" className="primary-button">Start Fitness Coach</Link>
               
@@ -155,11 +154,10 @@ export default function HomePage() {
           </div>
           <div className="live-coach-copy">
             <p className="eyebrow">AI COACHING FOR BUDGETING</p>
-            <h2>Budget coaching with a monthly tracker built in.</h2>
+            <h2>Take control of your budget and plan with confidence.</h2>
             <p>
-              Plan monthly spending, organize categories, track transactions manually, and get practical coaching to help you make clearer financial decisions.
+              Get practical guidance for monthly planning, tracking spending, and making informed financial decisions.
             </p>
-            <div className="live-coach-feature">Coach chat + detailed monthly budget tracking</div>
             <div className="cta-row">
               <Link href="/fitness/signup?destination=budget-coach" className="primary-button">Start Budgeting Coach</Link>
               
@@ -185,10 +183,8 @@ export default function HomePage() {
               <p className="eyebrow">AI COACHING FOR LIFE</p>
               <h2>Build stronger habits, reflect on goals, and move forward.</h2>
               <p>
-                Get focused support with routines, personal growth, reflection, and practical next steps.
-                 Life Coach is included with your existing AI Coach Directory membership. Eligible current members can start with a complimentary launch allowance before the shared monthly plan takes effect.
+                Get personalized guidance for daily routines, meaningful goals, and personal growth.
               </p>
-              <div className="live-coach-feature">Same membership · complimentary launch access for eligible current members · 400 shared monthly AI uses after renewal</div>
               <div className="cta-row">
                 <Link href="/life" className="primary-button">Start Life Coach</Link>
               </div>
