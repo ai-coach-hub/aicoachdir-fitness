@@ -59,7 +59,7 @@ export default function FitnessCheckoutCard({ destination = "fitness" }: { desti
       <h1 id="fitness-checkout-heading">Confirm your AI Coach Directory membership</h1>
       <p>
         Your existing sign-in will be kept. Continue to secure checkout for
-        the $15/month AI Coach Directory membership, which currently includes Fitness and Budgeting with 400 shared AI uses per month. If you are returning after cancellation, your existing account stays the same.
+        the $15/month AI Coach Directory membership, which currently includes Fitness and Budgeting with 400 AI Coach Messages per month. If you are returning after cancellation, your existing account stays the same.
       </p>
 
       <button
