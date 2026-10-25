@@ -5,7 +5,6 @@ import {redirect} from "next/navigation";
 import {memberHasFitnessAccess} from "@/lib/fitnessMembershipDb";
 import {lifeTester} from "@/lib/lifeCoachAccess";
 import styles from "./dashboard.module.css";
-import {memberUsageDisplay} from "@/lib/memberUsageDisplay";
 
 export const dynamic = "force-dynamic";
 
@@ -25,15 +24,9 @@ export default async function DashboardPage() {
   if (!allowed) redirect("/fitness/login");
   let lifeAvailable = false;
   try { lifeAvailable = (await lifeTester()) === user.id; } catch {}
-  const usage = await memberUsageDisplay(email);
   return <main className={styles.shell}>
     <header className={styles.nav}><Link href="/dashboard" className={styles.brand}>AI Coach Directory</Link><nav aria-label="Member navigation"><a href="#coaches">Coaches</a><a href="#tools">My Tools</a><Link href="/">Main Site</Link><Link href="/manage-subscription">Account</Link></nav></header>
     <section className={styles.hero}><span>YOUR COACHING HOME</span><h1>Welcome back{user.firstName ? ", " + user.firstName : ""}.<br/>What will you work on today?</h1><p>One membership. Your coaches and personal tools in one place.</p></section>
-    <section className={styles.usageBar} aria-label="AI usage">
-      {usage.kind==="shared" ? <><strong>{usage.remaining} of {usage.limit} AI uses remaining</strong><span>Shared across Fitness, Budgeting and Life Coach{usage.pending? ` · ${usage.pending} pending`:""}</span></> :
-       usage.kind==="launch" ? <><strong>{usage.remaining} of {usage.limit} Life Coach launch uses remaining</strong><span>Your existing Fitness and Budgeting allowance is unchanged. The shared 400-use counter begins with your next eligible billing period.</span></> :
-       <><strong>AI usage</strong><span>Your current-cycle total is not yet available. Your existing coaching access is unchanged.</span></>}
-    </section>
     <section id="coaches" className={styles.section}><h2>Your Coaches</h2><div className={styles.cards}>
       <article className={styles.card}><Image src="/images/ai-coaching-for-fitness.jpg" alt="Fitness coaching" width={800} height={500}/><div><h3>Fitness Coach</h3><p>Build momentum with training that fits your life.</p><div className={styles.cardActions}><Link href="/fitness/chat">Open Fitness Coach</Link><Link href="/fitness/chat?view=workouts" className={styles.toolAction}>My Workouts</Link></div></div></article>
       <article className={styles.card}><Image src="/images/ai-coaching-for-budgeting.avif" alt="Budgeting coaching" width={800} height={500}/><div><h3>Budgeting Coach</h3><p>Plan your money and reach your financial goals.</p><div className={styles.cardActions}><Link href="/budgeting/launch?destination=coach">Open Budgeting Coach</Link><Link href="/budgeting/launch?destination=tracker" className={styles.toolAction}>My Budget</Link></div></div></article>

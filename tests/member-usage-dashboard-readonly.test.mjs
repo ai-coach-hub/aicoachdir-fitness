@@ -16,12 +16,9 @@ test("invalid usage counts fail closed, including duplicate reservations and imp
  assert.equal(calculate({completed_uses:1.5,reserved_uses:0},10),null);
  assert.equal(calculate({completed_uses:0,reserved_uses:0},400).remaining,400);
 });
-test("member UI distinguishes temporary Life benefit and verified shared wallet",()=>{
+test("private ledger retains launch and shared balances without dashboard display",()=>{
  const page=read("app/dashboard/page.tsx");
- assert.match(page,/await memberUsageDisplay\(email\)/);
- assert.match(page,/usage\.kind==="launch"/);
- assert.match(page,/usage\.kind==="shared"/);
- assert.match(page,/current-cycle total is not yet available/);
+ assert.doesNotMatch(page,/memberUsageDisplay|usage\.kind|current-cycle total is not yet available/);
  assert.match(source,/resolvedCurrentSharedUsage|resolveCurrentSharedUsage\(email\)/);
  assert.match(source,/verifiedLifeLaunchPermit\(email\)/);
  assert.doesNotMatch(source,/INSERT INTO|UPDATE public|shared_ai_reserve|life_launch_reserve/);

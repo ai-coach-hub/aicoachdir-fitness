@@ -75,6 +75,19 @@ export async function POST(request:Request) {
  let body:Record<string,unknown>;
  try{body=await request.json();}catch{return json({ok:false,error:"Invalid request."},400);}
  const message=typeof body.message==="string"?body.message.trim():"";
+ // Usage questions are answered from the authenticated ledger without an AI charge.
+ if(/(?:how many|how much|what(?:'s| is)|show|tell|check|remaining|left)\b[^\n]{0,100}\b(?:uses|credits|messages|responses|allowance|quota)\b/i.test(message) ||
+    /\b(?:uses|credits|messages|responses|allowance|quota)\b[^\n]{0,70}\b(?:remaining|left|used)\b/i.test(message)){
+   const {memberUsageDisplay}=await import("@/lib/memberUsageDisplay");
+   const usage=await memberUsageDisplay(email);
+   const response=usage.kind==="shared"
+    ? `You have ${usage.remaining} of ${usage.limit} shared AI uses remaining this billing period.`
+    :usage.kind==="launch"
+    ? `You have ${usage.remaining} of ${usage.limit} complimentary Life Coach uses remaining. Fitness and Budgeting remain on your existing allowance until renewal.`
+    :"I can't verify your remaining AI uses yet. Your current coaching access is unchanged.";
+   return json({ok:true,response,conversationId:typeof body.conversationId==="string"?body.conversationId:"",source:"member-usage"});
+ }
+
  const supplied=typeof body.conversationId==="string"?body.conversationId.trim():"";
  const newConversationId=typeof body.newConversationId==="string"?body.newConversationId.trim():"";
  if(supplied && newConversationId) return json({ok:false,error:"Conflicting conversation identifiers."},400);
