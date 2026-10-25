@@ -214,7 +214,7 @@ export default function HomePage() {
         </div>
         <div className="offer-action">
           <Link href="/fitness/signup" className="primary-button">Get Started</Link>
-          <Link href={memberLoginUrl} className="secondary-button member-login-offer">Member Login</Link>
+          <Link href={memberLoginUrl} className="secondary-button member-login-offer">Member Dashboard / Login</Link>
         </div>
       </section>
 

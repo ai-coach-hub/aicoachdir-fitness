@@ -22,7 +22,7 @@ export default function SiteHeader({ compact = false }: { compact?: boolean }) {
       <nav className="nav-links" aria-label="Primary navigation">
         <a href="/#how-it-works" className="nav-link-text">How it works</a>
         <Link href="/terms" className="nav-link-text">Terms</Link>
-        <Link href="/fitness/login" className="nav-coach-link">Member Login</Link>
+        <Link href="/fitness/login" className="nav-coach-link">Member Dashboard / Login</Link>
       </nav>
     </header>
   );
