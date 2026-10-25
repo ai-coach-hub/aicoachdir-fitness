@@ -78,7 +78,7 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
   finally{setOpeningThread(false);}
  };
  async function send(e:FormEvent){
-  e.preventDefault();const message=input.trim();if(!message||busy)return;
+  e.preventDefault();const message=input.trim();if(!message||busy||openingThread)return;
   const previous=pendingRequest.current;
   const retry=previous?.message===message && previous?.conversationId===id;
   const requestKey=retry ? previous!.key : `life-${crypto.randomUUID()}`;
