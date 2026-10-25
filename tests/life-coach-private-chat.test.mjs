@@ -146,7 +146,7 @@ test("Life Coach chat fits narrow screens and supports low-friction typing",()=>
  assert.ok(css.includes("grid-template-columns: minmax(0, 1fr)"));
  assert.ok(css.includes("overflow-x: auto"));
  assert.ok(ui.includes("!messages.length&&!input.trim()"));
- assert.ok(ui.includes("disabled={busy}"));
+ assert.ok(ui.includes("disabled={busy||openingThread}"));
  assert.ok(ui.includes("styles.chatPanel"));
  assert.ok(ui.includes("styles.threadList"));
 });

@@ -33,6 +33,7 @@ export default async function DashboardPage() {
       <article className={styles.card}><Image src="/images/ai-coaching-for-life.jpg" alt="Life coaching" width={800} height={500}/><div><h3>Life Coach</h3><p>Find clarity, build habits, and move forward.</p>{lifeAvailable ? <Link href="/life">Open Life Coach</Link> : <span className={styles.pending}>Life Coach access is unavailable for this account</span>}</div></article>
     </div></section>
     <section id="tools" className={styles.section}><h2>Your Tools</h2><div className={styles.tools}><Link href="/fitness/chat?view=workouts"><strong>My Workouts</strong><span>Training plans and tracking</span></Link><Link href="/budgeting/launch?destination=tracker"><strong>My Budget</strong><span>Monthly budget and spending</span></Link></div></section>
+    <section className={styles.section} aria-labelledby="supplements-heading"><h2 id="supplements-heading">Supplements</h2><p className={styles.supplementsIntro}>More tools to support your coaching experience will appear here as they are released.</p><div className={styles.tools}><div className={styles.supplementsPlaceholder}><strong>Supplementary tools</strong><span>Coming soon — your existing coaches, saved work, and membership stay unchanged.</span></div></div></section>
     <footer className={styles.footer}><Link href="/manage-subscription">Manage Membership</Link></footer>
   </main>;
 }

@@ -25,6 +25,7 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
  const [messages,setMessages]=useState<Msg[]>([]);
  const [input,setInput]=useState("");
  const [busy,setBusy]=useState(false);
+ const [openingThread,setOpeningThread]=useState(false);
  const [usageTest,setUsageTest]=useState<{active:boolean;remaining:number;used:number;pending:number;limit:number}|null>(null);
  const [startingTest,setStartingTest]=useState(false);
  const [error,setError]=useState("");
@@ -66,16 +67,18 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
   finally{setStartingTest(false)}
  }
  useEffect(()=>{end.current?.scrollIntoView({block:"end",behavior:"smooth"});},[messages,busy]);
- const open=async(nextId:string)=>{if(busy)return;setError("");
+ const open=async(nextId:string)=>{if(busy||openingThread)return;setError("");setOpeningThread(true);
   try {
    const r=await fetch("/api/life/chat?id="+encodeURIComponent(nextId),{cache:"no-store"});
    const j=await r.json();
-   if(j.ok){pendingRequest.current=null;setId(nextId);setMessages(j.messages||[]);}
+   if(j.ok&&Array.isArray(j.messages)){pendingRequest.current=null;setId(nextId);setMessages(j.messages);}
+   else if(j.ok)setError("This chat could not be loaded. Please try again.");
    else setError(j.error||"Could not open this chat.");
   }catch{setError("Could not open this chat.");}
+  finally{setOpeningThread(false);}
  };
  async function send(e:FormEvent){
-  e.preventDefault();const message=input.trim();if(!message||busy)return;
+  e.preventDefault();const message=input.trim();if(!message||busy||openingThread)return;
   const previous=pendingRequest.current;
   const retry=previous?.message===message && previous?.conversationId===id;
   const requestKey=retry ? previous!.key : `life-${crypto.randomUUID()}`;
@@ -118,15 +121,15 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
  return <section className={styles.layout}>
   <aside className={styles.history} aria-label="Previous Life Coach conversations">
    <h3>Previous chats</h3>
-   <button className={styles.newButton} type="button" disabled={busy} onClick={()=>{pendingRequest.current=null;setId("");setMessages([]);setError("");}}>New Chat</button>
+   <button className={styles.newButton} type="button" disabled={busy||openingThread} onClick={()=>{pendingRequest.current=null;setId("");setMessages([]);setError("");}}>New Chat</button>
    <div className={styles.threadList}>
     {historyState==="loading"&&<p role="status" style={{color:"var(--muted)"}}>Loading previous chats…</p>}
     {historyState==="error"&&<div role="alert">
      <p>Previous chats couldn't be loaded. They have not been deleted.</p>
-     <button type="button" disabled={busy} onClick={()=>{setHistoryState("loading");void loadThreads();}}>Retry loading chats</button>
+     <button type="button" disabled={busy||openingThread} onClick={()=>{setHistoryState("loading");void loadThreads();}}>Retry loading chats</button>
     </div>}
     {historyState==="ready"&&threads.length===0&&<p style={{color:"var(--muted)"}}>No previous chats yet.</p>}
-    {threads.map(t=><button key={t.id} className={styles.threadButton} type="button" disabled={busy} aria-pressed={t.id===id} onClick={()=>void open(t.id)} style={{background:t.id===id?"#1b3440":"#0c1c2b"}}>{t.title}</button>)}
+    {threads.map(t=><button key={t.id} className={styles.threadButton} type="button" disabled={busy||openingThread} aria-pressed={t.id===id} onClick={()=>void open(t.id)} style={{background:t.id===id?"#1b3440":"#0c1c2b"}}>{t.title}</button>)}
    </div>
   </aside>
   <div className={styles.chatPanel}>
@@ -134,7 +137,8 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
    <p style={{color:"var(--muted)",margin:0}}>{privatePreview ? "Private test • goals, habits and accountability" : "Goals, habits and accountability"}</p>
    {privatePreview&&usageTest&&!usageTest.active&&<button type="button" disabled={startingTest||busy} onClick={()=>void startUsageTest()}>Start optional 3-use test</button>}
    {privatePreview&&usageTest?.active&&<p role="status" style={{margin:0}}>Private AI uses left: {usageTest.remaining} of {usageTest.limit}. {usageTest.used} completed{usageTest.pending>0 ? `; ${usageTest.pending} pending verification` : ""}. Saved-memory recall remains free.</p>}
-   <div role="log" aria-live="polite" className={styles.messageLog}>
+   {openingThread&&<p role="status" style={{color:"var(--muted)",margin:0}}>Opening saved conversation…</p>}
+   <div role="log" aria-live="polite" aria-busy={busy||openingThread} className={styles.messageLog}>
     {!messages.length&&!input.trim()&&<p style={{color:"var(--muted)"}}>{intro}</p>}
     {messages.map((m,i)=><p key={i} className={styles.message} style={{background:m.role==="user"?"#17323b":"#101d2a"}}><strong>{m.role==="user"?"You":"Life Coach"}</strong><span style={{display:"block",marginTop:4}}>{m.role==="assistant"?<CoachResponse text={m.text}/>:m.text}</span></p>)}
     {busy&&<p>Coach is working…</p>}<div ref={end}/>
@@ -142,7 +146,7 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
    {error&&<p role="alert" style={{color:"#ffd39d"}}>{error}</p>}
    <form onSubmit={send} className={styles.compose}>
     <input aria-label="Message Life Coach" placeholder="Tell me what you'd like to work on…" value={input} onChange={e=>setInput(e.target.value)} maxLength={6000}/>
-    <button disabled={busy||!input.trim()} type="submit" className="primary-button">Send</button>
+    <button disabled={busy||openingThread||!input.trim()} type="submit" className="primary-button">Send</button>
    </form>
   </div>
  </section>;
