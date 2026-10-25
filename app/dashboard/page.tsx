@@ -25,7 +25,7 @@ export default async function DashboardPage() {
   let lifeAvailable = false;
   try { lifeAvailable = (await lifeTester()) === user.id; } catch {}
   return <main className={styles.shell}>
-    <header className={styles.nav}><Link href="/dashboard" className={styles.brand}>AI Coach Directory</Link><nav aria-label="Member navigation"><a href="#coaches">Coaches</a><a href="#tools">My Tools</a><Link href="/">Main Site</Link><Link href="/manage-subscription">Account</Link></nav></header>
+    <header className={styles.nav}><Link href="/dashboard" className={styles.brand}>AI Coach Directory</Link><nav aria-label="Member navigation"><a href="#coaches">Coaches</a><a href="#tools">My Tools</a><Link href="/manage-subscription">Account</Link></nav></header>
     <section className={styles.hero}><span>YOUR COACHING HOME</span><h1>Welcome back{user.firstName ? ", " + user.firstName : ""}.<br/>What will you work on today?</h1><p>One membership. Your coaches and personal tools in one place.</p></section>
     <section id="coaches" className={styles.section}><h2>Your Coaches</h2><div className={styles.cards}>
       <article className={styles.card}><Image src="/images/ai-coaching-for-fitness.jpg" alt="Fitness coaching" width={800} height={500}/><div><h3>Fitness Coach</h3><p>Build momentum with training that fits your life.</p><div className={styles.cardActions}><Link href="/fitness/chat">Open Fitness Coach</Link><Link href="/fitness/chat?view=workouts" className={styles.toolAction}>My Workouts</Link></div></div></article>

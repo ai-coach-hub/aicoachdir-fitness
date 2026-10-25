@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export default async function LifePage() {
   const id = await lifeTester();
   if (id) return <main className="site-shell" style={{padding:"32px 0"}}>
-    <Link href={process.env.VERCEL_ENV==="production" ? "/dashboard" : "/"} style={{color:"#80d84e"}}>← {process.env.VERCEL_ENV==="production" ? "Member Dashboard" : "AI Coach Directory"}</Link>
+    <Link href={process.env.VERCEL_ENV==="production" ? "/dashboard" : "/"} className="secondary-button" style={{display:"inline-flex",marginBottom:20}}>{process.env.VERCEL_ENV==="production" ? "Dashboard" : "AI Coach Directory"}</Link>
     <LifeChat privatePreview={process.env.VERCEL_ENV==="preview"}/>
   </main>;
   const user = await currentUser();
