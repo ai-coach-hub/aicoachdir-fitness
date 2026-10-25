@@ -4,3 +4,5 @@
 .cardActions a{margin-top:0;text-align:center}
 .cardActions .toolAction{background:transparent;color:#d7ecf5;border:1px solid #496783}
 @media(max-width:650px){.cardActions{flex-direction:column}.cardActions a{width:100%}}
+
+.usageBar{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px;padding:20px 26px;border:1px solid #35556d;border-radius:18px;background:#10243a;margin:0 0 30px}.usageBar strong{font-size:1.13rem;color:#d1ffad}.usageBar span{font-size:.9rem;color:#b9d1df;line-height:1.45}
