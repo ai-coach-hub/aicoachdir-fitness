@@ -12,4 +12,4 @@ test('coach cards include their companion tools in the same action group',()=>{
  assert.match(read('app/dashboard/dashboard.module.css'), /@media\(max-width:650px\)\{\.cardActions\{flex-direction:column/);
 });
 
-test("production Life Coach returns to member dashboard; preview remains isolated",()=>{const p=read("app/life/page.tsx");assert.match(p,/process\.env\.VERCEL_ENV==="production" \? "\/dashboard" : "\/"/);assert.match(p,/Member Dashboard/);});
+test("production Life Coach returns to member dashboard; preview remains isolated",()=>{const p=read("app/life/page.tsx");assert.match(p,/process\.env\.VERCEL_ENV==="production" \? "\/dashboard" : "\/"/);assert.match(p,/"Dashboard" : "AI Coach Directory"/);});
