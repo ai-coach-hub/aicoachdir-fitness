@@ -89,23 +89,6 @@ export default function HomePage() {
     <main className="site-shell">
       <SiteHeader />
 
-      <section className={`brand-showcase ${styles.compactBrandShowcase}`} aria-label="AI Coach Directory">
-        <Image
-          src="/images/ai-coach-directory-logo.jpg"
-          alt="AI Coach Directory logo"
-          width={220}
-          height={220}
-          loading="eager"
-          sizes="(max-width: 720px) 108px, 180px"
-          className={`brand-showcase-logo ${styles.compactBrandLogo}`}
-        />
-        <div>
-          <p className="eyebrow">AI COACH DIRECTORY</p>
-          <h2>Coaching support powered by AI, built around your goals.</h2>
-          <p>Choose the coaching experience that fits what you want to improve right now.</p>
-        </div>
-      </section>
-
       <section className={`hero-copy-section live-coach-hero ${styles.conversionHero}`}>
         <p className="eyebrow">PERSONALIZED COACHING · ONE MEMBERSHIP</p>
         <h1>Make progress with a coach built for you. <span>All in one place.</span></h1>
@@ -225,46 +208,8 @@ export default function HomePage() {
 
       <section className="coach-difference-section" aria-labelledby="coach-difference-title">
         <div className="coach-difference-heading">
-          <p className="eyebrow">WHY AI COACH DIRECTORY</p>
-          <h2 id="coach-difference-title">
-            General AI Can Answer Your Questions. <span>Our AI Is Built to Coach You.</span>
-          </h2>
-          <p>
-            Our AI Coaches are purpose-built to provide a more personalized, focused, and useful experience than a general AI assistant.
-          </p>
-        </div>
-
-        <div className="coach-difference-grid">
-          <article>
-            <div className="value-icon">01</div>
-            <h3>Specialized Knowledge</h3>
-            <p>
-              Each coach can be equipped with a curated library of <strong>specialized resources, documents, and expert material</strong> that general AI tools may not have access to.
-            </p>
-          </article>
-          <article>
-            <div className="value-icon">02</div>
-            <h3>Built to Coach</h3>
-            <p>
-              Instead of simply answering questions, our AI Coaches are designed to <strong>guide, encourage, challenge, and personalize the experience</strong> around your goals and needs.
-            </p>
-          </article>
-          <article>
-            <div className="value-icon">03</div>
-            <h3>Purpose-Built Expertise</h3>
-            <p>
-              Each AI Coach is designed around a specific area of expertise, giving you more relevant guidance without having to explain the context or create complicated prompts every time.
-            </p>
-          </article>
-          <article>
-            <div className="value-icon">04</div>
-            <h3>Less Prompting. More Coaching.</h3>
-            <p>The knowledge, approach, and coaching framework are already built in.</p>
-          </article>
-        </div>
-
-        <div className="coach-difference-callout">
-          <strong>Just tell your coach what you need and get started.</strong>
+          <h2 id="coach-difference-title">Coaching built for your goals, not generic answers.</h2>
+          <p>Each coach offers focused guidance and practical tools you can return to.</p>
         </div>
       </section>
 
@@ -286,17 +231,11 @@ export default function HomePage() {
         </article>
       </section>
 
-      <section className="notice-panel">
-        <p className="eyebrow">IMPORTANT</p>
-        <h2>AI guidance is informational and motivational.</h2>
+      <section className="notice-panel" aria-label="Important information">
         <p>
-          AI-generated responses may be incomplete, inaccurate, or unsuitable for your circumstances. The service is not medical care or a substitute for professional medical, nutritional, or fitness advice. Review the complete Terms & Conditions before subscribing.
+          AI guidance can be inaccurate and is not a substitute for professional advice.{" "}
+          <Link href="/terms">Read the Terms &amp; Conditions.</Link>
         </p>
-        <div className="cta-row">
-          <Link href="/fitness/signup" className="primary-button">Get Started</Link>
-          <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
-          <Link href="/terms" className="secondary-button">Read Full Terms</Link>
-        </div>
       </section>
 
       <section className="coming-soon-section" aria-labelledby="coming-soon-title">
