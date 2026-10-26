@@ -16,3 +16,16 @@ test("history errors do not overwrite existing saved conversation list",()=>{
  assert.match(ui,/setThreads\(j\.threads\);setHistoryState\("ready"\)/);
  assert.match(ui,/catch\{setHistoryState\("error"\);\}/);
 });
+
+// Free usage questions are real saved conversation turns, but never reserve credits.
+test("Life Coach usage replies are saved after ownership and replay checks",()=>{
+ const route=readFileSync(new URL("../app/api/life/chat/route.ts",import.meta.url),"utf8");
+ const recovery=route.indexOf("if(newConversationId) {");
+ const ownership=route.indexOf("if(supplied) {");
+ const usage=route.indexOf("Usage questions are answered from the authenticated ledger");
+ const persist=route.indexOf("await saveLifeTurn(member,id,message,response);",usage);
+ const model=route.indexOf("reserveSharedUsage(email,\"life\",requestKey)");
+ assert.ok(recovery>0 && ownership>recovery && usage>ownership && persist>usage && model>persist);
+ assert.match(route.slice(usage,model),/source:"member-usage"/);
+ assert.doesNotMatch(route.slice(usage,model),/reserveSharedUsage\(/);
+});
