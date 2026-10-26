@@ -9,9 +9,8 @@ function primaryEmail(user: Awaited<ReturnType<typeof currentUser>>) {
   const primary = user.emailAddresses.find(
     (item) => item.id === user.primaryEmailAddressId,
   );
-  return (primary?.emailAddress || user.emailAddresses[0]?.emailAddress || "")
-    .trim()
-    .toLowerCase();
+  if (!primary || primary.verification?.status !== "verified") return "";
+  return primary.emailAddress.trim().toLowerCase();
 }
 
 export default async function FitnessChatLayout({
