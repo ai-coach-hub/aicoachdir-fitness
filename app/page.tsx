@@ -106,12 +106,17 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="hero-copy-section live-coach-hero">
-        <p className="eyebrow">ONE MEMBERSHIP · MULTIPLE COACHES</p>
-        <h1>Specialized AI coaching. <span>One membership.</span></h1>
+      <section className={`hero-copy-section live-coach-hero ${styles.conversionHero}`}>
+        <p className="eyebrow">PERSONALIZED COACHING · ONE MEMBERSHIP</p>
+        <h1>Make progress with a coach built for you. <span>All in one place.</span></h1>
         <p className="lede">
-          Choose the coach you need and use purpose-built tools alongside your conversations — including My Workouts for Fitness and My Budget for Budgeting.
+          Build a workout plan, take control of your budget{lifeAvailable ? ", and work toward personal goals" : ""}. Pick the coach you need, and return to your saved work from one member dashboard.
         </p>
+        <div className="cta-row">
+          <Link href="/fitness/signup" className="primary-button">Get Started</Link>
+          <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
+        </div>
+        <p className={styles.heroPlanNote}>$15/month · One membership · Automatically renews until canceled</p>
       </section>
 
       <section className="live-coaches-grid" aria-label="Available AI coaches">
