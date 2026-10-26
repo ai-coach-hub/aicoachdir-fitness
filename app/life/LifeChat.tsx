@@ -26,6 +26,9 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
  const [input,setInput]=useState("");
  const [busy,setBusy]=useState(false);
  const [openingThread,setOpeningThread]=useState(false);
+ const [showGoals,setShowGoals]=useState(false);
+ const [goalsState,setGoalsState]=useState<"idle"|"loading"|"ready"|"error">("idle");
+ const [goals,setGoals]=useState<{text:string;date:string}[]>([]);
  const [usageTest,setUsageTest]=useState<{active:boolean;remaining:number;used:number;pending:number;limit:number}|null>(null);
  const [startingTest,setStartingTest]=useState(false);
  const [error,setError]=useState("");
@@ -41,6 +44,18 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
   if(!j.ok||!Array.isArray(j.threads))throw Error("History unavailable");
   setThreads(j.threads);setHistoryState("ready");
  }catch{setHistoryState("error");}};
+ const openGoals=async()=>{
+  if(showGoals){setShowGoals(false);return;}
+  if(busy||openingThread)return;
+  setShowGoals(true);setGoalsState("loading");
+  try{
+   const r=await fetch("/api/life/chat?goals=1",{cache:"no-store"});
+   if(!r.ok)throw Error("Goals unavailable");
+   const j=await r.json();
+   if(!j.ok||!Array.isArray(j.goals))throw Error("Goals unavailable");
+   setGoals(j.goals);setGoalsState("ready");
+  }catch{setGoalsState("error");}
+ };
  const loadUsage=async()=>{try{
   const r=await fetch("/api/life/usage-test",{cache:"no-store"});
   if(!r.ok)return;
@@ -121,6 +136,13 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
  return <section className={styles.layout}>
   <aside className={styles.history} aria-label="Previous Life Coach conversations">
    <h3>Previous chats</h3>
+   <button type="button" className={styles.goalsButton} disabled={busy||openingThread} aria-expanded={showGoals} onClick={()=>void openGoals()}>{showGoals?"Hide my goals":"My Goals"}</button>
+   {showGoals&&<div className={styles.goalsPanel} aria-label="Goals from your saved conversations">
+     {goalsState==="loading"&&<p role="status">Loading saved goals…</p>}
+     {goalsState==="error"&&<p role="alert">Saved goals could not be loaded. Your conversations are unchanged.</p>}
+     {goalsState==="ready"&&goals.length===0&&<p>No saved goals found yet. Tell Life Coach “My goal is…” to save one in a conversation.</p>}
+     {goalsState==="ready"&&goals.map((g,i)=><p key={i} className={styles.goalEntry}>{g.text}</p>)}
+    </div>}
    <button className={styles.newButton} type="button" disabled={busy||openingThread} onClick={()=>{pendingRequest.current=null;setId("");setMessages([]);setError("");}}>New Chat</button>
    <div className={styles.threadList}>
     {historyState==="loading"&&<p role="status" style={{color:"var(--muted)"}}>Loading previous chats…</p>}
