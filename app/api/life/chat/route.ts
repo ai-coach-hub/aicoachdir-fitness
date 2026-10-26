@@ -2,7 +2,7 @@ import { cleanLifeCoachText } from "@/lib/lifeCoachFormatting";
 import { urgentLifeCoachReply } from "@/lib/lifeCoachSafetyFallback";
 import { lifeMemoryReply, guardLifeMemoryDenial, isLifeRecallQuestion } from "@/lib/lifeCoachMemory";
 import { lifeTester } from "@/lib/lifeCoachAccess";
-import { listLifeThreads,readLifeThread,recallLifeContext,recallLifeStatements,saveLifeTurn } from "@/lib/lifeCoachStore";
+import { listLifeThreads,readLifeThread,recallLifeContext,recallLifeStatements,saveLifeTurn,listLifeGoals } from "@/lib/lifeCoachStore";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export const maxDuration=120;
@@ -49,6 +49,7 @@ export async function GET(request:Request) {
    }
    return json({ok:true,availability});
   }
+  if(params.get("goals")==="1") return json({ok:true,goals:await listLifeGoals(member)});
   if(params.get("recall")==="goal") {
    const saved=await recallLifeStatements(member,"", "What goal did I tell you about earlier?");
    const goal=saved.find(entry=>/\b(my goal|i want to|i(?:\x27d| would) like to|i aim to|my priority)\b/i.test(entry.text));
