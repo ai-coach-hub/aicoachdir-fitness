@@ -107,7 +107,7 @@ export default async function MemberLoginPage({
         <h1 id="member-login-heading">AI Coach Directory Member Login</h1>
         <p>
           Sign in once to access the coaches included with your membership.
-          Choose Fitness, Budgeting, or Life Coach from your member dashboard.\n          Your saved workouts, budgets, and conversations stay with your account.
+          Choose Fitness, Budgeting, or Life Coach from your member dashboard. Your saved workouts, budgets, and conversations stay with your account.
         </p>
 
         <FitnessMemberLoginClient
