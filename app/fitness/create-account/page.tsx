@@ -35,11 +35,8 @@ export default function FitnessCreateAccountPage() {
     }
 
     const value = acceptedEmail();
-    if (!value) {
-      window.location.replace(`/fitness/signup?destination=${destination}`);
-      return;
-    }
-
+    // Terms acceptance is stored on the server. Session storage only prefills
+    // the email; its absence must not trap a customer in a Terms redirect loop.
     setEmail(value);
     setReady(true);
   }, [isLoaded, isSignedIn]);
@@ -61,7 +58,7 @@ export default function FitnessCreateAccountPage() {
           <div style={{ display: "flex", justifyContent: "center", margin: "28px 0" }}>
             <SignUp
               routing="hash"
-              initialValues={{ emailAddress: email }}
+              initialValues={email ? { emailAddress: email } : undefined}
               forceRedirectUrl={`/fitness/subscribe?destination=${destination}`}
               signInUrl={`/fitness/login?destination=${destination}`}
             />
@@ -71,9 +68,9 @@ export default function FitnessCreateAccountPage() {
         <div className="verification-reminder" role="note">
           <strong>Verification email</strong>
           <span>
-            Use the same email you entered when accepting the Terms. If the
-            verification email does not arrive within a few minutes, check your
-            Spam or Junk folder.
+            Use the same email you entered when accepting the Terms. Your agreement
+            is checked again on the server before checkout. If the verification
+            email does not arrive, check your Spam or Junk folder.
           </span>
         </div>
 
