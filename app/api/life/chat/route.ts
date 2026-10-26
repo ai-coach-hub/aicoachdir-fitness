@@ -75,6 +75,13 @@ export async function POST(request:Request) {
  let body:Record<string,unknown>;
  try{body=await request.json();}catch{return json({ok:false,error:"Invalid request."},400);}
  const message=typeof body.message==="string"?body.message.trim():"";
+
+ const supplied=typeof body.conversationId==="string"?body.conversationId.trim():"";
+ const newConversationId=typeof body.newConversationId==="string"?body.newConversationId.trim():"";
+ if(supplied && newConversationId) return json({ok:false,error:"Conflicting conversation identifiers."},400);
+ const id=supplied||newConversationId||`life-coach-${crypto.randomUUID()}`;
+ if(!/^life-coach-[a-zA-Z0-9_-]{8,90}$/.test(id)||!message||message.length>6000)
+  return json({ok:false,error:"Invalid conversation or message."},400);
  // Usage questions are answered from the authenticated ledger without an AI charge.
  if(/(?:how many|how much|what(?:'s| is)|show|tell|check|remaining|left)\b[^\n]{0,100}\b(?:uses|credits|messages|responses|allowance|quota)\b/i.test(message) ||
     /\b(?:uses|credits|messages|responses|allowance|quota)\b[^\n]{0,70}\b(?:remaining|left|used)\b/i.test(message)){
@@ -85,15 +92,10 @@ export async function POST(request:Request) {
     :usage.kind==="launch"
     ? `You have ${usage.remaining} of ${usage.limit} complimentary Life Coach uses remaining. Fitness and Budgeting remain on your existing allowance until renewal.`
     :"I can't verify your remaining AI uses yet. Your current coaching access is unchanged.";
-   return json({ok:true,response,conversationId:typeof body.conversationId==="string"?body.conversationId:"",source:"member-usage"});
+   await saveLifeTurn(member,id,message,response);
+   return json({ok:true,response,conversationId:id,source:"member-usage"});
  }
 
- const supplied=typeof body.conversationId==="string"?body.conversationId.trim():"";
- const newConversationId=typeof body.newConversationId==="string"?body.newConversationId.trim():"";
- if(supplied && newConversationId) return json({ok:false,error:"Conflicting conversation identifiers."},400);
- const id=supplied||newConversationId||`life-coach-${crypto.randomUUID()}`;
- if(!/^life-coach-[a-zA-Z0-9_-]{8,90}$/.test(id)||!message||message.length>6000)
-  return json({ok:false,error:"Invalid conversation or message."},400);
  let prior="";
  let sameThreadUserEntries: {text:string;date:string}[]=[];
  try {
