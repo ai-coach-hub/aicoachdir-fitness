@@ -201,13 +201,6 @@ export default function HomePage() {
         </article>
       </section>
 
-      <section className="notice-panel" aria-label="Important information">
-        <p>
-          AI guidance can be inaccurate and is not a substitute for professional advice.{" "}
-          <Link href="/terms">Read the Terms &amp; Conditions.</Link>
-        </p>
-      </section>
-
       <section className="coming-soon-section" aria-labelledby="coming-soon-title">
         <div className="coming-soon-header">
           <div>
@@ -258,6 +251,9 @@ export default function HomePage() {
           <Link href="/fitness/signup">New Subscription</Link>
         </div>
 
+        <p className="trademark-notice">
+          AI guidance may be inaccurate and is not a substitute for professional advice. See <Link href="/terms">Terms &amp; Conditions</Link>.
+        </p>
         <p className="trademark-notice">
           © 2026 KCB Integrative LLC. All rights reserved. Third-party marks belong to their respective owners.
         </p>
