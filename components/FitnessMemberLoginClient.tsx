@@ -121,24 +121,6 @@ export default function FitnessMemberLoginClient({
 
   return (
     <>
-      <div className="verification-reminder" role="note">
-        <strong>Already used Fitness Coach before?</strong>
-        <span>
-          If your email is not recognized here, your older Fitness Coach account
-          may still be in Pickaxe and simply needs a one-time AI Coach Directory
-          login activation. You will not be charged again.
-        </span>
-      </div>
-
-      <div className="cta-row">
-        <Link href="/fitness/legacy-account" className="primary-button">
-          Activate my existing member login
-        </Link>
-        <Link href="/manage-subscription" className="secondary-button">
-          Manage or Cancel Subscription
-        </Link>
-      </div>
-
       <div style={{ display: "flex", justifyContent: "center", margin: "28px 0" }}>
         <SignIn
           routing="hash"
@@ -147,17 +129,24 @@ export default function FitnessMemberLoginClient({
         />
       </div>
 
+      <p className="microcopy">
+        Already subscribed? Sign in with the email you used for your membership.
+        Signing in will not create a new charge.
+      </p>
+      <details className="member-login-help">
+        <summary>Need help accessing an older account?</summary>
+        <p>If you previously used Fitness Coach and your membership is not recognized, you can connect your existing account without purchasing a new subscription.</p>
+        <div className="cta-row">
+          <Link href="/fitness/legacy-account" className="secondary-button">Connect existing account</Link>
+          <Link href="/manage-subscription" className="secondary-button">Manage subscription</Link>
+        </div>
+      </details>
       <div className="cta-row">
         <Link href="/" className="secondary-button">
           Back to AI Coach Directory
         </Link>
       </div>
 
-      <p className="microcopy">
-        All members can use the same sign-in above. If you already subscribe,
-        use the same email you originally registered with. You will not be
-        charged again just for connecting your login.
-      </p>
     </>
   );
 }
