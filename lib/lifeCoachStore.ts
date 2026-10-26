@@ -134,3 +134,24 @@ export async function saveLifeTurn(member: string,id: string,question: string,an
     ('assistant',${answer.slice(0,10000)})
   ) AS turn(role,body)`;
 }
+
+// Read-only, member-scoped list of explicit goals. Never infer goals from model output.
+export async function listLifeGoals(member: string): Promise<{text:string;date:string}[]> {
+  const sql=await db();
+  const rows=await sql`SELECT body,created_at FROM life_chat_messages
+    WHERE member_id=${member} AND role='user'
+      AND (lower(body) LIKE '%my goal%' OR lower(body) LIKE '%my priority%'
+        OR lower(body) LIKE '%i want to%' OR lower(body) LIKE '%i plan to%'
+        OR lower(body) LIKE '%i aim to%' OR lower(body) LIKE '%i would like%')
+    ORDER BY id DESC LIMIT 80`;
+  const seen=new Set<string>();
+  return rows.flatMap(row=>{
+    const text=String(row.body).trim().replace(/\\s+/g," ").slice(0,450);
+    if(!/\\b(?:my goal|my priority|i want to|i plan to|i aim to|i(?:'d| would) like to)\\b/i.test(text) ||
+       /\\b(?:what|which) (?:was|is|were|are) my (?:goal|priority)\\b/i.test(text))return [];
+    const key=text.toLowerCase();
+    if(seen.has(key))return [];
+    seen.add(key);
+    return [{text,date:String(row.created_at).slice(0,10)}];
+  }).slice(0,12);
+}
