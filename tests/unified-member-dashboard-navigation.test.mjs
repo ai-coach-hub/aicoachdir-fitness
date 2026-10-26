@@ -35,3 +35,10 @@ test("returning member coach gateways never substitute an unverified secondary e
    assert.doesNotMatch(source,/user\.emailAddresses\[0\]\?\.emailAddress/);
  }
 });
+
+test("Fitness history resolves only the member's verified primary identity",()=>{
+ const source=read("app/api/fitness/chat/history/route.ts");
+ assert.match(source,/primary\.verification\?\.status !== "verified"/);
+ assert.match(source,/canonicalMemberEmail\(primary\.emailAddress\)/);
+ assert.doesNotMatch(source,/user\.emailAddresses\[0\]\?\.emailAddress/);
+});
