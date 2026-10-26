@@ -9,6 +9,8 @@ const PLAN_NAME = "AI Fitness Coach 2.0";
 const MONTHLY_AMOUNT_CENTS = 1500;
 const WEBHOOK_EVENTS = [
   "checkout.session.completed",
+  "checkout.session.async_payment_succeeded",
+  "checkout.session.async_payment_failed",
   "customer.subscription.updated",
   "customer.subscription.deleted",
 ];

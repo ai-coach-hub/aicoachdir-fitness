@@ -47,3 +47,10 @@ test("webhook supports delayed Checkout payment success without trusting unpaid 
  assert.match(text,/email && clerkUserId && subscriptionId && customerId && paid/);
  assert.match(text,/verifyStripeWebhook\(rawBody, signature, origin\)/);
 });
+
+test("new Stripe webhook endpoints include delayed checkout payment outcomes",async()=>{
+ const text=await source("lib/stripeServer.ts");
+ assert.match(text,/"checkout.session.completed"/);
+ assert.match(text,/"checkout.session.async_payment_succeeded"/);
+ assert.match(text,/"checkout.session.async_payment_failed"/);
+});
