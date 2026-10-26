@@ -32,7 +32,7 @@ export default async function FitnessSignupPage({ searchParams }: SignupPageProp
         <Image src="/images/ai-coach-directory-logo.jpg" alt="AI Coach Directory" width={92} height={92} className="signup-brand-logo" />
         <div>
           <p className="eyebrow">AI COACH DIRECTORY</p>
-          <p className="signup-brand-copy">AI Coach Directory membership review</p>
+          <p className="signup-brand-copy">One account for your AI coaching membership.</p>
         </div>
         <Link href="/" className="back-link">← Back to AI Coach Directory</Link>
       </section>
@@ -40,8 +40,8 @@ export default async function FitnessSignupPage({ searchParams }: SignupPageProp
       <section className="returning-member-callout" aria-label="Returning member login">
         <div>
           <p className="eyebrow compact-eyebrow">ALREADY SUBSCRIBED?</p>
-          <h2>Returning members can go straight to sign in.</h2>
-          <p>You do not need to repeat the new-subscription Terms flow just to access your existing AI Coach Directory membership.</p>
+          <h2>Already a member? Sign in.</h2>
+          <p>Keep using your coaches and saved tools without signing up again.</p>
         </div>
         <Link href={`/fitness/login${destinationQuery}`} className="secondary-button returning-login-button">Member Login</Link>
       </section>
