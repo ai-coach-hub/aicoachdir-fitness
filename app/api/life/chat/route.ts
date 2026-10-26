@@ -97,6 +97,15 @@ export async function POST(request:Request) {
     return json({ok:false,error:"This conversation already exists. Open it from Previous chats."},409);
    }
   }
+
+  if(supplied) {
+   const existing=await readLifeThread(member,id);
+   if(!existing)return json({ok:false,error:"Conversation not found."},404);
+   sameThreadUserEntries=existing.filter(m=>m.role==="user").slice(-12).reverse().map(m=>({text:m.text,date:m.createdAt.slice(0,10)}));
+   // Do not repeat older model replies denying access to history.
+   const clean=existing.filter(m=>m.role==="user" || !/\b(?:can\x27t|cannot|don\x27t|do not|no)\b.{0,80}\b(?:access|see|remember|retrieve)\b.{0,80}\b(?:earlier|previous|past|conversation|chat|history)\b/i.test(m.text));
+   prior=clean.slice(-8).map(m=>m.role+": "+m.text.slice(0,400)).join("\n").slice(0,2100);
+  }
   // Usage questions are answered from the authenticated ledger without an AI charge.
   if(/(?:how many|how much|what(?:'s| is)|show|tell|check|remaining|left)\b[^\n]{0,100}\b(?:uses|credits|messages|responses|allowance|quota)\b/i.test(message) ||
      /\b(?:uses|credits|messages|responses|allowance|quota)\b[^\n]{0,70}\b(?:remaining|left|used)\b/i.test(message)){
@@ -111,14 +120,6 @@ export async function POST(request:Request) {
     return json({ok:true,response,conversationId:id,source:"member-usage"});
   }
 
-  if(supplied) {
-   const existing=await readLifeThread(member,id);
-   if(!existing)return json({ok:false,error:"Conversation not found."},404);
-   sameThreadUserEntries=existing.filter(m=>m.role==="user").slice(-12).reverse().map(m=>({text:m.text,date:m.createdAt.slice(0,10)}));
-   // Do not repeat older model replies denying access to history.
-   const clean=existing.filter(m=>m.role==="user" || !/\b(?:can\x27t|cannot|don\x27t|do not|no)\b.{0,80}\b(?:access|see|remember|retrieve)\b.{0,80}\b(?:earlier|previous|past|conversation|chat|history)\b/i.test(m.text));
-   prior=clean.slice(-8).map(m=>m.role+": "+m.text.slice(0,400)).join("\n").slice(0,2100);
-  }
   const urgent=urgentLifeCoachReply(message);
   if(urgent!==null) {
    // Urgent guidance must not be withheld if preview conversation storage
