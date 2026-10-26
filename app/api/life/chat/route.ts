@@ -75,18 +75,6 @@ export async function POST(request:Request) {
  let body:Record<string,unknown>;
  try{body=await request.json();}catch{return json({ok:false,error:"Invalid request."},400);}
  const message=typeof body.message==="string"?body.message.trim():"";
- // Usage questions are answered from the authenticated ledger without an AI charge.
- if(/(?:how many|how much|what(?:'s| is)|show|tell|check|remaining|left)\b[^\n]{0,100}\b(?:uses|credits|messages|responses|allowance|quota)\b/i.test(message) ||
-    /\b(?:uses|credits|messages|responses|allowance|quota)\b[^\n]{0,70}\b(?:remaining|left|used)\b/i.test(message)){
-   const {memberUsageDisplay}=await import("@/lib/memberUsageDisplay");
-   const usage=await memberUsageDisplay(email);
-   const response=usage.kind==="shared"
-    ? `You have ${usage.remaining} of ${usage.limit} shared AI uses remaining this billing period.`
-    :usage.kind==="launch"
-    ? `You have ${usage.remaining} of ${usage.limit} complimentary Life Coach uses remaining. Fitness and Budgeting remain on your existing allowance until renewal.`
-    :"I can't verify your remaining AI uses yet. Your current coaching access is unchanged.";
-   return json({ok:true,response,conversationId:typeof body.conversationId==="string"?body.conversationId:"",source:"member-usage"});
- }
 
  const supplied=typeof body.conversationId==="string"?body.conversationId.trim():"";
  const newConversationId=typeof body.newConversationId==="string"?body.newConversationId.trim():"";
@@ -94,6 +82,7 @@ export async function POST(request:Request) {
  const id=supplied||newConversationId||`life-coach-${crypto.randomUUID()}`;
  if(!/^life-coach-[a-zA-Z0-9_-]{8,90}$/.test(id)||!message||message.length>6000)
   return json({ok:false,error:"Invalid conversation or message."},400);
+
  let prior="";
  let sameThreadUserEntries: {text:string;date:string}[]=[];
  try {
@@ -108,6 +97,7 @@ export async function POST(request:Request) {
     return json({ok:false,error:"This conversation already exists. Open it from Previous chats."},409);
    }
   }
+
   if(supplied) {
    const existing=await readLifeThread(member,id);
    if(!existing)return json({ok:false,error:"Conversation not found."},404);
@@ -116,6 +106,20 @@ export async function POST(request:Request) {
    const clean=existing.filter(m=>m.role==="user" || !/\b(?:can\x27t|cannot|don\x27t|do not|no)\b.{0,80}\b(?:access|see|remember|retrieve)\b.{0,80}\b(?:earlier|previous|past|conversation|chat|history)\b/i.test(m.text));
    prior=clean.slice(-8).map(m=>m.role+": "+m.text.slice(0,400)).join("\n").slice(0,2100);
   }
+  // Usage questions are answered from the authenticated ledger without an AI charge.
+  if(/(?:how many|how much|what(?:'s| is)|show|tell|check|remaining|left)\b[^\n]{0,100}\b(?:uses|credits|messages|responses|allowance|quota)\b/i.test(message) ||
+     /\b(?:uses|credits|messages|responses|allowance|quota)\b[^\n]{0,70}\b(?:remaining|left|used)\b/i.test(message)){
+    const {memberUsageDisplay}=await import("@/lib/memberUsageDisplay");
+    const usage=await memberUsageDisplay(email);
+    const response=usage.kind==="shared"
+     ? `You have ${usage.remaining} of ${usage.limit} shared AI uses remaining this billing period.`
+     :usage.kind==="launch"
+     ? `You have ${usage.remaining} of ${usage.limit} complimentary Life Coach uses remaining. Fitness and Budgeting remain on your existing allowance until renewal.`
+     :"I can't verify your remaining AI uses yet. Your current coaching access is unchanged.";
+    await saveLifeTurn(member,id,message,response);
+    return json({ok:true,response,conversationId:id,source:"member-usage"});
+  }
+
   const urgent=urgentLifeCoachReply(message);
   if(urgent!==null) {
    // Urgent guidance must not be withheld if preview conversation storage
