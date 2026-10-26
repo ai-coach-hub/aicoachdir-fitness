@@ -6,7 +6,7 @@ import styles from "./home.module.css";
 
 const homepageTitle = "AI Coach Directory | Specialized AI Coaching";
 const homepageDescription =
-  "Purpose-built AI coaching for fitness and budgeting, with specialized tools that help turn guidance into action.";
+  "Purpose-built AI coaching for fitness, budgeting, and personal growth, with practical tools that help turn guidance into action.";
 
 // Canonical and social URLs resolve against metadataBase in app/layout.tsx.
 export const metadata: Metadata = {
