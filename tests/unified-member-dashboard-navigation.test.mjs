@@ -26,3 +26,12 @@ test("eligible Life Coach members see My Goals in member tools without a second 
  const css=read("app/dashboard/dashboard.module.css");
  assert.match(css,/grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,260px\),1fr\)\)/);
 });
+
+test("returning member coach gateways never substitute an unverified secondary email",()=>{
+ for(const path of ["app/fitness/chat/layout.tsx","app/budgeting/launch/route.ts"]){
+   const source=read(path);
+   assert.match(source,/primary\.verification\?\.status !== "verified"/);
+   assert.match(source,/return primary\.emailAddress\.trim\(\)\.toLowerCase\(\)/);
+   assert.doesNotMatch(source,/user\.emailAddresses\[0\]\?\.emailAddress/);
+ }
+});
