@@ -24,9 +24,8 @@ function primaryEmailForUser(user: Awaited<ReturnType<typeof currentUser>>) {
   if (!user) return "";
   const primaryId = user.primaryEmailAddressId;
   const primary = user.emailAddresses.find((item) => item.id === primaryId);
-  return canonicalMemberEmail(
-    primary?.emailAddress || user.emailAddresses[0]?.emailAddress || "",
-  );
+  if (!primary || primary.verification?.status !== "verified") return "";
+  return canonicalMemberEmail(primary.emailAddress);
 }
 
 function getStudioToken() {
