@@ -99,7 +99,7 @@ export default function HomePage() {
           <Link href="/fitness/signup" className="primary-button">Get Started</Link>
           <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
         </div>
-        <p className={styles.heroPlanNote}>$15/month · One membership · Automatically renews until canceled</p>
+        <p className={styles.heroPlanNote}>$15/month · One membership · 400 AI Coach messages/month · Automatically renews until canceled</p>
       </section>
 
       <section className="live-coaches-grid" aria-label="Available AI coaches">
@@ -181,36 +181,6 @@ export default function HomePage() {
             </div>
           </article>
         )}
-      </section>
-
-      <section className="coach-offer" aria-labelledby="coach-offer-title">
-        <div className="coach-identity">
-          <div>
-            <p className="eyebrow compact-eyebrow">YOUR MEMBERSHIP</p>
-            <h2 id="coach-offer-title">{plan.name}</h2>
-            <p>{lifeAvailable ? "Fitness with My Workouts, Budgeting with My Budget, and Life Coach are included with one membership." : "Access both the Fitness Coach with My Workouts and the Budgeting Coach with My Budget."}</p>
-          </div>
-        </div>
-        <div className="offer-stat">
-          <strong>{plan.price}</strong>
-          <span>/ {plan.cadence}</span>
-          <small>Automatically renews until canceled</small>
-        </div>
-        <div className="offer-stat">
-          <strong>{plan.uses}</strong>
-          <span> AI Coach Messages / month</span>
-        </div>
-        <div className="offer-action">
-          <Link href="/fitness/signup" className="primary-button">Get Started</Link>
-          <Link href={memberLoginUrl} className="secondary-button member-login-offer">Member Dashboard / Login</Link>
-        </div>
-      </section>
-
-      <section className="coach-difference-section" aria-labelledby="coach-difference-title">
-        <div className="coach-difference-heading">
-          <h2 id="coach-difference-title">Coaching built for your goals, not generic answers.</h2>
-          <p>Each coach offers focused guidance and practical tools you can return to.</p>
-        </div>
       </section>
 
       <section className="feature-grid" id="how-it-works" aria-label="How AI Coach Directory works">
