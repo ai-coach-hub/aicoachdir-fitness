@@ -17,7 +17,7 @@ export default function FitnessCheckoutCard({ destination = "fitness" }: { desti
     setErrorAction(null);
 
     try {
-      const response = await fetch("/fitness/api/billing/create-checkout-session", {
+      const response = await fetch("/api/billing/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
@@ -59,7 +59,7 @@ export default function FitnessCheckoutCard({ destination = "fitness" }: { desti
       <h1 id="fitness-checkout-heading">Confirm your AI Coach Directory membership</h1>
       <p>
         Your existing sign-in will be kept. Continue to secure checkout for
-        the $15/month AI Coach Directory membership, which currently includes Fitness and Budgeting with 400 AI Coach Messages per month. If you are returning after cancellation, your existing account stays the same.
+        the $15/month AI Coach Directory membership, which includes Fitness, Budgeting, and Life Coach with 400 AI Coach Messages per month. If you are returning after cancellation, your existing account stays the same.
       </p>
 
       <button
@@ -83,8 +83,7 @@ export default function FitnessCheckoutCard({ destination = "fitness" }: { desti
       ) : null}
 
       <p className="microcopy center">
-        Your subscription renews automatically until canceled. You will return
-        to the coach you selected after checkout is confirmed.
+        Your subscription renews automatically until canceled. After checkout is confirmed, you can open your selected coach or return to your member dashboard.
       </p>
     </section>
   );
