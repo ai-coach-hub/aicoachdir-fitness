@@ -126,7 +126,8 @@ export async function POST(request: Request) {
   const object = record(record(event.data).object);
 
   try {
-    if (eventType === "checkout.session.completed") {
+    if (eventType === "checkout.session.completed" ||
+        eventType === "checkout.session.async_payment_succeeded") {
       const email = metadataEmail(object);
       const subscriptionId = string(object.subscription);
       const customerId = string(object.customer);
