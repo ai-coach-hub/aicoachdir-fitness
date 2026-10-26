@@ -78,3 +78,10 @@
 }
 .replyHeading:first-child { margin-top: 2px; }
 .replySpacer { display: block; height: 8px; }
+
+.goalsButton{display:block;width:100%;margin:0 0 12px;padding:11px 14px;border:1px solid #496783;background:#12283a;color:#eef7ff;border-radius:10px;text-align:left;font-weight:700;cursor:pointer}
+.goalsButton:disabled{opacity:.5;cursor:not-allowed}
+.goalsPanel{border:1px solid #35556d;border-radius:12px;padding:12px;margin-bottom:16px;max-height:240px;overflow-y:auto;color:#d7ecf5}
+.goalsPanel p{margin:0 0 10px;line-height:1.5;overflow-wrap:anywhere}
+.goalsPanel p:last-child{margin-bottom:0}
+.goalEntry{padding-bottom:9px;border-bottom:1px solid #35556d}
