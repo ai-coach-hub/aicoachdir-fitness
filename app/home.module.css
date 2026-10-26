@@ -28,3 +28,21 @@
     line-height: 1.45;
   }
 }
+
+/* Keep the primary signup action visible without crowding the coach cards. */
+.conversionHero {
+  padding-top: 28px;
+}
+
+.heroPlanNote {
+  margin: 14px 0 0;
+  color: #a9b8c9;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .conversionHero {
+    padding-top: 20px;
+  }
+}
