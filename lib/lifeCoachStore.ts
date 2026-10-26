@@ -146,9 +146,9 @@ export async function listLifeGoals(member: string): Promise<{text:string;date:s
     ORDER BY id DESC LIMIT 80`;
   const seen=new Set<string>();
   return rows.flatMap(row=>{
-    const text=String(row.body).trim().replace(/\\s+/g," ").slice(0,450);
-    if(!/\\b(?:my goal|my priority|i want to|i plan to|i aim to|i(?:'d| would) like to)\\b/i.test(text) ||
-       /\\b(?:what|which) (?:was|is|were|are) my (?:goal|priority)\\b/i.test(text))return [];
+    const text=String(row.body).trim().replace(/\s+/g," ").slice(0,450);
+    if(!/\b(?:my goal|my priority|i want to|i plan to|i aim to|i(?:'d| would) like to)\b/i.test(text) ||
+       /\b(?:what|which) (?:was|is|were|are) my (?:goal|priority)\b/i.test(text))return [];
     const key=text.toLowerCase();
     if(seen.has(key))return [];
     seen.add(key);
