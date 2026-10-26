@@ -39,3 +39,11 @@ test("webhook persists active Stripe membership before granting Pickaxe access",
   assert.ok(activeBranch.indexOf("await grantFitnessAccess") >= 0);
   assert.ok(activeBranch.indexOf("await saveFitnessMembership") < activeBranch.indexOf("await grantFitnessAccess"));
 });
+
+test("webhook supports delayed Checkout payment success without trusting unpaid sessions",async()=>{
+ const text=await source("app/api/billing/webhook/route.ts");
+ assert.match(text,/eventType === "checkout.session.async_payment_succeeded"/);
+ assert.match(text,/const paid = string\(object.payment_status\) === "paid"/);
+ assert.match(text,/email && clerkUserId && subscriptionId && customerId && paid/);
+ assert.match(text,/verifyStripeWebhook\(rawBody, signature, origin\)/);
+});
