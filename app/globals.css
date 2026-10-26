@@ -1555,3 +1555,23 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
 /* Keep workout completion count and history link legible together. */
 .workout-history-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
 .workout-history-summary a { display: inline-flex; line-height: 1.45; }
+
+/* Keep existing-member recovery available without competing with the sign-in form. */
+.member-login-help {
+  margin: 24px auto 0;
+  max-width: 550px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.member-login-help summary {
+  cursor: pointer;
+  color: #cbd5e2;
+  font-weight: 650;
+}
+.member-login-help[open] {
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.member-login-help .cta-row { margin-top: 14px; }
