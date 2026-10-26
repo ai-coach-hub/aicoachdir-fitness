@@ -18,7 +18,7 @@ function CoachResponse({text}:{text:string}){
    : <span key={index} aria-hidden="true" className={styles.replySpacer}/>)}
  </span>;
 }
-export default function LifeChat({privatePreview=false}:{privatePreview?:boolean}){
+export default function LifeChat({privatePreview=false,initialGoals=false}:{privatePreview?:boolean;initialGoals?:boolean}){
  const [threads,setThreads]=useState<Thread[]>([]);
  const [historyState,setHistoryState]=useState<"loading"|"ready"|"error">("loading");
  const [id,setId]=useState("");
@@ -35,6 +35,7 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
   const [availability,setAvailability]=useState<"loading"|"available"|"pending_renewal"|"not_entitled"|"preview"|"unavailable">("loading");
  const end=useRef<HTMLDivElement>(null);
  const pendingRequest=useRef<{key:string;message:string;conversationId:string;newConversationId:string}|null>(null);
+ const initialGoalsOpened=useRef(false);
  const [intro,setIntro]=useState(intros[0]);
  useEffect(()=>setIntro(intros[Math.floor(Math.random()*intros.length)]),[]);
  const loadThreads=async()=>{try{
@@ -56,6 +57,7 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
    setGoals(j.goals);setGoalsState("ready");
   }catch{setGoalsState("error");}
  };
+ useEffect(()=>{if(initialGoals&&!initialGoalsOpened.current){initialGoalsOpened.current=true;void openGoals();}},[initialGoals]);
  const loadUsage=async()=>{try{
   const r=await fetch("/api/life/usage-test",{cache:"no-store"});
   if(!r.ok)return;
@@ -141,7 +143,7 @@ export default function LifeChat({privatePreview=false}:{privatePreview?:boolean
      {goalsState==="loading"&&<p role="status">Loading saved goals…</p>}
      {goalsState==="error"&&<p role="alert">Saved goals could not be loaded. Your conversations are unchanged.</p>}
      {goalsState==="ready"&&goals.length===0&&<p>No saved goals found yet. Tell Life Coach “My goal is…” to save one in a conversation.</p>}
-     {goalsState==="ready"&&goals.map((g,i)=><p key={i} className={styles.goalEntry}>{g.text}</p>)}
+     {goalsState==="ready"&&goals.map((g,i)=><div key={i} className={styles.goalEntry}><p>{g.text}</p><button className={styles.goalContinue} type="button" disabled={busy||openingThread} onClick={()=>{pendingRequest.current=null;setId("");setMessages([]);setError("");setInput("Help me take a practical next step toward this goal: "+g.text);setShowGoals(false);}}>Continue with Life Coach</button></div>)}
     </div>}
    <button className={styles.newButton} type="button" disabled={busy||openingThread} onClick={()=>{pendingRequest.current=null;setId("");setMessages([]);setError("");}}>New Chat</button>
    <div className={styles.threadList}>
