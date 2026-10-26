@@ -18,3 +18,11 @@ test("public pages guide returning members through one login without changing si
  assert.match(read("app/page.tsx"),/Member Dashboard \/ Login/);
  assert.match(read("components/SiteHeader.tsx"),/href="\/fitness\/login"/);
 });
+
+test("eligible Life Coach members see My Goals in member tools without a second login",()=>{
+ const dashboard=read("app/dashboard/page.tsx");
+ assert.match(dashboard,/lifeAvailable && <Link href="\/life\?goals=1"><strong>My Goals<\/strong>/);
+ assert.match(dashboard,/Saved goals and habits/);
+ const css=read("app/dashboard/dashboard.module.css");
+ assert.match(css,/grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,260px\),1fr\)\)/);
+});
