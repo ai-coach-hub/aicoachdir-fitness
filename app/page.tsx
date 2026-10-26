@@ -89,28 +89,11 @@ export default function HomePage() {
     <main className="site-shell">
       <SiteHeader />
 
-      <section className={`brand-showcase ${styles.compactBrandShowcase}`} aria-label="AI Coach Directory">
-        <Image
-          src="/images/ai-coach-directory-logo.jpg"
-          alt="AI Coach Directory logo"
-          width={220}
-          height={220}
-          loading="eager"
-          sizes="(max-width: 720px) 108px, 180px"
-          className={`brand-showcase-logo ${styles.compactBrandLogo}`}
-        />
-        <div>
-          <p className="eyebrow">AI COACH DIRECTORY</p>
-          <h2>Coaching support powered by AI, built around your goals.</h2>
-          <p>Choose the coaching experience that fits what you want to improve right now.</p>
-        </div>
-      </section>
-
       <section className={`hero-copy-section live-coach-hero ${styles.conversionHero}`}>
         <p className="eyebrow">PERSONALIZED COACHING · ONE MEMBERSHIP</p>
-        <h1>Make progress with a coach built for you. <span>All in one place.</span></h1>
+        <h1>Coaching for your goals. <span>All in one place.</span></h1>
         <p className="lede">
-          Build a workout plan, take control of your budget{lifeAvailable ? ", and work toward personal goals" : ""}. Pick the coach you need, and return to your saved work from one member dashboard.
+          Personalized fitness and budgeting support{lifeAvailable ? ", plus help building better habits" : ""}. One login, your saved work, and practical tools whenever you need them.
         </p>
         <div className="cta-row">
           <Link href="/fitness/signup" className="primary-button">Get Started</Link>
@@ -136,7 +119,7 @@ export default function HomePage() {
             <p className="eyebrow">AI COACHING FOR FITNESS</p>
             <h2>Build a stronger fitness routine that works for you.</h2>
             <p>
-              Get personalized guidance for workouts, progress, and staying consistent with your goals.
+              Plan workouts, make adjustments, and track your progress.
             </p>
             <div className="cta-row">
               <Link href="/fitness/signup?destination=fitness" className="primary-button">Start Fitness Coach</Link>
@@ -162,7 +145,7 @@ export default function HomePage() {
             <p className="eyebrow">AI COACHING FOR BUDGETING</p>
             <h2>Take control of your budget and plan with confidence.</h2>
             <p>
-              Get practical guidance for monthly planning, tracking spending, and making informed financial decisions.
+              Plan your month, track spending, and make confident money decisions.
             </p>
             <div className="cta-row">
               <Link href="/fitness/signup?destination=budget-coach" className="primary-button">Start Budgeting Coach</Link>
@@ -230,7 +213,7 @@ export default function HomePage() {
             General AI Can Answer Your Questions. <span>Our AI Is Built to Coach You.</span>
           </h2>
           <p>
-            Our AI Coaches are purpose-built to provide a more personalized, focused, and useful experience than a general AI assistant.
+            Focused coaching, useful tools, and continuity between conversations.
           </p>
         </div>
 
@@ -293,8 +276,6 @@ export default function HomePage() {
           AI-generated responses may be incomplete, inaccurate, or unsuitable for your circumstances. The service is not medical care or a substitute for professional medical, nutritional, or fitness advice. Review the complete Terms & Conditions before subscribing.
         </p>
         <div className="cta-row">
-          <Link href="/fitness/signup" className="primary-button">Get Started</Link>
-          <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
           <Link href="/terms" className="secondary-button">Read Full Terms</Link>
         </div>
       </section>
