@@ -3,7 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { lifeTester } from "@/lib/lifeCoachAccess";
 import LifeChat from "./LifeChat";
 export const dynamic = "force-dynamic";
-export default async function LifePage({searchParams}:{searchParams:Promise<{goals?:string}>}) {
+export default async function LifePage({searchParams=Promise.resolve({})}:{searchParams?:Promise<{goals?:string}>}={}) {
   const params=await searchParams;
   const initialGoals=params.goals==="1";
   const id = await lifeTester();
