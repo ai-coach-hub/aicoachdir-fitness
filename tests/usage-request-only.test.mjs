@@ -11,9 +11,10 @@ test("Life Coach can return verified usage on demand without AI consumption",()=
  const route=read("app/api/life/chat/route.ts");
  assert.match(route,/memberUsageDisplay\(email\)/);
  const start=route.indexOf("if(/(?:how many");
- const next=route.indexOf("const supplied=",start);
+ const next=route.indexOf("const urgent=urgentLifeCoachReply(message)",start);
  assert.ok(start>0 && next>start);
  const block=route.slice(start,next);
  assert.match(block,/source:"member-usage"/);
+ assert.match(block,/await saveLifeTurn\(member,id,message,response\)/);
  assert.doesNotMatch(block,/reserveSharedUsage|reserveLifeLaunch|completeLifeCoachRequest/);
 });
