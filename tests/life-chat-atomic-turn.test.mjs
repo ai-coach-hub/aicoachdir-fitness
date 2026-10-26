@@ -5,7 +5,8 @@ const store=readFileSync(new URL("../lib/lifeCoachStore.ts",import.meta.url),"ut
 test("a complete chat turn is inserted in one atomic SQL statement",()=>{
  const start=store.indexOf("export async function saveLifeTurn(");
  assert.ok(start>0);
- const source=store.slice(start);
+ const end=store.indexOf("export async function listLifeGoals(",start);
+ const source=store.slice(start,end>start?end:undefined);
  assert.match(source,/WITH thread AS \(/);
  assert.match(source,/INSERT INTO life_chat_threads/);
  assert.match(source,/INSERT INTO life_chat_messages/);
