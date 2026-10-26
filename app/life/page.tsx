@@ -3,11 +3,13 @@ import { currentUser } from "@clerk/nextjs/server";
 import { lifeTester } from "@/lib/lifeCoachAccess";
 import LifeChat from "./LifeChat";
 export const dynamic = "force-dynamic";
-export default async function LifePage() {
+export default async function LifePage({searchParams=Promise.resolve({})}:{searchParams?:Promise<{goals?:string}>}={}) {
+  const params=await searchParams;
+  const initialGoals=params.goals==="1";
   const id = await lifeTester();
   if (id) return <main className="site-shell" style={{padding:"32px 0"}}>
     <Link href={process.env.VERCEL_ENV==="production" ? "/dashboard" : "/"} className="secondary-button" style={{display:"inline-flex",marginBottom:20}}>{process.env.VERCEL_ENV==="production" ? "Dashboard" : "AI Coach Directory"}</Link>
-    <LifeChat privatePreview={process.env.VERCEL_ENV==="preview"}/>
+    <LifeChat privatePreview={process.env.VERCEL_ENV==="preview"} initialGoals={initialGoals}/>
   </main>;
   const user = await currentUser();
   const production = process.env.VERCEL_ENV === "production";

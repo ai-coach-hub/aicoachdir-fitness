@@ -43,3 +43,14 @@ test("My Goals retrieves only member-owned explicit goals without an AI request"
  assert.match(ui,/fetch\("\/api\/life\/chat\?goals=1"/);
  assert.match(ui,/My Goals/);
 });
+
+test("My Goals direct link opens the goal list and selecting a goal drafts a coaching request without sending",()=>{
+ const page=readFileSync(new URL("../app/life/page.tsx",import.meta.url),"utf8");
+ const dashboard=readFileSync(new URL("../app/dashboard/page.tsx",import.meta.url),"utf8");
+ assert.match(dashboard,/href="\/life\?goals=1"/);
+ assert.match(page,/initialGoals=\{initialGoals\}/);
+ assert.match(ui,/initialGoalsOpened\.current=true;void openGoals\(\)/);
+ assert.match(ui,/Continue with Life Coach/);
+ assert.match(ui,/setInput\("Help me take a practical next step toward this goal: "\+g\.text\)/);
+ assert.doesNotMatch(ui,/onClick=\{\(\)=>\{[^}]*send\(/);
+});
