@@ -29,3 +29,17 @@ test("Life Coach usage replies are saved after ownership and replay checks",()=>
  assert.match(route.slice(usage,model),/source:"member-usage"/);
  assert.doesNotMatch(route.slice(usage,model),/reserveSharedUsage\(/);
 });
+
+test("My Goals retrieves only member-owned explicit goals without an AI request",()=>{
+ const store=readFileSync(new URL("../lib/lifeCoachStore.ts",import.meta.url),"utf8");
+ const api=readFileSync(new URL("../app/api/life/chat/route.ts",import.meta.url),"utf8");
+ const ui=readFileSync(new URL("../app/life/LifeChat.tsx",import.meta.url),"utf8");
+ assert.match(store,/export async function listLifeGoals\(member: string\)/);
+ assert.match(store,/WHERE member_id=\$\{member\} AND role='user'/);
+ const readRoute=api.slice(api.indexOf("export async function GET"),api.indexOf("export async function POST"));
+ assert.match(readRoute,/params.get\("goals"\)==="1"/);
+ assert.match(readRoute,/listLifeGoals\(member\)/);
+ assert.doesNotMatch(readRoute,/reserveSharedUsage|completeLifeCoachRequest/);
+ assert.match(ui,/fetch\("\/api\/life\/chat\?goals=1"/);
+ assert.match(ui,/My Goals/);
+});
