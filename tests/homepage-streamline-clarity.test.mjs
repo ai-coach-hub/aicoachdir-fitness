@@ -8,7 +8,7 @@ const header = readFileSync(new URL("../components/SiteHeader.tsx", import.meta.
 test("homepage leads with the coaching proposition instead of duplicate branding", () => {
   const fromHeaderToHero = home.slice(
     home.indexOf("<SiteHeader />"),
-    home.indexOf('className={`hero-copy-section'),
+    home.indexOf('      <section className={`hero-copy-section'),
   );
   assert.equal(fromHeaderToHero.trim(), "<SiteHeader />");
   assert.doesNotMatch(home, /brand-showcase/);
