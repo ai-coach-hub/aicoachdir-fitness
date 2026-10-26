@@ -55,3 +55,15 @@ test("public homepage leads with one membership and clear signup versus member l
  assert.match(signup,/Keep using your coaches and saved tools without signing up again/);
  assert.match(signup,/Returning member login/);
 });
+
+test("signup does not repeat accepted Terms just because browser storage is unavailable",()=>{
+ const createAccount=read("app/fitness/create-account/page.tsx");
+ assert.doesNotMatch(createAccount,/if \(!value\)\s*\{\s*window\.location\.replace\(\`\/fitness\/signup/);
+ assert.match(createAccount,/initialValues=\{email \? \{ emailAddress: email \} : undefined\}/);
+ assert.match(createAccount,/setReady\(true\)/);
+ const subscribe=read("app/fitness/subscribe/page.tsx");
+ assert.match(subscribe,/currentMembershipTermsId\(email\)/);
+ assert.match(subscribe,/if \(!acceptanceId\) redirect\(signupUrl\)/);
+ const checkout=read("app/api/billing/create-checkout-session/route.ts");
+ assert.match(checkout,/currentMembershipTermsId\(email\)/);
+});
