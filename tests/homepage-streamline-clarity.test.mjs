@@ -19,16 +19,16 @@ test("homepage keeps focused signup and login with plain-language renewal disclo
   assert.match(home, /PERSONALIZED COACHING · ONE MEMBERSHIP/);
   assert.match(home, /<Link href="\/fitness\/signup" className="primary-button">Get Started<\/Link>/);
   assert.match(home, /<Link href=\{memberLoginUrl\} className="secondary-button">Member Login<\/Link>/);
-  assert.match(home, /\$15\/month · One membership · Automatically renews until canceled/);
+  assert.match(home, /\$15\/month · One membership · 400 AI Coach messages\/month · Automatically renews until canceled/);
   assert.match(home, /id="how-it-works"/);
   assert.doesNotMatch(home, /coach-difference-grid/);
 });
 
-test("short disclaimer retains access to full Terms without another signup prompt", () => {
-  const disclaimer = home.split('<section className="notice-panel"')[1]?.split("</section>")[0] || "";
-  assert.match(disclaimer, /AI guidance can be inaccurate/);
-  assert.match(disclaimer, /href="\/terms"/);
-  assert.doesNotMatch(disclaimer, /primary-button|secondary-button/);
+test("AI limitations appear only in the small footer and link to Terms", () => {
+  assert.doesNotMatch(home, /<section className="notice-panel"/);
+  const footer = home.split('<footer className="site-footer">')[1] || "";
+  assert.match(footer, /AI guidance may be inaccurate/);
+  assert.match(footer, /href="\/terms"/);
 });
 
 test("Life Coach release gate and future previews remain dynamic", () => {
