@@ -42,3 +42,16 @@ test("Fitness history resolves only the member's verified primary identity",()=>
  assert.match(source,/canonicalMemberEmail\(primary\.emailAddress\)/);
  assert.doesNotMatch(source,/user\.emailAddresses\[0\]\?\.emailAddress/);
 });
+
+test("public homepage leads with one membership and clear signup versus member login",()=>{
+ const home=read("app/page.tsx");
+ assert.match(home,/PERSONALIZED COACHING · ONE MEMBERSHIP/);
+ assert.match(home,/<Link href="\/fitness\/signup" className="primary-button">Get Started<\/Link>/);
+ assert.match(home,/<Link href=\{memberLoginUrl\} className="secondary-button">Member Login<\/Link>/);
+ assert.match(home,/\$15\/month · One membership · Automatically renews until canceled/);
+ assert.match(home,/lifeAvailable \? ", and work toward personal goals" : ""/);
+ const signup=read("app/fitness/signup/page.tsx");
+ assert.match(signup,/Already a member\? Sign in\./);
+ assert.match(signup,/Keep using your coaches and saved tools without signing up again/);
+ assert.match(signup,/Returning member login/);
+});
