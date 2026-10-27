@@ -32,6 +32,7 @@ export default function LifeChat({privatePreview=false,initialGoals=false}:{priv
  const [usageTest,setUsageTest]=useState<{active:boolean;remaining:number;used:number;pending:number;limit:number}|null>(null);
  const [startingTest,setStartingTest]=useState(false);
  const [error,setError]=useState("");
+ const [usageLimitReached,setUsageLimitReached]=useState(false);
   const [availability,setAvailability]=useState<"loading"|"available"|"pending_renewal"|"not_entitled"|"preview"|"unavailable">("loading");
  const end=useRef<HTMLDivElement>(null);
  const pendingRequest=useRef<{key:string;message:string;conversationId:string;newConversationId:string}|null>(null);
@@ -101,10 +102,15 @@ export default function LifeChat({privatePreview=false,initialGoals=false}:{priv
   const requestKey=retry ? previous!.key : `life-${crypto.randomUUID()}`;
   const newConversationId=!id ? (retry ? previous!.newConversationId : `life-coach-${crypto.randomUUID()}`) : "";
   pendingRequest.current={key:requestKey,message,conversationId:id,newConversationId};
-  setBusy(true);setError("");setMessages(a=>[...a,{role:"user",text:message}]);setInput("");
+  setBusy(true);setError("");setUsageLimitReached(false);setMessages(a=>[...a,{role:"user",text:message}]);setInput("");
   try{
    const r=await fetch("/api/life/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,requestKey,...(id?{conversationId:id}:{newConversationId})})});
-   const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||"Life Coach reply could not be saved.");
+   const j=await r.json();
+   if(r.status===429){
+    setUsageLimitReached(true);
+    throw new Error("Your available AI coaching uses have been reached. Your goals and saved conversations remain available. Review your membership options or return when your allowance renews.");
+   }
+   if(!r.ok||!j.ok)throw new Error(j.error||"Life Coach reply could not be saved.");
    pendingRequest.current=null;
    if(privatePreview && usageTest?.active)void loadUsage();
    setId(j.conversationId);setMessages(a=>[...a,{role:"assistant",text:j.response}]);await loadThreads();
@@ -168,6 +174,7 @@ export default function LifeChat({privatePreview=false,initialGoals=false}:{priv
     {busy&&<p>Coach is working…</p>}<div ref={end}/>
    </div>
    {error&&<p role="alert" style={{color:"#ffd39d"}}>{error}</p>}
+   {usageLimitReached&&<p><a href="/manage-subscription" className="primary-button">Review Membership Options</a></p>}
    <form onSubmit={send} className={styles.compose}>
     <input aria-label="Message Life Coach" placeholder="Tell me what you'd like to work on…" value={input} onChange={e=>setInput(e.target.value)} maxLength={6000}/>
     <button disabled={busy||openingThread||!input.trim()} type="submit" className="primary-button">Send</button>
