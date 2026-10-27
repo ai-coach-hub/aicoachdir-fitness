@@ -12,6 +12,6 @@ export function runNewCoachTurn(options:{
  settle:(outcome:"completed"|"released"|"uncertain",identity:{ok:boolean;memberId?:string;memberEmail?:string})=>Promise<string>;
  generate:(identity:{ok:boolean;memberId?:string;memberEmail?:string})=>Promise<
   {kind:"no-model"}|{kind:"generated";reply:string;calls:ProviderCallObservation[]}>;
- saveTurn:(identity:{ok:boolean;memberId?:string;memberEmail?:string},reply:string)=>Promise<void>;
+ saveTurn:(identity:{ok:boolean;memberId?:string;memberEmail?:string},reply:string)=>Promise<"saved"|"already_saved"|"conflict"|"invalid">;
  observe?:(metrics:Readonly<CoachCostSummary>)=>Promise<void>;
 }):Promise<NewCoachTurnResult>;
