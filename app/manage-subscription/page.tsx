@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 const supportEmail = "Ai.coach.hub.domain@gmail.com";
 
 type ManageSubscriptionProps = {
-  searchParams: Promise<{ renewal?: string | string[] }>;
+  searchParams: Promise<{ renewal?: string | string[]; billing?: string | string[] }>;
 };
 
 export default async function ManageSubscriptionPage({ searchParams }: ManageSubscriptionProps) {
@@ -82,6 +82,7 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
   }
 
   const params = await searchParams;
+  const billingError = (Array.isArray(params.billing) ? params.billing[0] : params.billing) === "unavailable";
   const renewalMessage = Array.isArray(params.renewal) ? params.renewal[0] : params.renewal;
   const statusMessage = renewalMessage === "canceled" && billingState === "canceling"
     ? "Your cancellation is confirmed. Automatic renewal is off, and your paid access continues through your current billing period."
@@ -120,6 +121,9 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
         ) : (
           <>
             {statusMessage ? <p role="status">{statusMessage}</p> : null}
+            {billingError ? (
+              <p role="alert">Secure billing management could not open. Your membership and saved work are unchanged. Please use Contact Support below if the issue persists. You do not need to start another subscription.</p>
+            ) : null}
 
             {billingState === "canceling" ? (
               <>
