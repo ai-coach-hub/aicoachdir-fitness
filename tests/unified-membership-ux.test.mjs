@@ -11,7 +11,7 @@ test("billing page treats existing and new members with the same language",async
 test("existing subscriber sign-in never advertises a second paid subscription",async()=>{
  const client=await source("components/FitnessMemberLoginClient.tsx");
  assert.doesNotMatch(client,/Newer AI Coach Directory members|Returning Pickaxe Fitness members only/i);
- assert.match(client,/same email/i);
+ assert.match(client,/email you used for your membership/i);
 });
 test("verified match helper never uses email alone to expose portal",async()=>{
  const portal=await source("app/api/billing/customer-portal/route.ts");
