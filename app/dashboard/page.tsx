@@ -33,9 +33,9 @@ export default async function DashboardPage() {
       {coaches.map(coach => <article key={coach.slug} className={styles.card}>
         <Image src={coach.image} alt={coach.imageAlt} width={800} height={500}/>
         <div><h3>{coach.title}</h3><p>{coach.description}</p>
-          {coach.href && coach.toolHref && coach.toolLabel && <div className={styles.cardActions}>
+          {coach.href && <div className={styles.cardActions}>
             <Link href={coach.href}>Open {coach.title}</Link>
-            <Link href={coach.toolHref} className={styles.toolAction}>{coach.toolLabel}</Link>
+            {coach.toolHref && coach.toolLabel && <Link href={coach.toolHref} className={styles.toolAction}>{coach.toolLabel}</Link>}
           </div>}
         </div>
       </article>)}
