@@ -14,7 +14,7 @@ test("unauthorized or exhausted member does not generate",async()=>{
  assert.equal((await runNewCoachTurn(p)).reason,"not_authorized");
  assert.equal(invoked,0);
  assert.equal((await runNewCoachTurn({...p,authorize:async()=>({ok:true}),reserve:async()=> "exhausted"})).reason,"exhausted");
- assert.equal(invoked,1);
+ assert.equal(invoked,0); // Reserve returned exhausted without calling provider or storage.
 });
 test("records durable history before spending allowance",async()=>{
  const calls=[]; const identity={ok:true,memberId:"synthetic"};
