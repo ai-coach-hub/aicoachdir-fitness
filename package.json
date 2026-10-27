@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:handoff": "node --test tests/modify-workout-handoff-core.test.mjs tests/modify-workout-handoff-db.test.mjs tests/modify-workout-handoff-authoritative-plan.test.mjs tests/modify-workout-handoff-route-core.test.mjs"
+    "test:handoff": "node --test tests/modify-workout-handoff-core.test.mjs tests/modify-workout-handoff-db.test.mjs tests/modify-workout-handoff-authoritative-plan.test.mjs tests/modify-workout-handoff-route-core.test.mjs",
+    "test:coach-foundation": "node --test tests/coach-launch-catalog.test.mjs tests/coach-launch-readiness.test.mjs tests/new-coach-turn-core.test.mjs tests/new-coach-history-port.test.mjs tests/coach-synthetic-journey.test.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.3",
