@@ -21,7 +21,7 @@ test("records durable history before spending allowance",async()=>{
  const result=await runNewCoachTurn({
  authorize:async()=>identity,reserve:async()=>{calls.push("reserve");return "reserved";},
  generate:async()=>{calls.push("generate");return {kind:"generated",reply:"Plan complete",calls:metrics}},
- saveTurn:async()=>{calls.push("save");},settle:async(out)=>{calls.push(out);return out;},
+ saveTurn:async()=>{calls.push("save");return "saved";},settle:async(out)=>{calls.push(out);return out;},
  observe:async()=>{calls.push("observe")},
  });
  assert.equal(result.status,"completed");
@@ -39,4 +39,17 @@ test("storage failure leaves request uncertain rather than refunding or double b
 test("invalid/missing provider cost cannot be treated as zero",async()=>{
  const x=summarizeProviderCalls([{attempts:1,costUsd:null,inputTokens:null,outputTokens:null}]);
  assert.equal(x.costUsd,null);assert.equal(x.inputTokens,null);
+});
+
+test("conflicting or unverified persistence never settles completed",async()=>{
+ for(const result of ["conflict","invalid",undefined]){
+  const events=[];
+  const outcome=await runNewCoachTurn({
+   authorize:async()=>({ok:true}),reserve:async()=>"reserved",
+   generate:async()=>({kind:"generated",reply:"reply",calls:metrics}),
+   saveTurn:async()=>result,settle:async(kind)=>{events.push(kind);return kind;}
+  });
+  assert.equal(outcome.status,"uncertain");
+  assert.deepEqual(events,["uncertain"]);
+ }
 });
