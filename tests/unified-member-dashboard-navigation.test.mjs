@@ -14,7 +14,7 @@ test("authenticated membership uses one dashboard and preserves coach-specific d
  assert.match(dashboard,/href="\/manage-subscription"/);
 });
 test("public pages guide returning members through one login without changing signup flow",()=>{
- assert.match(read("components/SiteHeader.tsx"),/Member Login/);
+ assert.match(read("components/SiteHeader.tsx"),/Member Dashboard \/ Login/);
  assert.match(read("app/page.tsx"),/Member Login/);
  assert.match(read("components/SiteHeader.tsx"),/href="\/fitness\/login"/);
 });
