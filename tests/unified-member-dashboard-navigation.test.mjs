@@ -19,10 +19,10 @@ test("public pages guide returning members through one login without changing si
  assert.match(read("components/SiteHeader.tsx"),/href="\/fitness\/login"/);
 });
 
-test("eligible Life Coach members see My Goals in member tools without a second login",()=>{
+test("eligible Life Coach members see one direct chat entry and no redundant Goals dashboard links",()=>{
  const dashboard=read("app/dashboard/page.tsx");
- assert.match(dashboard,/lifeAvailable && <Link href="\/life\?goals=1"><strong>My Goals<\/strong>/);
- assert.match(dashboard,/Saved goals and habits/);
+ assert.match(dashboard,/href="\/life">Open Life Coach/);
+ assert.doesNotMatch(dashboard,/My Goals|\/life\?goals=1/);
  const css=read("app/dashboard/dashboard.module.css");
  assert.match(css,/grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,260px\),1fr\)\)/);
 });
