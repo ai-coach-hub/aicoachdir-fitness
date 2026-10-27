@@ -27,3 +27,8 @@
 - Keep the four-tier billing implementation separate until unit economics and Stripe payment/allowance reconciliation are approved (#229, #231).
 
 This framework is incremental to avoid breaking the existing customer experience. The next Career Coach release will be our first proof of the complete workflow.
+
+## Standard server authorization adapter (new)
+The reusable `lib/coachMemberAccess.ts` now defines `authorizeNewCoachLaunch(slug, checks)` for a **future coach endpoint**. It rejects unregistered/unreleased slugs before membership checks, demands the full launch-readiness facts, requires a signed-in Clerk account with verified primary email, and verifies membership through the existing database-backed access function with legacy Pickaxe-list fallback disabled. Database failures fail closed. This is not used by existing Fitness, Budgeting or Life endpoints and cannot grant Career Coach access while Career remains disabled. Integrate only after a coach-specific route with validated usage reservation and history ownership exists.
+
+The launch gate is complementary to, not a replacement for, the server-side authorization inside every chat request. The client may never submit its own approval facts: callers must derive readiness from trusted deployment settings and recorded release approval. No billing/usage changes.
