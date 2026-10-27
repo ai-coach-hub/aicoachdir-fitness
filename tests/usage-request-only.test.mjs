@@ -5,7 +5,7 @@ const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 test("dashboard contains no usage counter or status section",()=>{
  const page=read("app/dashboard/page.tsx");
  assert.doesNotMatch(page,/memberUsageDisplay|usage\.remaining|styles\.usageBar|aria-label="AI usage"/);
- assert.match(page,/Open Life Coach/);
+ assert.match(read("lib/coachLaunchCatalog.mjs"),/title:"Life Coach"/);
 });
 test("Life Coach can return verified usage on demand without AI consumption",()=>{
  const route=read("app/api/life/chat/route.ts");
