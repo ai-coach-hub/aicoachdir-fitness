@@ -8,21 +8,21 @@ test("authenticated membership uses one dashboard and preserves coach-specific d
  assert.match(login,/Choose Fitness, Budgeting, or Life Coach from your member dashboard/);
  const dashboard=read("app/dashboard/page.tsx");
  for(const link of ["/fitness/chat","/fitness/chat?view=workouts","/budgeting/launch?destination=coach","/budgeting/launch?destination=tracker","/life"])
-  assert.ok(dashboard.includes(link),"Dashboard missing "+link);
+  assert.ok(read("lib/coachLaunchCatalog.mjs").includes(link),"Coach catalog missing "+link);
  assert.match(dashboard,/memberHasFitnessAccess\(email, user.id\)/);
  assert.match(dashboard,/lifeTester\(\)/);
  assert.match(dashboard,/href="\/manage-subscription"/);
 });
 test("public pages guide returning members through one login without changing signup flow",()=>{
- assert.match(read("components/SiteHeader.tsx"),/Member Dashboard \/ Login/);
- assert.match(read("app/page.tsx"),/Member Dashboard \/ Login/);
+ assert.match(read("components/SiteHeader.tsx"),/Member Login/);
+ assert.match(read("app/page.tsx"),/Member Login/);
  assert.match(read("components/SiteHeader.tsx"),/href="\/fitness\/login"/);
 });
 
 test("eligible Life Coach members see My Goals in member tools without a second login",()=>{
  const dashboard=read("app/dashboard/page.tsx");
- assert.match(dashboard,/lifeAvailable && <Link href="\/life\?goals=1"><strong>My Goals<\/strong>/);
- assert.match(dashboard,/Saved goals and habits/);
+ assert.match(dashboard,/visibleMemberCoaches\(\{lifeAvailable\}\)/);assert.match(read("lib/coachLaunchCatalog.mjs"),/toolHref:"\/life\?goals=1"/);
+ assert.match(read("lib/coachLaunchCatalog.mjs"),/Saved goals and habits/);
  const css=read("app/dashboard/dashboard.module.css");
  assert.match(css,/grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,260px\),1fr\)\)/);
 });
@@ -48,7 +48,7 @@ test("public homepage leads with one membership and clear signup versus member l
  assert.match(home,/PERSONALIZED COACHING · ONE MEMBERSHIP/);
  assert.match(home,/<Link href="\/fitness\/signup" className="primary-button">Get Started<\/Link>/);
  assert.match(home,/<Link href=\{memberLoginUrl\} className="secondary-button">Member Login<\/Link>/);
- assert.match(home,/\$15\/month · One membership · Automatically renews until canceled/);
+ assert.match(home,/\$15\/month · One membership · 400 AI Coach messages\/month · Automatically renews until canceled/);
  assert.match(home,/lifeAvailable \? ", and work toward personal goals" : ""/);
  const signup=read("app/fitness/signup/page.tsx");
  assert.match(signup,/Already a member\? Sign in\./);
