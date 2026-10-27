@@ -39,7 +39,7 @@ test("customers without a Clerk account can see cancellation assistance", async 
   const cancel = await source("app/api/billing/cancel-renewal/route.ts");
   assert.match(signIn, /manage or cancel your subscription without signing in/);
   assert.match(signIn, /href="\/manage-subscription"/);
-  assert.match(login, /Manage or Cancel Subscription/);
+  assert.match(login, /Manage existing subscription/);
   assert.doesNotMatch(manage, /Manage Billing by Email|getPublicStripePortalLoginUrl/);
   assert.match(manage, /\/api\/billing\/cancel-renewal/);
   assert.match(manage, /Cancel Automatic Renewal/);
