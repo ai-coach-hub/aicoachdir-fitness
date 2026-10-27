@@ -361,6 +361,7 @@ export default function FitnessChatPage() {
   const [running, setRunning] = useState(false);
   const [pendingPlanRequest, setPendingPlanRequest] = useState("");
   const [status, setStatus] = useState("");
+  const [usageLimitReached, setUsageLimitReached] = useState(false);
   const [plan, setPlan] = useState<JsonRecord | null>(null);
   const [history, setHistory] = useState<unknown[]>([]);
   const [planLoading, setPlanLoading] = useState(true);
@@ -683,6 +684,7 @@ export default function FitnessChatPage() {
     setInput("");
     setRunning(true);
     setStatus("");
+    setUsageLimitReached(false);
 
     try {
       const response = await fetch("/api/fitness/chat", {
@@ -697,7 +699,8 @@ export default function FitnessChatPage() {
       if (typeof data.pendingPlanRequest === "string") setPendingPlanRequest(data.pendingPlanRequest);
 
       if (!response.ok || !data.ok || !data.response) {
-        setStatus(data.error || "The Fitness Coach request did not complete.");
+        setUsageLimitReached(response.status === 429);
+        setStatus(response.status === 429 ? "Your monthly AI coaching allowance has been reached. Your saved conversations and workouts are still here. You can review membership options or return when your next allowance is available." : data.error || "The Fitness Coach request did not complete.");
         setInput(message);
         setMessages((items)=>items.slice(0,-1));
         return;
@@ -908,6 +911,7 @@ export default function FitnessChatPage() {
                 <p className="eyebrow compact-eyebrow">YOUR COACH</p>
                 <h2>What are we working on today?</h2>
                 {status ? <p role="alert" className="member-error">{status}</p> : null}
+                {usageLimitReached ? <p><Link href="/manage-subscription" className="primary-button">Review Membership Options</Link></p> : null}
                 {previewAllowance && !previewAllowance.active ? (
                   <button type="button" className="secondary-button" disabled={enrollingPreview}
                     onClick={() => { void enrollSharedPreview(); }}>
