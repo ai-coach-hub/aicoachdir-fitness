@@ -27,3 +27,19 @@ No production routes import this draft. The current public $15/400 checkout rema
 
 ## Release constraint
 This preparation is strictly non-live. Existing subscribers and their $15/400 membership remain intact. Tax decisions remain deferred until counsel review.
+
+## October 26 conservative cost stress test (non-live)
+The earlier 100/400/700/1200 tier counts are **rejected as launch candidates** under observed-cost uncertainty, but intentionally remain in the original `PROPOSED_TIERS` structure to preserve existing preliminary tests and show what failed. The newer `membershipStressTestDraft.mjs` isolates alternative **draft only** caps, not wired into billing or checkout:
+
+| Tier | Price/mo | Candidate messages/mo | Margin at full use |
+|---|---:|---:|---:|
+| Starter | $9 | 40 | 38.2% |
+| Growth | $15 | 80 | 35.1% |
+| Premium | $25 | 140 | 35.9% |
+| Elite | $39 | 220 | 37.4% |
+
+Model assumptions: $0.10 AI expense per **member-visible completed message** (sensitivity assumption, not validated production cost or ceiling), 2.9% + $0.30 payment fees, $1/member/month fixed overhead, and minimum 30% contribution margin at 100% usage. Cost is not necessarily 1:1 with the backend Pickaxe run counts. If AI costs rise to $0.14 per message all four candidates fail the 30% margin gate. Real effective costs from Fitness/Budgeting/Life, retries, historical renewal fees and actual fixed overhead must be reconciled before launch.
+
+**Business constraint:** A new $15/80 Growth plan is far less generous than existing $15/400 subscriptions. This may be commercially unattractive and should not be launched just because it passes a stress test; compare higher prices, subscriptions with monthly fair use and explicit hard caps, and optimizing AI spend without reducing quality.
+
+**Legacy lock:** Existing paid subscribers retain $15/month and 400 shared messages per month, with no automatic migration, repricing, reduced quota, new Stripe subscription, or Pickaxe role change. All four-tier price and allowance amounts require fresh approval. No tax setting changed.
