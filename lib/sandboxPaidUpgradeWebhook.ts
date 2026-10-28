@@ -3,6 +3,7 @@ import {stripeMode,stripeRequest} from "./stripeServer";
 import {reconcilePaidUpgradeNotification} from "./upgradeWebhookReconciler";
 import type {PaidUpgradeReceipt} from "./paidUpgradeReconciliation";
 import type {WalletBefore} from "./upgradeWalletTransition";
+import {verifiedSandboxStripeAccount} from "./sandboxStripeAccountGuard";
 
 // TEST ENVIRONMENT ONLY. No production fallback and no live Stripe key.
 // Never use billing-email/metadata to infer the member from a webhook.
@@ -13,6 +14,7 @@ export async function processSandboxPaidUpgradeWebhook(args:{
     process.env.UPGRADE_SANDBOX_WEBHOOK_ENABLED!=="true" ||
     stripeMode()!=="test" ||
     !/^in_[A-Za-z0-9]+$/.test(args.invoiceId))return "ignored";
+ if(!await verifiedSandboxStripeAccount())throw new Error("Isolated Stripe account mismatch");
  const url=process.env.UPGRADE_SANDBOX_DATABASE_URL;
  if(!url)throw new Error("Isolated upgrade test database URL missing");
  const sql=neon(url);
