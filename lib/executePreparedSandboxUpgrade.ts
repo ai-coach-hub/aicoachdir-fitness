@@ -43,7 +43,17 @@ export async function executePreparedSandboxUpgrade(args:{intentId:string;clerkU
  if(customer.deleted===true||String(customer.email||"").toLowerCase()!==args.verifiedEmail||
   sub.customer!==custId||sub.status!=="active"||sub.cancel_at_period_end===true)return deny("billing_unverified");
  if(intent.invoice_id){
-  return {ok:true as const,status:"pending_or_paid" as const,invoiceId:String(intent.invoice_id)};
+  // A stored invoice is not proof of payment. The signed webhook or an
+  // independently fetched invoice must settle the allowance.
+  const invoice=await stripeRequest("/invoices/"+encodeURIComponent(String(intent.invoice_id)));
+  if(invoice.status==="paid"){
+   const result=await processSandboxPaidUpgradeWebhook({
+    eventType:"invoice.paid",invoiceId:String(intent.invoice_id)});
+   if(result!=="applied"&&result!=="already_applied")
+    return deny("paid_invoice_reconciliation_pending");
+  }
+  return {ok:true as const,status:invoice.status==="paid"?"paid":"pending_payment",
+   invoiceId:String(intent.invoice_id)};
  }
  const items=sub.items&&typeof sub.items==="object"?sub.items as Record<string,unknown>:{};
  const data=Array.isArray(items.data)?items.data:[];
