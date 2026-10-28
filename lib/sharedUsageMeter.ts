@@ -55,7 +55,13 @@ const iso=(v:unknown)=>{
 };
 async function checkedDb(){
  if(!sharedUsageGateEnabled())throw Error("Shared AI usage is not enabled");
- const sql=membershipDb();
+ const isolated=process.env.VERCEL_ENV==="preview" &&
+   process.env.VERCEL_GIT_COMMIT_REF==="feature/verified-subscription-upgrade-policy-20261027" &&
+   process.env.UPGRADE_SANDBOX_SHARED_METER_ENABLED==="true";
+ const sql=isolated
+   ? (await import("@neondatabase/serverless")).neon(
+       process.env.UPGRADE_SANDBOX_DATABASE_URL || (()=>{throw Error("Isolated upgrade database missing")})())
+   : membershipDb();
  if(process.env.VERCEL_ENV==="preview"||process.env.VERCEL_ENV==="production"){
   const rows=await sql`SELECT current_setting('neon.branch_id',true) AS branch_id`;
   const actual=String(rows[0]?.branch_id||"");
