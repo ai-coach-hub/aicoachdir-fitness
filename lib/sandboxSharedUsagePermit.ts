@@ -2,6 +2,7 @@ import {neon} from "@neondatabase/serverless";
 import {stripeMode,stripeRequest} from "./stripeServer";
 import {sharedUsageMemberKey} from "./sharedUsageMemberIdentity";
 import {resolveSandboxAllowance} from "./sandboxVerifiedAllowance";
+import {verifiedSandboxStripeAccount} from "./sandboxStripeAccountGuard";
 
 // Preview-only lookup for the isolated tiered wallet. Never loads the
 // production membership database and never creates allowance rows.
@@ -10,6 +11,7 @@ export async function sandboxSharedUsagePermit(email:string){
   process.env.VERCEL_GIT_COMMIT_REF!=="feature/verified-subscription-upgrade-policy-20261027"||
   process.env.UPGRADE_SANDBOX_SHARED_METER_ENABLED!=="true"||
   stripeMode()!=="test")return null;
+ if(!await verifiedSandboxStripeAccount())return null;
  const normalized=email.trim().toLowerCase();
  if(normalized!==email||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalized))return null;
  const secret=String(process.env.BUDGET_MEMBERSHIP_HANDOFF_SECRET||"");
