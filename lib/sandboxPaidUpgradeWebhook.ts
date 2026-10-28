@@ -23,7 +23,26 @@ export async function processSandboxPaidUpgradeWebhook(args:{
  stripe_customer_id,stripe_subscription_id,stripe_item_id,old_price_id,
  target_price_id,expected_limit,target_limit,invoice_id,state
  FROM public.ai_upgrade_intents WHERE invoice_id=${args.invoiceId} LIMIT 2`;
- if(intents.length!==1)return "ignored";
+ // A paid subscription-update invoice can arrive before the upgrade caller
+ // has persisted its invoice ID. Fail retryably only when its subscription
+ // has a uniquely prepared/awaiting-payment intent; unrelated invoices stay ignored.
+ if(intents.length===0){
+  const invoice=await stripeRequest("/invoices/"+encodeURIComponent(args.invoiceId));
+  const parent=invoice.parent&&typeof invoice.parent==="object"?
+   invoice.parent as Record<string,unknown>:{};
+  const details=parent.subscription_details&&typeof parent.subscription_details==="object"?
+   parent.subscription_details as Record<string,unknown>:{};
+  const subscriptionId=String(invoice.subscription||details.subscription||"");
+  if(invoice.billing_reason!=="subscription_update"||
+   invoice.status!=="paid"||invoice.livemode!==false||
+   !/^sub_[A-Za-z0-9]+$/.test(subscriptionId))return "ignored";
+  const pending=await sql`SELECT id FROM public.ai_upgrade_intents
+   WHERE stripe_subscription_id=${subscriptionId}
+   AND state IN ('prepared','awaiting_payment') LIMIT 2`;
+  if(pending.length===1)throw new Error("Invoice binding pending; retry signed delivery");
+  return "ignored";
+ }
+ if(intents.length!==1)throw new Error("Ambiguous invoice intent mapping");
  const intent=intents[0];
  if(intent.state==="applied")return "already_applied";
  if(intent.state!=="awaiting_payment")return "ignored";
