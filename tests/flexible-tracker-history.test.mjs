@@ -145,7 +145,7 @@ const pageSource=await readFile(new URL('../app/fitness/chat/page.tsx',import.me
 const pageCode=ts.transpileModule(pageSource,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 function renderPage(savedPlan=plan,active=null){
  const states=[],setters=[],m={exports:{}};let index=0;
- const react={useState(initial){const i=index++;const v=i===0?'workouts':i===7?savedPlan:i===8?[old]:i===19?active:typeof initial==='function'?initial():initial;states[i]=v;return [v,next=>{setters.push([i,typeof next==='function'?next(states[i]):next]);}];},useMemo:fn=>fn(),useRef:value=>({current:value}),useEffect(){}};
+ const react={useState(initial){const i=index++;const v=i===0?'workouts':i===8?savedPlan:i===9?[old]:i===20?active:typeof initial==='function'?initial():initial;states[i]=v;return [v,next=>{setters.push([i,typeof next==='function'?next(states[i]):next]);}];},useMemo:fn=>fn(),useRef:value=>({current:value}),useEffect(){}};
  vm.runInNewContext(pageCode,{module:m,exports:m.exports,console,Date:FixedDate,Intl,crypto,Request,Response,fetch:async()=>{throw new Error('opening a workout must not save it');},require(n){
   if(n==='react')return react;if(n==='react/jsx-runtime')return{jsx,jsxs:jsx,Fragment:'fragment'};
   if(n==='next/link')return{__esModule:true,default:'a'};if(n==='@clerk/nextjs')return{useClerk:()=>({signOut(){}})};
@@ -156,7 +156,7 @@ function renderPage(savedPlan=plan,active=null){
 }
 test('undated flexible schedule and workout card both have working Start workout controls',()=>{
  const r=renderPage(),buttons=nodes(r.tree,'button').filter(n=>strings(n)==='Start workout');assert.equal(buttons.length,2);
- buttons[0].props.onClick();const active=r.setters.find(([i])=>i===19)[1];
+ buttons[0].props.onClick();const active=r.setters.find(([i])=>i===20)[1];
  assert.equal(active.completionMode,'flexible');assert.equal(active.workoutId,'cycle');assert.equal(active.scheduledDate,'2026-10-02');assert.match(active.completionId,/^[a-f0-9-]{36}$/);
  assert.ok(nodes(r.tree,'a').some(n=>n.props.href==='#workout-history'));
 });
