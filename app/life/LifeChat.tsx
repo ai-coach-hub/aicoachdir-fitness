@@ -136,7 +136,7 @@ export default function LifeChat({privatePreview=false,initialGoals=false}:{priv
    }catch{/* Keep the original request ID; do not auto-resubmit. */}
    if(!restored){
     const msg=ex instanceof Error?ex.message:"Request failed.";
-     setError(msg.startsWith("Life Coach becomes available at your next billing period.") ? msg : msg+" Check Previous chats before sending again.");
+     setError(usageLimitReached || msg.startsWith("Your available AI coaching uses have been reached.") || msg.startsWith("Life Coach becomes available at your next billing period.") ? msg : msg+" Check Previous chats before sending again.");
     setInput(message);setMessages(a=>a.slice(0,-1));
    }
   }finally{setBusy(false);}
