@@ -13,7 +13,7 @@ export async function sandboxSharedUsagePermit(email:string){
   stripeMode()!=="test")return null;
  if(!await verifiedSandboxStripeAccount())return null;
  const normalized=email.trim().toLowerCase();
- if(normalized!==email||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalized))return null;
+ if(normalized!==email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized))return null;
  const secret=String(process.env.BUDGET_MEMBERSHIP_HANDOFF_SECRET||"");
  const memberKey=sharedUsageMemberKey(normalized,secret);
  const db=process.env.UPGRADE_SANDBOX_DATABASE_URL;
