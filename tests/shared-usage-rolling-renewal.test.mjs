@@ -33,7 +33,8 @@ function world({periodStart=oldStart,cutover=launch,mode="rolling_renewal",openi
     {id:"sub_Verified",customer:"cus_Verified",status:subscriptionStatus}},
   "./stripeUsagePeriod":{stripeUsageWindowFromVerifiedRecord:()=>({ok:true,periodStart,periodEnd:nextEnd})},
   "./sharedUsageMemberIdentity":{sharedUsageMemberKey:()=>memberKey},
-  "./sharedUsagePriceApproval":{approvedSharedPriceIds:()=>approvedPrice?["price_Approved"]:[]}
+  "./sharedUsagePriceApproval":{approvedSharedPriceIds:()=>approvedPrice?["price_Approved"]:[]},
+  "./sandboxSharedUsagePermit":{sandboxSharedUsagePermit:async()=>null}
  };
  const env={VERCEL_ENV:"production",SHARED_USAGE_GATE_ENABLED:"true",
   SHARED_USAGE_PUBLIC_RELEASE_APPROVED:"true",SHARED_USAGE_OPENING_BALANCES_RECONCILED:opening,
