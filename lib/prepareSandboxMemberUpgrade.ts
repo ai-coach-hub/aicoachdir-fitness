@@ -5,6 +5,7 @@ import {stripeUsageWindowFromVerifiedRecord} from "./stripeUsagePeriod";
 import {sharedUsageMemberKey} from "./sharedUsageMemberIdentity";
 import {decideInPlaceUpgrade,type UpgradeTier} from "./inPlaceUpgradePolicy";
 import {randomBytes} from "node:crypto";
+import {verifiedSandboxStripeAccount} from "./sandboxStripeAccountGuard";
 
 // All database/Stripe operations stay in one explicitly isolated preview.
 // Never fall back to production membershipDb or an inherited DB URL.
@@ -20,6 +21,7 @@ export async function prepareSandboxMemberUpgrade(args:{
  !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(args.verifiedEmail)||
  args.verifiedEmail!==args.verifiedEmail.trim().toLowerCase()||
  !["starter","growth","premium","elite"].includes(args.targetTier))return deny("invalid_request");
+ if(!await verifiedSandboxStripeAccount())return deny("wrong_stripe_account");
  const resolved=sandboxTierCatalogFor("preview","test");
  if(!resolved.ok)return deny("invalid_price_catalog");
  const url=process.env.UPGRADE_SANDBOX_DATABASE_URL;
