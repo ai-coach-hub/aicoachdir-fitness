@@ -15,6 +15,22 @@ export async function POST(req:Request){
  try{event=JSON.parse(body)}catch{return NextResponse.json({error:"invalid_event"},{status:400})}
  const invoice=sandboxInvoiceEvent(event);
  if(!invoice)return NextResponse.json({received:true,ignored:true});
+ // Only a signed, zero-total, standalone synthetic test invoice may be
+ // acknowledged without consulting the upgrade database. Never apply this
+ // shortcut to a subscription invoice or a nonzero payment.
+ const envelope=event as {data?:{object?:Record<string,unknown>}};
+ const obj=envelope.data?.object;
+ const metadata=obj?.metadata && typeof obj.metadata==="object" ? obj.metadata as Record<string,unknown> : {};
+ if(obj?.livemode===false && obj?.status==="paid" &&
+    obj?.billing_reason==="manual" &&
+    obj?.total===0 && obj?.amount_paid===0 &&
+    metadata.synthetic==="true" &&
+    metadata.purpose==="synthetic_webhook_delivery" &&
+    !obj?.subscription &&
+    !(obj?.parent && typeof obj.parent==="object" &&
+      (obj.parent as Record<string,unknown>).subscription_details)) {
+   return NextResponse.json({received:true,ignored:true,synthetic:true});
+ }
  try{
   const result=await processSandboxPaidUpgradeWebhook({eventType:invoice.type,invoiceId:invoice.invoiceId});
   return NextResponse.json({received:true,result});
