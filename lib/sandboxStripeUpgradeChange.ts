@@ -24,7 +24,7 @@ export function buildSandboxStripeUpgradeChange(
  body.set("items[0][price]",input.targetPriceId);
  body.set("payment_behavior","pending_if_incomplete");
  body.set("proration_behavior","always_invoice");
- body.set("billing_cycle_anchor","unchanged");
+ body.set("billing_cycle_anchor[type]","unchanged");
  return {ok:true,path:"/subscriptions/"+encodeURIComponent(input.subscriptionId),
   body,idempotencyKey:"aicoachdir-sandbox-upgrade-"+input.intentId};
 }
