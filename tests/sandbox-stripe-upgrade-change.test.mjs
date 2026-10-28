@@ -9,7 +9,7 @@ test("sandbox upgrade request invoices proration without resetting period or ins
  if(!r.ok)return;
  assert.equal(r.body.get("payment_behavior"),"pending_if_incomplete");
  assert.equal(r.body.get("proration_behavior"),"always_invoice");
- assert.equal(r.body.get("billing_cycle_anchor"),"unchanged");
+ assert.equal(r.body.get("billing_cycle_anchor[type]"),"unchanged");
  assert.equal(r.body.get("items[0][id]"),inp.itemId);
  assert.equal(r.body.get("items[0][price]"),inp.targetPriceId);
  assert.equal(r.body.has("metadata[member_key]"),false);
