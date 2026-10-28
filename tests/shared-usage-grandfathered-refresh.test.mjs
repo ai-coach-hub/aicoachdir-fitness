@@ -35,7 +35,8 @@ function verifyFixture({row=base(),verified=true,revokeOnRefresh=false,env="prod
   "./stripeServer":{stripeRequest:async()=>{throw Error("No Stripe network in unit test")}},
   "./stripeUsagePeriod":{stripeUsageWindowFromVerifiedRecord:()=>({ok:false})},
   "./sharedUsageMemberIdentity":{sharedUsageMemberKey:()=> "member_"+"a".repeat(64)},
-  "./sharedUsagePriceApproval":{approvedSharedPriceIds:()=>[]}
+  "./sharedUsagePriceApproval":{approvedSharedPriceIds:()=>[]},
+  "./sandboxSharedUsagePermit":{sandboxSharedUsagePermit:async()=>null}
  };
  runInNewContext(js,{
   module:mod,exports:mod.exports,require:name=>{
