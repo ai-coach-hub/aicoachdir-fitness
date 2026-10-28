@@ -1,4 +1,4 @@
-import {proposedFourTierPlans} from "./fourTierPricingPolicy";
+import {proposedFourTierPlans} from "./fourTierPricingPolicy.ts";
 
 export type CatalogPrice = {
  tier:"starter"|"growth"|"premium"|"elite";
