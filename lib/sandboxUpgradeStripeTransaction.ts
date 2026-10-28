@@ -4,6 +4,7 @@ import {sandboxTierCatalogFor} from "./sandboxTierManifest";
 import {stripeUsageWindowFromVerifiedRecord} from "./stripeUsagePeriod";
 import {sharedUsageMemberKey} from "./sharedUsageMemberIdentity";
 import {processSandboxPaidUpgradeWebhook} from "./sandboxPaidUpgradeWebhook";
+import {verifySandboxUpgradeQuote} from "./sandboxUpgradeQuote";
 
 type Obj=Record<string,unknown>;
 const o=(v:unknown):Obj|null=>v&&typeof v==="object"&&!Array.isArray(v)?v as Obj:null;
@@ -79,8 +80,12 @@ export async function sandboxUpgradeTransaction(args:{
  previewBody.set("subscription_details[proration_date]",String(stamp));
  previewBody.set("subscription_details[proration_behavior]","always_invoice");
  const quote=await stripeRequest("/invoices/create_preview",{method:"POST",body:previewBody});
- const amount=Number(quote.amount_due);
- if(quote.currency!=="usd"||!Number.isSafeInteger(amount)||amount<=0||amount>CUTOFF)return deny("quote_not_approved");
+ const checked=verifySandboxUpgradeQuote({preview:quote,customerId,
+ subscriptionId:subId,subscriptionItemId:itemId,
+ oldPriceId:String(i.old_price_id),newPriceId:next.stripePriceId,
+ periodEnd:window.periodEnd});
+ if(!checked.ok)return deny(checked.reason);
+ const amount=checked.amountCents;
  if(args.action==="quote")return {ok:true,intentId:args.intentId,amountCents:amount,currency:"usd",status:"quoted"};
  if(args.expectedAmountCents!==amount)return deny("quote_changed_reconfirm");
  // No second attempt on a pending/ambiguous operation. The subscription update
