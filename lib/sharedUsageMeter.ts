@@ -3,13 +3,16 @@ import {stripeRequest} from "./stripeServer";
 import {stripeUsageWindowFromVerifiedRecord} from "./stripeUsagePeriod";
 import {sharedUsageMemberKey} from "./sharedUsageMemberIdentity";
 import {approvedSharedPriceIds} from "./sharedUsagePriceApproval";
+import {sandboxSharedUsagePermit} from "./sandboxSharedUsagePermit";
 
 // Production activation requires separate, explicit deployment configuration.
 // Off by default. Preview is pinned to the private Life Coach branch/database.
 export function sharedUsageGateEnabled(){
  if(process.env.SHARED_USAGE_GATE_ENABLED!=="true")return false;
  if(process.env.VERCEL_ENV==="preview")
-  return process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011";
+  return process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011" ||
+    (process.env.VERCEL_GIT_COMMIT_REF==="feature/verified-subscription-upgrade-policy-20261027" &&
+     process.env.UPGRADE_SANDBOX_SHARED_METER_ENABLED==="true");
  const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
  const stamp=Date.parse(cutover);
  const validCutover=Number.isFinite(stamp) && new Date(stamp).toISOString()===cutover;
@@ -56,7 +59,8 @@ async function checkedDb(){
  if(process.env.VERCEL_ENV==="preview"||process.env.VERCEL_ENV==="production"){
   const rows=await sql`SELECT current_setting('neon.branch_id',true) AS branch_id`;
   const actual=String(rows[0]?.branch_id||"");
-  if(process.env.VERCEL_ENV==="preview"&&actual!=="br-autumn-breeze-auw38rgr")
+  if(process.env.VERCEL_ENV==="preview"&&actual!==
+     (isolated?"br-young-salad-aubnf7xt":"br-autumn-breeze-auw38rgr"))
    throw Error("Shared quota preview database branch mismatch");
   if(process.env.VERCEL_ENV==="production"&&actual!=="br-sparkling-glitter-aucpz59d")
    throw Error("Shared wallet production database branch mismatch");
@@ -67,6 +71,9 @@ async function checkedDb(){
 // independently verified Stripe records, NEVER a browser or Budgeting claim.
 async function resolveCurrentSharedUsageWithState(email:string):Promise<QuotaPermit|"pending_renewal"|null>{
  if(!sharedUsageGateEnabled())return null;
+ if(process.env.VERCEL_ENV==="preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF==="feature/verified-subscription-upgrade-policy-20261027")
+   return sandboxSharedUsagePermit(email);
  const normalized=email.trim().toLowerCase(), secret=root();
  const memberKey=sharedUsageMemberKey(normalized,secret);
  if(!memberKey || normalized!==email)return null;
