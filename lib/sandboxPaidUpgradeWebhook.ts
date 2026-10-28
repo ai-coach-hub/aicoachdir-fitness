@@ -55,19 +55,11 @@ export async function processSandboxPaidUpgradeWebhook(args:{
   applyWalletIncrease:async(expected,target)=>{
    if(expected!==Number(intent.expected_limit)||target!==Number(intent.target_limit))
      return "mismatch";
-   const result=await sql`SELECT public.shared_ai_upgrade_allowance(
-    ${intent.member_key},${intent.entitlement_key},
-    ${iso(intent.period_start)}::timestamptz,
-    ${iso(intent.period_end)}::timestamptz,
-    ${expected},${target}) AS status`;
+   const result=await sql`SELECT public.shared_ai_apply_paid_upgrade(
+    ${intent.id},${args.invoiceId},${expected},${target}) AS status`;
    return String(result[0]?.status||"unavailable");
   }
  });
  if(!outcome.ok)throw new Error("Upgrade reconciliation rejected: "+outcome.reason);
- const marked=await sql`UPDATE public.ai_upgrade_intents
- SET state='applied',updated_at=now()
- WHERE id=${intent.id} AND invoice_id=${args.invoiceId}
- AND state='awaiting_payment' RETURNING id`;
- if(marked.length!==1)throw new Error("Upgrade acknowledgment failed");
  return "applied";
 }
