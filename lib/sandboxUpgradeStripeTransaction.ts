@@ -5,6 +5,7 @@ import {stripeUsageWindowFromVerifiedRecord} from "./stripeUsagePeriod";
 import {sharedUsageMemberKey} from "./sharedUsageMemberIdentity";
 import {processSandboxPaidUpgradeWebhook} from "./sandboxPaidUpgradeWebhook";
 import {verifySandboxUpgradeQuote} from "./sandboxUpgradeQuote";
+import {verifiedSandboxStripeAccount} from "./sandboxStripeAccountGuard";
 
 type Obj=Record<string,unknown>;
 const o=(v:unknown):Obj|null=>v&&typeof v==="object"&&!Array.isArray(v)?v as Obj:null;
@@ -24,6 +25,7 @@ export async function sandboxUpgradeTransaction(args:{
  if(!/^upg_[0-9a-f]{36}$/.test(args.intentId)||
  !/^user_[A-Za-z0-9_-]{8,128}$/.test(args.clerkUserId)||
  args.verifiedEmail!==args.verifiedEmail.trim().toLowerCase())return deny("invalid_identity");
+ if(!await verifiedSandboxStripeAccount())return deny("wrong_stripe_account");
  const url=process.env.UPGRADE_SANDBOX_DATABASE_URL;
  const key=sharedUsageMemberKey(args.verifiedEmail,String(process.env.BUDGET_MEMBERSHIP_HANDOFF_SECRET||""));
  if(!url||!key)return deny("isolation_missing");
