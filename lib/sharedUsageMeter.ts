@@ -8,11 +8,14 @@ import {sandboxSharedUsagePermit} from "./sandboxSharedUsagePermit";
 // Production activation requires separate, explicit deployment configuration.
 // Off by default. Preview is pinned to the private Life Coach branch/database.
 export function sharedUsageGateEnabled(){
+ // The isolated upgrade Preview uses its own explicit switch: the production
+ // shared-usage gate is intentionally absent from all Preview deployments.
+ if(process.env.VERCEL_ENV==="preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF==="feature/verified-subscription-upgrade-policy-20261027")
+   return process.env.UPGRADE_SANDBOX_SHARED_METER_ENABLED==="true";
  if(process.env.SHARED_USAGE_GATE_ENABLED!=="true")return false;
  if(process.env.VERCEL_ENV==="preview")
-  return process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011" ||
-    (process.env.VERCEL_GIT_COMMIT_REF==="feature/verified-subscription-upgrade-policy-20261027" &&
-     process.env.UPGRADE_SANDBOX_SHARED_METER_ENABLED==="true");
+  return process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011";
  const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
  const stamp=Date.parse(cutover);
  const validCutover=Number.isFinite(stamp) && new Date(stamp).toISOString()===cutover;
