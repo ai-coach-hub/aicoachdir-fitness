@@ -7,9 +7,9 @@ test("upgrade-branch Life access binds verified Clerk and Stripe, not an email a
  const access=load("lib/lifeCoachAccess.ts");
  assert.ok(access.includes(qa));
  assert.ok(access.includes("primary.verification?.status !== \"verified\""));
- assert.ok(access.includes("verifiedSandboxStripeAccount"));
+ assert.ok(access.includes('stripeMode()!=="test"'));
  assert.ok(access.includes("member.clerk_user_id!==user.id"));
- assert.ok(access.includes("getVerifiedSubscription"));
+ assert.ok(access.includes("getFitnessMembership"));
 });
 test("new Life conversations cannot reuse production or private Life storage",()=>{
  const store=load("lib/lifeCoachStore.ts");
