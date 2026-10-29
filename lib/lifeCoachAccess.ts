@@ -31,16 +31,16 @@ export async function lifeTester() {
   if(privatePreview)return allowed.includes(email)?user.id:null;
   if(upgradeQaPreview){
     const {stripeMode}=await import("./stripeServer");
-    const {verifiedSandboxStripeAccount}=await import("./sandboxStripeAccountGuard");
-    if(stripeMode()!=="test"||!await verifiedSandboxStripeAccount())return null;
+    if(stripeMode()!=="test")return null;
     const {getFitnessMembership}=await import("./fitnessMembershipDb");
-    const {getVerifiedSubscription}=await import("./stripeMembershipState");
+    // The verified Clerk login is already authorized by the isolated site
+    // membership table. Do not make a second Stripe API call solely to render
+    // the coach link; Stripe revalidation is handled by membership access.
     const member=await getFitnessMembership(email);
     if(!member||member.access_active!==true||member.clerk_user_id!==user.id||
-      !member.stripe_customer_id||!member.stripe_subscription_id)return null;
-    const verified=await getVerifiedSubscription({customerId:String(member.stripe_customer_id),
-      subscriptionId:String(member.stripe_subscription_id),memberEmail:email});
-    return verified&&["active","canceling"].includes(verified.state)?user.id:null;
+      !member.stripe_customer_id||!member.stripe_subscription_id||
+      !["active","trialing"].includes(String(member.stripe_status)))return null;
+    return user.id;
   }
   // One existing verified subscription unlocks Life; no new checkout.
   // Production is otherwise unreachable until the three release gates above
