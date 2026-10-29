@@ -6,7 +6,7 @@ import ts from "typescript";
 const source=readFileSync(new URL("../lib/renewalDowngradePolicy.ts",import.meta.url),"utf8");
 const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const mod={exports:{}};
-runInNewContext(js,{module,exports:mod.exports},{timeout:3000});
+runInNewContext(js,{module:mod,exports:mod.exports},{timeout:3000});
 const {planRenewalDowngrade}=mod.exports;
 const fixture=(x={})=>({clerkUserId:"user_abcdefgh",linkedClerkUserId:"user_abcdefgh",
 stripeCustomerId:"cus_customer1",subscriptionCustomerId:"cus_customer1",
