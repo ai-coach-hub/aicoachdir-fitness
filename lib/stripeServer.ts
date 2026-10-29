@@ -19,6 +19,13 @@ export const FITNESS_PRICE_DOLLARS = 15;
 export const FITNESS_INCLUDED_USES = 400;
 
 function configuredStripeKey() {
+  // Isolated upgrade QA must never fall back to the unrelated Preview Stripe
+  // account. Fail closed if the dedicated testing key has not been configured.
+  if (process.env.VERCEL_ENV === "preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF ===
+        "feature/verified-subscription-upgrade-policy-20261027") {
+    return process.env.UPGRADE_SANDBOX_STRIPE_SECRET_KEY?.trim() || "";
+  }
   return (
     process.env.STRIPE_RESTRICTED_KEY?.trim() ||
     process.env.STRIPE_SECRET_KEY?.trim() ||
