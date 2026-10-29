@@ -82,5 +82,5 @@ export async function processSandboxPaidUpgradeWebhook(args:{
   }
  });
  if(!outcome.ok)throw new Error("Upgrade reconciliation rejected: "+outcome.reason);
- return "applied";
+ return outcome.status==="already_applied"?"already_applied":"applied";
 }
