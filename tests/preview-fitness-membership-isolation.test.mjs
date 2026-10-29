@@ -18,5 +18,12 @@ test("Sandbox branch verified before schema reads or writes", () => {
   assert.match(source, /throw new Error\("Sandbox membership database branch mismatch\."\)/);
 });
 test("Sandbox does not enroll legacy Pickaxe members on first access", () => {
-  assert.match(source, /if \(onFitnessPreviewSandbox\(\)\) return false;\s*const legacyActive = await pickaxeUserHasFitnessAccess/);
+  assert.match(source, /if \(onFitnessPreviewSandbox\(\) \|\| onUpgradeQaPreview\(\)\) return false;\s*const legacyActive = await pickaxeUserHasFitnessAccess/);
+});
+
+test("Upgrade QA has isolated database and rejects production fallback", () => {
+  assert.match(source, /const UPGRADE_QA_NEON_BRANCH_ID = "br-young-salad-aubnf7xt"/);
+  assert.match(source, /if \(process\.env\.VERCEL_GIT_COMMIT_REF === UPGRADE_QA_BRANCH\)/);
+  assert.match(source, /process\.env\.UPGRADE_SANDBOX_DATABASE_URL/);
+  assert.match(source, /onUpgradeQaPreview\(\) \? UPGRADE_QA_NEON_BRANCH_ID/);
 });
