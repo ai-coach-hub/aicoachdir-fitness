@@ -64,7 +64,10 @@ export async function POST(request: Request) {
     });
     if (!plan.ok) return fail(plan.reason);
     if (plan.action !== "upgrade") return fail("upgrade_quote_only");
-    const periodEnd = Number(subscription.items?.data?.[0]?.current_period_end);
+    const subscriptionItems = subscription.items && typeof subscription.items === "object" && !Array.isArray(subscription.items)
+      ? subscription.items as { data?: Array<{ current_period_end?: number }> }
+      : null;
+    const periodEnd = Number(subscriptionItems?.data?.[0]?.current_period_end);
     const at = Math.floor(Date.now() / 1000);
     if (!Number.isSafeInteger(periodEnd) || at >= periodEnd) return fail("invalid_billing_period");
     const quoteForm = buildUpgradePreviewRequest(plan, at);
