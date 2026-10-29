@@ -5,6 +5,8 @@ import { currentUser } from "@clerk/nextjs/server";
 export async function lifeTester() {
   const privatePreview=process.env.VERCEL_ENV==="preview" &&
       process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011";
+  const upgradeQaPreview=process.env.VERCEL_ENV==="preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF==="feature/verified-subscription-upgrade-policy-20261027";
   const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
   const stamp=Date.parse(cutover);
   const cutoverReady=Number.isFinite(stamp)&&new Date(stamp).toISOString()===cutover;
@@ -18,7 +20,7 @@ export async function lifeTester() {
       process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
       openingReady &&
       process.env.LIFE_COACH_LIVE_ENABLED==="true";
-  if(!privatePreview&&!released)return null;
+  if(!privatePreview&&!released&&!upgradeQaPreview)return null;
   const user = await currentUser();
   if (!user) return null;
   const primary = user.emailAddresses.find(e => e.id === user.primaryEmailAddressId);
@@ -27,6 +29,19 @@ export async function lifeTester() {
   const allowed = (process.env.LIFE_COACH_TESTER_EMAILS || "")
     .split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
   if(privatePreview)return allowed.includes(email)?user.id:null;
+  if(upgradeQaPreview){
+    const {stripeMode}=await import("./stripeServer");
+    const {verifiedSandboxStripeAccount}=await import("./sandboxStripeAccountGuard");
+    if(stripeMode()!=="test"||!await verifiedSandboxStripeAccount())return null;
+    const {getFitnessMembership}=await import("./fitnessMembershipDb");
+    const {getVerifiedSubscription}=await import("./stripeMembershipState");
+    const member=await getFitnessMembership(email);
+    if(!member||member.access_active!==true||member.clerk_user_id!==user.id||
+      !member.stripe_customer_id||!member.stripe_subscription_id)return null;
+    const verified=await getVerifiedSubscription({customerId:String(member.stripe_customer_id),
+      subscriptionId:String(member.stripe_subscription_id),memberEmail:email});
+    return verified&&["active","canceling"].includes(verified.state)?user.id:null;
+  }
   // One existing verified subscription unlocks Life; no new checkout.
   // Production is otherwise unreachable until the three release gates above
   // and the shared quota migration have been explicitly enabled.
