@@ -95,7 +95,7 @@ export default function SandboxUpgradeClient(){
    <p><strong>Current plan:</strong> {label(snapshot.currentTier||"unknown")}</p>
    {!snapshot.ready&&<div>
     <p>This test membership needs its existing paid test allowance connected. Previous completed and reserved messages will be preserved.</p>
-    <button type="button" className="secondary-button" disabled={busy} onClick={()=>void setup()}>
+    <button type="button" className="primary-button" style={{backgroundColor:"#C6F434",color:"#102338",border:"2px solid #E6FF89",fontSize:16,fontWeight:800,minHeight:48,padding:"12px 20px",boxShadow:"0 0 0 2px rgba(0,0,0,.2)"}} disabled={busy} onClick={()=>void setup()}>
       {busy?"Connecting…":"Connect existing test allowance"}
     </button>
    </div>}
@@ -106,7 +106,7 @@ export default function SandboxUpgradeClient(){
     <label htmlFor="qa-tier">Upgrade to</label>
     <select id="qa-tier" value={selected} disabled={busy}
       onChange={e=>setSelected(e.target.value)}
-      style={{display:"block",padding:10,margin:"8px 0 16px",width:"100%",maxWidth:350}}>
+      style={{display:"block",padding:"12px 14px",margin:"8px 0 16px",width:"100%",maxWidth:420,backgroundColor:"#102338",color:"#ffffff",border:"2px solid #AA78D3",borderRadius:10,fontSize:16,fontWeight:650,colorScheme:"dark"}}>
       {snapshot.options?.map(x=><option key={x.tier} value={x.tier}>
        {label(x.tier)} — {money(x.monthlyUsdCents)}/month, {x.includedMessages} messages
       </option>)}
