@@ -33,6 +33,8 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
     || user?.emailAddresses[0];
   const email = String(primaryAddress?.emailAddress || "").trim().toLowerCase();
   const emailVerified = primaryAddress?.verification?.status === "verified";
+  const isolatedUpgradeQa = process.env.VERCEL_ENV === "preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF === "feature/verified-subscription-upgrade-policy-20261027";
 
   let billingState: ReturnType<typeof classifyStripeSubscription> | "unlinked" = "unlinked";
   let hasStripeBilling = false;
@@ -40,7 +42,9 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
   let linkedMember = false;
   let canResume = false;
 
-  if (email && user && emailVerified) {
+  // The isolated QA account has its own verified billing lookup. Never call
+  // the production/legacy management paths (including Pickaxe repair) here.
+  if (email && user && emailVerified && !isolatedUpgradeQa) {
     try {
       await restoreVerifiedHistoricalBillingForMember(email, user.id);
       let member = await getFitnessMembership(email);
@@ -118,6 +122,11 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
           </div>
         ) : !emailVerified ? (
           <p>Please verify the email address on your member login before managing your subscription.</p>
+        ) : isolatedUpgradeQa ? (
+          <>
+            <p>This is the isolated subscription test. Your real membership and billing remain unchanged.</p>
+            <SandboxUpgradeClient />
+          </>
         ) : (
           <>
             {statusMessage ? <p role="status">{statusMessage}</p> : null}
@@ -161,10 +170,6 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
                 </button>
               </form>
             ) : null}
-
-            {process.env.VERCEL_ENV === "preview" &&
-              process.env.VERCEL_GIT_COMMIT_REF === "feature/verified-subscription-upgrade-policy-20261027" &&
-              billingState === "active" && linkedMember ? <SandboxUpgradeClient/> : null}
 
             {billingState === "unlinked" || lookupFailed ? (
               <p>
