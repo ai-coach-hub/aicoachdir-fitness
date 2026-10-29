@@ -20,7 +20,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const supportEmail = "Ai.coach.hub.domain@gmail.com";
 
 type ManageSubscriptionProps = {
   searchParams: Promise<{ renewal?: string | string[] }>;
@@ -186,9 +185,9 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
           {contactConfigured ? (
             <SupportContactForm defaultTopic="Billing / Cancellation" />
           ) : (
-            <p className="microcopy">
-              For account or billing assistance, contact <a href={`mailto:${supportEmail}?subject=Cancellation%20request`} style={{ textDecoration: "underline" }}>{supportEmail}</a>.
-              We'll verify account ownership before updating billing. Never share passwords or card numbers.
+            <p className="microcopy" role="status">
+              The support contact form is temporarily unavailable. Please try again later.
+              Your subscription remains unchanged.
             </p>
           )}
         </details>
