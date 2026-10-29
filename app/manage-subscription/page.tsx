@@ -3,6 +3,7 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import SiteHeader from "@/components/SiteHeader";
 import SupportContactForm from "@/components/SupportContactForm";
+import SandboxUpgradeClient from "@/components/SandboxUpgradeClient";
 import {
   getFitnessMembership,
   memberHasFitnessAccess,
@@ -160,6 +161,10 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
                 </button>
               </form>
             ) : null}
+
+            {process.env.VERCEL_ENV === "preview" &&
+              process.env.VERCEL_GIT_COMMIT_REF === "feature/verified-subscription-upgrade-policy-20261027" &&
+              billingState === "active" && linkedMember ? <SandboxUpgradeClient/> : null}
 
             {billingState === "unlinked" || lookupFailed ? (
               <p>
