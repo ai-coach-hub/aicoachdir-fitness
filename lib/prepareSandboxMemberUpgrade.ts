@@ -69,6 +69,27 @@ export async function prepareSandboxMemberUpgrade(args:{
  priorLedgerReconciled:true
  },args.targetTier as UpgradeTier,resolved.catalog);
  if(!decision.ok)return deny(decision.reason);
+ // Reuse one matching prepared intent; do not create a duplicate.
+ const pending=await sql`SELECT id,member_key,entitlement_key,stripe_customer_id,
+ stripe_item_id,old_price_id,target_price_id,expected_limit,target_limit,
+ period_end,state,invoice_id FROM public.ai_upgrade_intents
+ WHERE stripe_subscription_id=${subId} AND period_start=${window.periodStart}::timestamptz
+ AND state IN ('prepared','awaiting_payment') LIMIT 2`;
+ if(pending.length>1)return deny("multiple_pending_upgrades");
+ if(pending.length===1){
+  const prior=pending[0];
+  if(prior.state!=="prepared"||prior.invoice_id)return deny("payment_requires_review");
+  if(prior.member_key!==key||prior.entitlement_key!==String(w.entitlement_key)||
+    prior.stripe_customer_id!==custId||prior.stripe_item_id!==String(item.id)||
+    prior.old_price_id!==decision.current.stripePriceId||
+    prior.target_price_id!==decision.target.stripePriceId||
+    Number(prior.expected_limit)!==Number(w.limit_uses)||
+    Number(prior.target_limit)!==decision.target.includedMessages||
+    new Date(String(prior.period_end)).toISOString()!==window.periodEnd)
+    return deny("different_upgrade_pending");
+  return {ok:true,intentId:String(prior.id),currentTier:decision.current.tier,
+    targetTier:decision.target.tier,previewRequired:true};
+ }
  const id="upg_"+randomBytes(18).toString("hex");
  const inserted=await sql`INSERT INTO public.ai_upgrade_intents(
  id,member_key,entitlement_key,period_start,period_end,
