@@ -3,6 +3,7 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import SiteHeader from "@/components/SiteHeader";
 import SupportContactForm from "@/components/SupportContactForm";
+import SandboxUpgradeClient from "@/components/SandboxUpgradeClient";
 import {
   getFitnessMembership,
   memberHasFitnessAccess,
@@ -19,7 +20,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const supportEmail = "Ai.coach.hub.domain@gmail.com";
 
 type ManageSubscriptionProps = {
   searchParams: Promise<{ renewal?: string | string[]; billing?: string | string[] }>;
@@ -32,6 +32,8 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
     || user?.emailAddresses[0];
   const email = String(primaryAddress?.emailAddress || "").trim().toLowerCase();
   const emailVerified = primaryAddress?.verification?.status === "verified";
+  const isolatedUpgradeQa = process.env.VERCEL_ENV === "preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF === "feature/verified-subscription-upgrade-policy-20261027";
 
   let billingState: ReturnType<typeof classifyStripeSubscription> | "unlinked" = "unlinked";
   let hasStripeBilling = false;
@@ -39,7 +41,9 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
   let linkedMember = false;
   let canResume = false;
 
-  if (email && user && emailVerified) {
+  // The isolated QA account has its own verified billing lookup. Never call
+  // the production/legacy management paths (including Pickaxe repair) here.
+  if (email && user && emailVerified && !isolatedUpgradeQa) {
     try {
       await restoreVerifiedHistoricalBillingForMember(email, user.id);
       let member = await getFitnessMembership(email);
@@ -118,6 +122,11 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
           </div>
         ) : !emailVerified ? (
           <p>Please verify the email address on your member login before managing your subscription.</p>
+        ) : isolatedUpgradeQa ? (
+          <>
+            <p>This is the isolated subscription test. Your real membership and billing remain unchanged.</p>
+            <SandboxUpgradeClient />
+          </>
         ) : (
           <>
             {statusMessage ? <p role="status">{statusMessage}</p> : null}
@@ -180,9 +189,10 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
           {contactConfigured ? (
             <SupportContactForm defaultTopic="Billing / Cancellation" />
           ) : (
-            <p className="microcopy">
-              For account or billing assistance, contact <a href={`mailto:${supportEmail}?subject=Cancellation%20request`} style={{ textDecoration: "underline" }}>{supportEmail}</a>.
-              We'll verify account ownership before updating billing. Never share passwords or card numbers.
+            <p className="microcopy" role="status">
+              Support requests are handled through our secure contact form.
+              {" "}<a href="https://aicoachdir.com/contact" style={{color:"#c3f58b",textDecoration:"underline",fontWeight:750}}>Open Contact Support form</a>.
+              Your subscription remains unchanged until a requested billing change is confirmed.
             </p>
           )}
         </details>

@@ -8,8 +8,8 @@ export default async function LifePage({searchParams=Promise.resolve({})}:{searc
   const initialGoals=params.goals==="1";
   const id = await lifeTester();
   if (id) return <main className="site-shell" style={{padding:"32px 0"}}>
-    <Link href={process.env.VERCEL_ENV==="production" ? "/dashboard" : "/"} className="secondary-button" style={{display:"inline-flex",marginBottom:20}}>{process.env.VERCEL_ENV==="production" ? "Dashboard" : "AI Coach Directory"}</Link>
-    <LifeChat privatePreview={process.env.VERCEL_ENV==="preview"} initialGoals={initialGoals}/>
+    <Link href={process.env.VERCEL_ENV==="production" || process.env.VERCEL_GIT_COMMIT_REF==="feature/verified-subscription-upgrade-policy-20261027" ? "/dashboard" : "/"} className="secondary-button" style={{display:"inline-flex",marginBottom:20}}>Dashboard</Link>
+    <LifeChat privatePreview={process.env.VERCEL_ENV==="preview" && process.env.VERCEL_GIT_COMMIT_REF==="feature/life-coach-agent-sandbox-20261011"} initialGoals={initialGoals}/>
   </main>;
   const user = await currentUser();
   const production = process.env.VERCEL_ENV === "production";

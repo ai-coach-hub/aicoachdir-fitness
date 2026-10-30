@@ -108,9 +108,9 @@ test("memory replies happen before any Pickaxe request, with source tag",()=>{
  const route=load("app/api/life/chat/route.ts");
  const direct=route.indexOf("const direct=lifeMemoryReply(message,memories)");
  const reply=route.indexOf('source:"saved-private-history"',direct);
- const token=route.indexOf("process.env.PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN");
+ const token=route.indexOf("process.env.PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN",reply);
  const provider=route.indexOf('await fetch("https://api.pickaxe.co');
- const generationCall=route.indexOf("completeLifeCoachRequest(token,promptMessage,email,id)",reply);
+ const generationCall=route.indexOf("completeLifeCoachRequest(token,promptMessage,email,id)",token);
  assert.ok(provider>0 && direct>0 && reply>direct && token>reply && generationCall>token);
  assert.ok(route.includes("guardLifeMemoryDenial(rawAnswer,message,memories)"));
  assert.ok(route.includes("const promptMessage=prior||recalled ?"));
