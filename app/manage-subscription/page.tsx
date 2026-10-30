@@ -186,8 +186,9 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
             <SupportContactForm defaultTopic="Billing / Cancellation" />
           ) : (
             <p className="microcopy" role="status">
-              The support contact form is temporarily unavailable. Please try again later.
-              Your subscription remains unchanged.
+              Support requests are handled through our secure contact form.
+              {" "}<a href="https://aicoachdir.com/contact" style={{color:"#c3f58b",textDecoration:"underline",fontWeight:750}}>Open Contact Support form</a>.
+              Your subscription remains unchanged until a requested billing change is confirmed.
             </p>
           )}
         </details>
