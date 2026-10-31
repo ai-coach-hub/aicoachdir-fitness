@@ -1,6 +1,3 @@
--- ADDITIVE PRODUCTION CANDIDATE. DO NOT APPLY until deployment review and signed
--- webhook + Stripe live subscription workflows have passed end-to-end QA.
--- No existing member, subscription, allowance, or saved coaching data is changed.
 CREATE TABLE IF NOT EXISTS public.ai_tier_change_intents (
  id text PRIMARY KEY CHECK (id ~ '^upg_[a-f0-9]{36}$'),
  member_key text NOT NULL CHECK (member_key ~ '^member_[a-f0-9]{64}$'),
@@ -28,8 +25,6 @@ CREATE INDEX IF NOT EXISTS ai_tier_change_invoice_lookup
  ON public.ai_tier_change_intents(invoice_id) WHERE invoice_id IS NOT NULL;
 REVOKE ALL ON TABLE public.ai_tier_change_intents FROM PUBLIC;
 
--- An invoice is verified by server code BEFORE this DB function is called.
--- Atomic row locks and expected values prevent duplicate allowance grants.
 CREATE OR REPLACE FUNCTION public.ai_tier_apply_verified_paid_upgrade(
  p_intent text,p_invoice text,p_expected integer,p_target integer
 ) RETURNS text LANGUAGE plpgsql AS $$
