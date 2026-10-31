@@ -37,3 +37,18 @@ test('downgrade preserves current phase through renewal and does not invoice imm
  assert.equal(b.get('phases[1][items][0][price]'),'price_new');
  assert.equal(b.get('proration_behavior'),'none');assert.equal(b.get('end_behavior'),'release');
 });
+test('discard that wins the downgrade claim prevents any Stripe mutation',async()=>{
+ const code=ts.transpileModule(readFileSync('lib/tierChangeService.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ const start=new Date(Date.now()-86400000).toISOString(),end=new Date(Date.now()+86400000).toISOString();
+ const i={...intent(),direction:'downgrade',target_limit:100,expected_limit:400,quoted_amount:0,quoted_at:new Date().toISOString(),period_start:start,period_end:end};
+ let calls=0;
+ const c={i,memberKey:'member_test',m:{stripe_customer_id:'cus_test'},sub:{id:'sub_test',collection_method:'charge_automatically'},item:{id:'si_test',price:{id:'price_old'}},catalog:[{price:'price_old',messages:400},{price:'price_new',messages:100}],stripe:async()=>{calls++;return {id:'sub_sched_test',subscription:'sub_test'}},sql:async parts=>{
+  const text=parts.join('?');if(text.includes('SELECT * FROM public.ai_tier_change_intents'))return [i];
+  if(text.includes('SELECT limit_uses'))return [{limit_uses:400,period_end:end}];
+  if(text.includes('UPDATE public.ai_tier_change_intents'))return [];throw Error('unexpected SQL');
+ }};
+ const object=v=>v&&typeof v==='object'?v:{};
+ const imports={'node:crypto':{},'./tierChangeRuntime':{tierMember:async()=>c,obj:object,ident:v=>typeof v==='string'?v:v?.id,iso:v=>new Date(v).toISOString()},'./stripeUsagePeriod':{stripeUsageWindowFromVerifiedRecord:()=>({ok:true,periodStart:start,periodEnd:end})},'./productionTierWalletPreflight':{},'./tierTransactionOperations':load()};
+ const m={exports:{}};new Function('require','module','exports',code)(id=>imports[id],m,m.exports);
+ await assert.rejects(m.exports.confirmTierChange(i.id,0));assert.equal(calls,0,'Stripe was called after discard won');
+});

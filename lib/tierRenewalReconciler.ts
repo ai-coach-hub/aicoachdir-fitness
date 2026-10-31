@@ -6,9 +6,21 @@ export async function reconcileTierRenewal(invoiceId:string){
  if(invoice.livemode!==live||invoice.status!=='paid'||invoice.paid!==true||invoice.billing_reason!=='subscription_cycle')return 'ignored';
  const subId=ident(invoice.subscription||obj(obj(invoice.parent).subscription_details).subscription);
  if(!/^sub_[A-Za-z0-9]+$/.test(subId))return 'ignored';
- const intents=await sql`SELECT * FROM public.ai_tier_change_intents WHERE stripe_subscription_id=${subId} AND state IN ('scheduled','applied') ORDER BY created_at DESC LIMIT 1`;
+ const intents=await sql`SELECT * FROM public.ai_tier_change_intents WHERE stripe_subscription_id=${subId} AND (state IN ('scheduled','applied') OR (state='awaiting_payment' AND direction='downgrade')) ORDER BY created_at DESC LIMIT 1`;
  if(!intents.length)return 'ignored';
  const i=intents[0],sub=await stripe('/subscriptions/'+subId);
+ if(i.state==='awaiting_payment'){
+  const scheduleId=String(i.schedule_id||ident(sub.schedule));
+  if(!scheduleId)throw Error('Schedule binding requires recovery');
+  const schedule=await stripe('/subscription_schedules/'+scheduleId);
+  if(obj(schedule.metadata).tier_change_intent!==i.id)throw Error('Schedule intent mismatch');
+  const phases=Array.isArray(schedule.phases)?schedule.phases:[];
+  const next=phases.find(p=>Number(p.start_date)===new Date(iso(i.period_end)).getTime()/1000);
+  const items=Array.isArray(next?.items)?next.items:[];
+  if(ident(schedule.subscription||schedule.released_subscription)!==subId||items.length!==1||ident(items[0].price)!==i.target_price_id)throw Error('Schedule is not verified');
+  await sql`UPDATE public.ai_tier_change_intents SET state='scheduled',schedule_id=${scheduleId},updated_at=now() WHERE id=${String(i.id)} AND state='awaiting_payment'`;
+ }
+
  if(sub.livemode!==live||sub.status!=='active'||ident(sub.customer)!==i.stripe_customer_id||ident(invoice.customer)!==i.stripe_customer_id)throw Error('Renewal binding mismatch');
  const tier=catalog.find(t=>t.price===i.target_price_id);
  if(!tier||tier.messages!==i.target_limit)throw Error('Renewal catalog mismatch');

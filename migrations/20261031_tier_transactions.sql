@@ -7,8 +7,14 @@ ALTER TABLE public.ai_tier_change_intents
  ADD COLUMN IF NOT EXISTS quoted_amount integer,
  ADD COLUMN IF NOT EXISTS quoted_at timestamptz,
  ADD COLUMN IF NOT EXISTS schedule_id text;
-ALTER TABLE public.ai_tier_change_intents DROP CONSTRAINT IF EXISTS ai_tier_change_intents_check;
-ALTER TABLE public.ai_tier_change_intents ADD CONSTRAINT ai_tier_change_intents_check CHECK
+-- Earlier migrations used both column-level and table-level checks, whose
+-- generated names differ. Match the limit expression, preserving period checks.
+DO $$ DECLARE c record; BEGIN
+ FOR c IN SELECT conname FROM pg_constraint WHERE conrelid='public.ai_tier_change_intents'::regclass
+ AND contype='c' AND pg_get_constraintdef(oid) LIKE '%target_limit%'
+ LOOP EXECUTE format('ALTER TABLE public.ai_tier_change_intents DROP CONSTRAINT %I',c.conname); END LOOP;
+END $$;
+ALTER TABLE public.ai_tier_change_intents ADD CONSTRAINT ai_tier_change_limits_check CHECK
  ((direction='upgrade' AND target_limit>expected_limit AND target_limit<=10000) OR
   (direction='downgrade' AND target_limit>0 AND target_limit<expected_limit));
 ALTER TABLE public.ai_tier_change_intents DROP CONSTRAINT IF EXISTS ai_tier_change_intents_state_check;

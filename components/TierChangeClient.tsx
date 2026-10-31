@@ -28,6 +28,7 @@ export default function TierChangeClient(){
   setPaymentUrl(result.paymentUrl||null);setQuote(null);await refresh();
   setMessage(result.status==='scheduled'?'Your new plan starts at your next renewal. Your current benefits continue until then.':result.status==='applied'?'Your plan and message allowance are updated.':result.status==='payment_received'?'Payment received. Your message allowance will update after payment confirmation.':'Payment needs confirmation. Your existing message balance is preserved.');
  }catch(e){setMessage(e instanceof Error?e.message:'Unable to confirm change.');}finally{setBusy(false);}}
+ async function discard(){setBusy(true);try{await post('transaction',{action:'discard',intentId:quote?.intentId||pending?.intentId});setQuote(null);await refresh();}catch{setMessage('The change is already processing. Refresh its status.');}finally{setBusy(false);}}
  return <section aria-labelledby="change-plan-title" style={{marginTop:24}}>
   <h2 id="change-plan-title">Choose your plan</h2>
   {current&&<p>Current plan: {title(current)}</p>}
@@ -43,6 +44,7 @@ export default function TierChangeClient(){
    <p>Then {money(quote.monthlyCents)} per month. Your saved coaching data stays with your account.</p>
    <button className="primary-button" disabled={busy} onClick={confirm}>{busy?'Processing…':'Confirm plan change'}</button>
   </div>}
+  {(quote||pending?.state==='prepared')&&<button disabled={busy} onClick={discard}>Keep current plan</button>}
   {pending?.state==='awaiting_payment'&&<button disabled={busy} onClick={confirm}>Check payment status</button>}
   {paymentUrl&&<p><a href={paymentUrl}>Complete payment securely with Stripe</a></p>}
   <p><button className="secondary-button" disabled={busy} onClick={()=>refresh().catch(()=>setMessage('Please try again.'))}>Refresh status</button></p>

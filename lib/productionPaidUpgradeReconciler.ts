@@ -1,3 +1,4 @@
+import {executeUpgrade} from "./tierTransactionOperations";
 import {tierRuntime} from "./tierChangeRuntime";
 import {verifyPaidUpgradeInvoice} from "./productionPaidInvoiceGuard";
 import {stripeUsageWindowFromVerifiedRecord} from "./stripeUsagePeriod";
@@ -27,9 +28,19 @@ export async function reconcileProductionPaidUpgrade(args:{eventType:string;invo
    if(invoice.livemode===live&&invoice.status==="paid"&&
       invoice.billing_reason==="subscription_update"&&
       /^sub_[A-Za-z0-9]+$/.test(subId)){
-     const pending=await sql`SELECT id FROM public.ai_tier_change_intents
+     const pending=await sql`SELECT * FROM public.ai_tier_change_intents
        WHERE stripe_subscription_id=${subId}
        AND state IN ('prepared','awaiting_payment') LIMIT 2`;
+     if(pending.length===1&&pending[0].state==='awaiting_payment'&&pending[0].direction==='upgrade'){
+       const i=pending[0];
+       // Recover the exact Stripe response after a crash before invoice binding.
+       // No fresh charge request: persisted parameters and idempotency key only.
+       const recovered=await executeUpgrade(i,{stripe:stripeRequest,claim:async()=>{},bind:async id=>{
+        await sql`UPDATE public.ai_tier_change_intents SET invoice_id=${id},updated_at=now()
+        WHERE id=${String(i.id)} AND state='awaiting_payment' AND (invoice_id IS NULL OR invoice_id=${id})`;
+       }});
+       if(recovered===args.invoiceId)return reconcileProductionPaidUpgrade(args);
+     }
      if(pending.length>0)throw Error("Invoice binding pending; retry");
    }
    return "ignored";

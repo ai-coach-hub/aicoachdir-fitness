@@ -6,6 +6,7 @@ import {executeUpgrade,downgradeBody} from './tierTransactionOperations';
 
 export async function tierChangeStatus(){
  const c=await tierMember();
+ await c.sql`UPDATE public.ai_tier_change_intents SET state='failed',updated_at=now() WHERE member_key=${c.memberKey} AND state='prepared' AND period_end<=now()`;
  const intents=await c.sql`SELECT id,state,target_price_id,target_limit,period_end,invoice_id FROM public.ai_tier_change_intents WHERE member_key=${c.memberKey} AND stripe_subscription_id=${String(c.sub.id)} AND state IN ('prepared','awaiting_payment','scheduled') ORDER BY created_at DESC LIMIT 1`;
  return {ok:true,currentTier:c.current?.tier||'grandfathered',plans:c.catalog.map(({tier,cents})=>({tier,cents})),pending:intents[0]?{intentId:String(intents[0].id),state:String(intents[0].state),effectiveAt:iso(intents[0].period_end)}:null};
 }
@@ -91,7 +92,7 @@ export async function confirmTierChange(id:unknown,expectedAmount:unknown){
  // Existing plans with tax/discount/custom invoice settings need explicit handling,
  // otherwise a phase update could silently drop their terms.
  if(obj(sub.automatic_tax).enabled||Array.isArray(sub.discounts)&&sub.discounts.length||Array.isArray(sub.default_tax_rates)&&sub.default_tax_rates.length||sub.collection_method!=='charge_automatically'||sub.billing_thresholds||obj(c.item).tax_rates&&Array.isArray(c.item.tax_rates)&&c.item.tax_rates.length)throw Error('Custom billing terms require support.');
- await sql`UPDATE public.ai_tier_change_intents SET state='awaiting_payment',updated_at=now() WHERE id=${String(i.id)} AND state='prepared'`;
+ if(i.state==='prepared'){const claimed=await sql`UPDATE public.ai_tier_change_intents SET state='awaiting_payment',updated_at=now() WHERE id=${String(i.id)} AND state='prepared' AND proration_date=${Number(i.proration_date)} AND quoted_amount=${Number(i.quoted_amount)} RETURNING id`;if(claimed.length!==1)throw Error('Quote changed or confirmation already processing.');}
  let scheduleId=String(i.schedule_id||'');
  if(!scheduleId){
   const created=await c.stripe('/subscription_schedules',{method:'POST',body:new URLSearchParams({from_subscription:String(i.stripe_subscription_id)}),idempotencyKey:'tier_schedule_create_'+i.id});
@@ -103,9 +104,18 @@ export async function confirmTierChange(id:unknown,expectedAmount:unknown){
  if(ident(schedule.subscription)!==i.stripe_subscription_id||schedule.status!=='active')throw Error('Schedule changed.');
  const phase=obj(schedule.current_phase),start=Number(phase.start_date),end=new Date(iso(i.period_end)).getTime()/1000;
  if(!Number.isSafeInteger(start)||start>=end||Number(phase.end_date)!==end)throw Error('Schedule boundary mismatch.');
- const updated=await c.stripe('/subscription_schedules/'+scheduleId,{method:'POST',body:downgradeBody({start,end,currentPrice:String(i.old_price_id),targetPrice:String(i.target_price_id)}),idempotencyKey:'tier_schedule_update_'+i.id});
+ const body=downgradeBody({start,end,currentPrice:String(i.old_price_id),targetPrice:String(i.target_price_id)});
+ body.set('metadata[tier_change_intent]',String(i.id));
+ const updated=await c.stripe('/subscription_schedules/'+scheduleId,{method:'POST',body,idempotencyKey:'tier_schedule_update_'+i.id});
  const phases=Array.isArray(updated.phases)?updated.phases:[];
  if(phases.length!==2||obj(phases[0]).end_date!==end||obj(phases[1]).start_date!==end)throw Error('Schedule not confirmed.');
  await sql`UPDATE public.ai_tier_change_intents SET state='scheduled',updated_at=now() WHERE id=${String(i.id)} AND state='awaiting_payment'`;
  return {ok:true,status:'scheduled',effectiveAt:iso(i.period_end)};
+}
+
+export async function cancelPreparedTierChange(id:unknown){
+ const {sql,i}=await ownedIntent(id);
+ const rows=await sql`UPDATE public.ai_tier_change_intents SET state='failed',updated_at=now() WHERE id=${String(i.id)} AND state='prepared' RETURNING id`;
+ if(rows.length!==1)throw Error('Processing changes cannot be discarded.');
+ return {ok:true,status:'discarded'};
 }
