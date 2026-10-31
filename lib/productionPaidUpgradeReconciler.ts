@@ -25,7 +25,24 @@ export async function reconcileProductionPaidUpgrade(args:{eventType:string;invo
    throw Error("Production DB branch mismatch");
  const intents=await sql`SELECT * FROM public.ai_tier_change_intents
  WHERE invoice_id=${args.invoiceId} LIMIT 2`;
- if(intents.length===0)return "ignored";
+ if(intents.length===0){
+   // Stripe may deliver invoice.paid before the subscription update caller
+   // persists the invoice ID. Do not acknowledge a uniquely pending upgrade
+   // invoice: a retry will reconcile it after the durable binding is saved.
+   const invoice=await stripeRequest("/invoices/"+encodeURIComponent(args.invoiceId));
+   const parent=obj(invoice.parent);
+   const details=obj(parent.subscription_details);
+   const subId=string(invoice.subscription||details.subscription);
+   if(invoice.livemode===true&&invoice.status==="paid"&&
+      invoice.billing_reason==="subscription_update"&&
+      /^sub_[A-Za-z0-9]+$/.test(subId)){
+     const pending=await sql`SELECT id FROM public.ai_tier_change_intents
+       WHERE stripe_subscription_id=${subId}
+       AND state IN ('prepared','awaiting_payment') LIMIT 2`;
+     if(pending.length>0)throw Error("Invoice binding pending; retry");
+   }
+   return "ignored";
+ }
  if(intents.length!==1)throw Error("Ambiguous intent");
  const i=intents[0];
  if(i.state==="applied")return "already_applied";
