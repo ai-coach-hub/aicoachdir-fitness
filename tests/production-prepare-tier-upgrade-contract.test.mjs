@@ -18,6 +18,8 @@ test("preparation binds Clerk, billing customer, Stripe subscription and usage r
 test("public endpoint requires original origin and release flags",()=>{
  const c=readFileSync("app/api/billing/tier-change/prepare/route.ts","utf8");
  assert.match(c,/invalid_origin/);
- assert.match(c,/PUBLIC_TIER_UPGRADES_ENABLED/);
- assert.match(c,/PRODUCTION_TIER_TRANSACTIONS_ENABLED/);
+ assert.match(c,/tierChangesEnabled/);
+ const runtime=readFileSync("lib/tierChangeRuntime.ts","utf8");
+ assert.match(runtime,/PUBLIC_TIER_UPGRADES_ENABLED/);
+ assert.match(runtime,/PRODUCTION_TIER_TRANSACTIONS_ENABLED/);
 });

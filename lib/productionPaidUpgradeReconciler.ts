@@ -1,5 +1,4 @@
-import {membershipDb} from "./fitnessMembershipDb";
-import {stripeRequest,stripeMode} from "./stripeServer";
+import {tierRuntime} from "./tierChangeRuntime";
 import {verifyPaidUpgradeInvoice} from "./productionPaidInvoiceGuard";
 import {stripeUsageWindowFromVerifiedRecord} from "./stripeUsagePeriod";
 type R=Record<string,unknown>;
@@ -13,16 +12,8 @@ const asIso=(v:unknown)=>new Date(String(v)).toISOString();
  */
 export async function reconcileProductionPaidUpgrade(args:{eventType:string;invoiceId:string;signedWebhook:boolean}):
  Promise<"ignored"|"applied"|"already_applied">{
- if(process.env.VERCEL_ENV!=="production"||
-    process.env.PUBLIC_TIER_UPGRADES_ENABLED!=="true"||
-    process.env.PRODUCTION_UPGRADE_WEBHOOK_ENABLED!=="true"||
-    stripeMode()!=="live"||!args.signedWebhook||
-    args.eventType!=="invoice.paid"||
-    !/^in_[A-Za-z0-9]+$/.test(args.invoiceId))return "ignored";
- const sql=membershipDb();
- const branch=await sql`SELECT current_setting('neon.branch_id',true) AS id`;
- if(branch.length!==1||branch[0].id!=="br-sparkling-glitter-aucpz59d")
-   throw Error("Production DB branch mismatch");
+ if(!args.signedWebhook||args.eventType!=="invoice.paid"||!/^in_[A-Za-z0-9]+$/.test(args.invoiceId))return "ignored";
+ const {sql,stripe:stripeRequest,live}=await tierRuntime(true);
  const intents=await sql`SELECT * FROM public.ai_tier_change_intents
  WHERE invoice_id=${args.invoiceId} LIMIT 2`;
  if(intents.length===0){
@@ -33,7 +24,7 @@ export async function reconcileProductionPaidUpgrade(args:{eventType:string;invo
    const parent=obj(invoice.parent);
    const details=obj(parent.subscription_details);
    const subId=string(invoice.subscription||details.subscription);
-   if(invoice.livemode===true&&invoice.status==="paid"&&
+   if(invoice.livemode===live&&invoice.status==="paid"&&
       invoice.billing_reason==="subscription_update"&&
       /^sub_[A-Za-z0-9]+$/.test(subId)){
      const pending=await sql`SELECT id FROM public.ai_tier_change_intents
@@ -79,7 +70,7 @@ export async function reconcileProductionPaidUpgrade(args:{eventType:string;invo
  Number(w.completed_uses)>=0&&Number(w.reserved_uses)>=0&&
  Number(w.completed_uses)+Number(w.reserved_uses)<=expected;
  const proof=verifyPaidUpgradeInvoice({
- signedWebhook:args.signedWebhook,liveMode:invoice.livemode===true&&sub.livemode===true,
+ signedWebhook:args.signedWebhook,liveMode:invoice.livemode===true,expectedLiveMode:live,
  eventType:args.eventType,invoiceId:args.invoiceId,
  invoiceStatus:string(invoice.status),invoicePaid:invoice.paid===true,
  invoiceSubscriptionId:invoiceSubscription,
@@ -94,7 +85,7 @@ export async function reconcileProductionPaidUpgrade(args:{eventType:string;invo
  walletPeriodMatches:matchesWindow,walletLimitMatches:matchesWallet
  });
  if(!proof.ok)throw Error("Paid-upgrade proof rejected: "+proof.reason);
- if(invoice.billing_reason!=="subscription_update"||sub.status!=="active"||
+ if(invoice.currency!=="usd"||Number(invoice.amount_due)!==Number(i.quoted_amount)||sub.livemode!==live||invoice.billing_reason!=="subscription_update"||sub.status!=="active"||
     sub.customer!==i.stripe_customer_id||target<=expected)throw Error("Subscription not settled");
  // No extra emails, IDs, or provider credentials are written to logs.
  const rows=await sql`SELECT public.ai_tier_apply_verified_paid_upgrade(

@@ -6,6 +6,7 @@
 export type PaidInvoiceProof={
  signedWebhook:boolean;
  liveMode:boolean;
+ expectedLiveMode?:boolean;
  eventType:string;
  invoiceId:string;
  invoiceStatus:string;
@@ -26,7 +27,7 @@ export type InvoiceProofResult={ok:true}|{ok:false;reason:string};
 const stripeId=(v:string,prefix:string)=>new RegExp("^"+prefix+"_[A-Za-z0-9]+$").test(v);
 export function verifyPaidUpgradeInvoice(p:PaidInvoiceProof):InvoiceProofResult{
  const deny=(reason:string):InvoiceProofResult=>({ok:false,reason});
- if(!p.signedWebhook||!p.liveMode||p.eventType!=="invoice.paid")return deny("untrusted_event");
+ if(!p.signedWebhook||p.liveMode!==(p.expectedLiveMode??true)||p.eventType!=="invoice.paid")return deny("untrusted_event");
  if(!stripeId(p.invoiceId,"in")||p.invoiceId!==p.intentInvoiceId||
  p.invoiceStatus!=="paid"||!p.invoicePaid)return deny("invoice_not_confirmed");
  if(!stripeId(p.invoiceSubscriptionId,"sub")||

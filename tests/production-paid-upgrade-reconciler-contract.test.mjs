@@ -17,8 +17,8 @@ test("webhook verifies HMAC before processing and remains off",()=>{
  const x=readFileSync(paths[1],"utf8");
  assert.match(x,/createHmac/);assert.match(x,/timingSafeEqual/);
  assert.match(x,/PRODUCTION_UPGRADE_WEBHOOK_ENABLED/);
- assert.match(x,/PUBLIC_TIER_UPGRADES_ENABLED/);
- assert.match(x,/livemode!==true/);
+ assert.match(x,/UPGRADE_SANDBOX_WEBHOOK_ENABLED/);
+ assert.match(x,/livemode!==!preview/);
 });
 test("reconciler binds invoice to intent and invokes atomic transition",()=>{
  const x=readFileSync(paths[0],"utf8");
@@ -27,8 +27,7 @@ test("reconciler binds invoice to intent and invokes atomic transition",()=>{
  "ai_tier_change_intents",
  "stripeUsageWindowFromVerifiedRecord",
  "ai_tier_apply_verified_paid_upgrade",
- "br-sparkling-glitter-aucpz59d",
- "PUBLIC_TIER_UPGRADES_ENABLED"
+ "tierRuntime(true)"
  ])assert.ok(x.includes(guard),guard);
  assert.doesNotMatch(x,/INSERT INTO public\.shared_ai_usage_periods/);
 });

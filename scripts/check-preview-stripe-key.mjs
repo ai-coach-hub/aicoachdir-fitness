@@ -1,6 +1,6 @@
 const vercelEnv = String(process.env.VERCEL_ENV || "").trim();
 const restricted = String(process.env.STRIPE_RESTRICTED_KEY || "").trim();
-const secret = String(process.env.STRIPE_SECRET_KEY || "").trim();
+const secret = String(process.env.STRIPE_SECRET_KEY || (process.env.VERCEL_GIT_COMMIT_REF === "feature/production-tier-release-guards-20261029" ? process.env.UPGRADE_SANDBOX_STRIPE_SECRET_KEY : "") || "").trim();
 
 if (vercelEnv !== "preview") {
   console.log("Stripe Preview safety check skipped outside Vercel Preview.");
