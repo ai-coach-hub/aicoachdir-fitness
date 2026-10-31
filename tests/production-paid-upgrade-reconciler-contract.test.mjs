@@ -39,3 +39,11 @@ test("migration has immutable paid invoice binding and replay protection",()=>{
  assert.ok(x.includes(guard),guard);
  assert.doesNotMatch(x,/DROP TABLE|TRUNCATE TABLE|DELETE FROM/i);
 });
+
+test("paid invoice arriving before its durable binding is retryable",()=>{
+ const source=readFileSync("lib/productionPaidUpgradeReconciler.ts","utf8");
+ assert.match(source,/Invoice binding pending; retry/);
+ assert.match(source,/invoice\.billing_reason==="subscription_update"/);
+ assert.match(source,/state IN \('prepared','awaiting_payment'\)/);
+ assert.match(source,/pending\.length>0/);
+});
