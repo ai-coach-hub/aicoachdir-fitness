@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-export default function FitnessCheckoutCard({ destination = "fitness", tierSignupsEnabled = false }: { destination?: "fitness" | "budget-coach"; tierSignupsEnabled?: boolean }) {
-  const [tier,setTier] = useState("growth");
+export default function FitnessCheckoutCard({ destination = "fitness", tierSignupsEnabled = false,initialTier = "growth" }: { destination?: "fitness" | "budget-coach"; tierSignupsEnabled?: boolean; initialTier?: string }) {
+  const tier=initialTier;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [errorAction, setErrorAction] = useState<{
@@ -60,13 +60,8 @@ export default function FitnessCheckoutCard({ destination = "fitness", tierSignu
       <h1 id="fitness-checkout-heading">Confirm your AI Coach Directory membership</h1>
       {tierSignupsEnabled ? <>
         <p>Choose a monthly membership. Every plan includes Fitness, Budgeting, and Life Coach.</p>
-        <label htmlFor="membership-tier">Monthly membership plan</label>
-        <select id="membership-tier" value={tier} disabled={loading} onChange={e=>setTier(e.target.value)} style={{display:"block",width:"100%",padding:12,margin:"12px 0 20px"}}>
-          <option value="starter">Starter — $9/month · 100 messages</option>
-          <option value="growth">Growth — $15/month · 200 messages</option>
-          <option value="premium">Premium — $25/month · 400 messages</option>
-          <option value="elite">Elite — $35/month · 600 messages</option>
-        </select>
+        <p><strong>{({starter:"Starter — $9/month · 100 messages",growth:"Growth — $15/month · 200 messages",premium:"Premium — $25/month · 400 messages",elite:"Elite — $35/month · 600 messages"} as Record<string,string>)[tier]}</strong></p>
+        <p>To select another plan, return to <a href="/fitness/signup">Review plans and Terms</a> before checkout.</p>
       </> : <p>Your existing sign-in will be kept. Continue to secure checkout for the $15/month AI Coach Directory membership, which includes Fitness, Budgeting, and Life Coach with 400 AI Coach Messages per month. If you are returning after cancellation, your existing account stays the same.</p>}
 
       <button
