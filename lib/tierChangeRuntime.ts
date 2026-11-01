@@ -14,6 +14,25 @@ export function tierChangesEnabled(){
   ? process.env.VERCEL_GIT_COMMIT_REF==='feature/production-tier-release-guards-20261029'&&process.env.UPGRADE_SANDBOX_MEMBER_UPGRADES_ENABLED==='true'
   : process.env.VERCEL_ENV==='production'&&process.env.PUBLIC_TIER_UPGRADES_ENABLED==='true'&&process.env.PRODUCTION_TIER_TRANSACTIONS_ENABLED==='true';
 }
+
+export async function bindVerifiedTierMemberIdentity(args:{
+ membership:Row;userId:string;email:string;customer:Row;subscription:Row;
+ persist:()=>Promise<Row[]>;
+}){
+ const {membership,userId,customer,subscription}=args;
+ if(String(membership.clerk_user_id||'')===userId)return membership;
+ const email=args.email.trim().toLowerCase();
+ const customerId=String(membership.stripe_customer_id||'');
+ const subscriptionId=String(membership.stripe_subscription_id||'');
+ if(!userId||customer.deleted||String(customer.email||'').trim().toLowerCase()!==email||
+  ident(customer)!==customerId||ident(subscription)!==subscriptionId||
+  ident(subscription.customer)!==customerId||subscription.status!=='active')
+  throw Error('Membership is not verified.');
+ const rows=await args.persist();
+ if(rows.length!==1||String(rows[0].clerk_user_id||'')!==userId)
+  throw Error('Membership is not verified.');
+ return rows[0];
+}
 export async function tierRuntime(webhook=false){
  const preview=process.env.VERCEL_ENV==='preview';
  // Webhooks must continue settling payments even when new requests are paused.
@@ -56,12 +75,21 @@ export async function tierMember(){
  const {sql,stripe}=runtime;
  const members=await sql`SELECT * FROM public.fitness_memberships WHERE email=${email} LIMIT 2`;
  const m=members[0];
- if(members.length!==1||m.clerk_user_id!==user.id||m.access_active!==true||!/^cus_[A-Za-z0-9]+$/.test(String(m.stripe_customer_id))||!/^sub_[A-Za-z0-9]+$/.test(String(m.stripe_subscription_id)))throw Error('Membership is not verified.');
+ if(members.length!==1||m.access_active!==true||!/^cus_[A-Za-z0-9]+$/.test(String(m.stripe_customer_id))||!/^sub_[A-Za-z0-9]+$/.test(String(m.stripe_subscription_id)))throw Error('Membership is not verified.');
  const memberKey=sharedUsageMemberKey(email,process.env.BUDGET_MEMBERSHIP_HANDOFF_SECRET||'');
  if(!memberKey)throw Error('Member key unavailable');
  const [customer,sub,list]=await Promise.all([stripe('/customers/'+m.stripe_customer_id),stripe('/subscriptions/'+m.stripe_subscription_id),stripe('/subscriptions?customer='+m.stripe_customer_id+'&status=all&limit=100')]);
  const others=(Array.isArray(list.data)?list.data:[]).filter(s=>s.id!==m.stripe_subscription_id&&!['canceled','incomplete_expired'].includes(s.status));
  const items=obj(sub.items),data=Array.isArray(items.data)?items.data:[],item=obj(data[0]);
  if(customer.deleted||String(customer.email||'').trim().toLowerCase()!==email||sub.customer!==m.stripe_customer_id||sub.livemode!==runtime.live||sub.status!=='active'||list.has_more||others.length||data.length!==1||items.has_more||item.quantity!==1)throw Error('Subscription is not changeable.');
- return {...runtime,user,email,memberKey,m,sub,item,current:runtime.catalog.find(t=>t.price===obj(item.price).id)};
+ const bound=await bindVerifiedTierMemberIdentity({membership:m,userId:user.id,email,customer,subscription:sub,persist:()=>sql`
+  UPDATE public.fitness_memberships
+  SET clerk_user_id=${user.id}, updated_at=NOW()
+  WHERE email=${email}
+   AND stripe_customer_id=${String(m.stripe_customer_id)}
+   AND stripe_subscription_id=${String(m.stripe_subscription_id)}
+   AND clerk_user_id IS NOT DISTINCT FROM ${m.clerk_user_id??null}
+  RETURNING *
+ `});
+ return {...runtime,user,email,memberKey,m:bound,sub,item,current:runtime.catalog.find(t=>t.price===obj(item.price).id)};
 }
