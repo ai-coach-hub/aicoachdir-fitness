@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
   let acceptanceId = "";
   try {
-    acceptanceId = await currentMembershipTermsId(email,newTierSignupsEnabled()?requestedTier:undefined);
+    acceptanceId = newTierSignupsEnabled() ? await currentMembershipTermsId(email,requestedTier) : await currentMembershipTermsId(email);
   } catch {
     return checkoutProblem("We could not verify your Terms acceptance. No charge was attempted.", 503);
   }
