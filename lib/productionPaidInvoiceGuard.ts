@@ -10,7 +10,8 @@ export type PaidInvoiceProof={
  eventType:string;
  invoiceId:string;
  invoiceStatus:string;
- invoicePaid:boolean;
+ invoicePaidAt:number;
+ invoiceAmountRemaining:number;
  invoiceSubscriptionId:string;
  invoiceCustomerId:string;
  intentInvoiceId:string;
@@ -29,7 +30,8 @@ export function verifyPaidUpgradeInvoice(p:PaidInvoiceProof):InvoiceProofResult{
  const deny=(reason:string):InvoiceProofResult=>({ok:false,reason});
  if(!p.signedWebhook||p.liveMode!==(p.expectedLiveMode??true)||p.eventType!=="invoice.paid")return deny("untrusted_event");
  if(!stripeId(p.invoiceId,"in")||p.invoiceId!==p.intentInvoiceId||
- p.invoiceStatus!=="paid"||!p.invoicePaid)return deny("invoice_not_confirmed");
+ p.invoiceStatus!=="paid"||!Number.isSafeInteger(p.invoicePaidAt)||p.invoicePaidAt<=0||
+ p.invoiceAmountRemaining!==0)return deny("invoice_not_confirmed");
  if(!stripeId(p.invoiceSubscriptionId,"sub")||
  p.invoiceSubscriptionId!==p.intentSubscriptionId||
  !stripeId(p.invoiceCustomerId,"cus")||
