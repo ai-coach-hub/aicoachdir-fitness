@@ -4,6 +4,7 @@ type Plan={tier:string;cents:number};
 type Quote={intentId:string;direction:string;amountCents:number;monthlyCents:number;effectiveAt:string|null};
 const money=(c:number)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);
 const title=(s:string)=>s[0].toUpperCase()+s.slice(1);
+const messages:Record<string,number>={starter:100,growth:200,premium:400,elite:600};
 export default function TierChangeClient(){
  const [plans,setPlans]=useState<Plan[]>([]),[current,setCurrent]=useState(''),[target,setTarget]=useState('');
  const [quote,setQuote]=useState<Quote|null>(null),[message,setMessage]=useState('Loading your plan…'),[busy,setBusy]=useState(false);
@@ -29,15 +30,31 @@ export default function TierChangeClient(){
   setMessage(result.status==='scheduled'?'Your new plan starts at your next renewal. Your current benefits continue until then.':result.status==='applied'?'Your plan and message allowance are updated.':result.status==='payment_received'?'Payment received. Your message allowance will update after payment confirmation.':'Payment needs confirmation. Your existing message balance is preserved.');
  }catch(e){setMessage(e instanceof Error?e.message:'Unable to confirm change.');}finally{setBusy(false);}}
  async function discard(){setBusy(true);try{await post('transaction',{action:'discard',intentId:quote?.intentId||pending?.intentId});setQuote(null);await refresh();}catch{setMessage('The change is already processing. Refresh its status.');}finally{setBusy(false);}}
- return <section aria-labelledby="change-plan-title" style={{marginTop:24}}>
+ return <section aria-labelledby="change-plan-title" className="tier-change-panel">
+  <p className="tier-change-eyebrow">MEMBERSHIP OPTIONS</p>
   <h2 id="change-plan-title">Choose your plan</h2>
-  {current&&<p>Current plan: {title(current)}</p>}
+  {current&&<div className="tier-change-current"><span>Your current plan</span><strong>{title(current)}</strong></div>}
   {message&&<p role="status">{message}</p>}
   {current&&current!=='grandfathered'&&!pending&&!quote&&<>
-   <label htmlFor="new-plan">New plan</label>{' '}
-   <select id="new-plan" value={target} onChange={e=>setTarget(e.target.value)} disabled={busy}>
-    <option value="">Select a plan</option>{plans.filter(p=>p.tier!==current).map(p=><option key={p.tier} value={p.tier}>{title(p.tier)} — {money(p.cents)}/month</option>)}
-   </select>{' '}<button className="secondary-button" disabled={!target||busy} onClick={review}>Review change</button>
+   <p className="tier-change-intro">Select a membership to review your options.</p>
+   <div className="tier-change-plan-list" role="group" aria-label="Choose a new monthly membership">
+    {plans.filter(p=>p.tier!==current).map(p=>{
+     const selected=target===p.tier;
+     return <button type="button" key={p.tier} className={`tier-change-plan${selected?' is-selected':''}`}
+      aria-pressed={selected} onClick={()=>setTarget(p.tier)} disabled={busy}>
+      <span className="tier-change-plan-header">
+       <span className="tier-change-plan-name"><span className="tier-change-select-circle" aria-hidden="true"/><strong>{title(p.tier)}</strong></span>
+       <span className="tier-change-plan-price">{money(p.cents)}<small>/month</small></span>
+      </span>
+      <span className="tier-change-plan-messages">{messages[p.tier]??0} AI Coach messages per month</span>
+     </button>;
+    })}
+   </div>
+   <div className="tier-change-actions">
+    <button type="button" className="primary-button" disabled={!target||busy} onClick={review}>{busy?'Reviewing…':target?'Review '+title(target):'Select a plan'}</button>
+    <button type="button" className="secondary-button" disabled={busy} onClick={()=>refresh().catch(()=>setMessage('Please try again.'))}>Refresh status</button>
+   </div>
+   <p className="tier-change-note">Reviewing a plan will not change your subscription or charge your card.</p>
   </>}
   {pending?.state==='prepared'&&!quote&&<button disabled={busy} onClick={review}>Review pending change</button>}
   {quote&&<div><p>{quote.direction==='upgrade'?`${money(quote.amountCents)} due now for the remainder of this billing period.`:`Nothing due now. Your new plan begins ${new Date(quote.effectiveAt!).toLocaleDateString()}.`}</p>
@@ -47,6 +64,6 @@ export default function TierChangeClient(){
   {(quote||pending?.state==='prepared')&&<button disabled={busy} onClick={discard}>Keep current plan</button>}
   {pending?.state==='awaiting_payment'&&<button disabled={busy} onClick={confirm}>Check payment status</button>}
   {paymentUrl&&<p><a href={paymentUrl}>Complete payment securely with Stripe</a></p>}
-  <p><button className="secondary-button" disabled={busy} onClick={()=>refresh().catch(()=>setMessage('Please try again.'))}>Refresh status</button></p>
+  {(pending||quote)&&<p><button className="secondary-button" disabled={busy} onClick={()=>refresh().catch(()=>setMessage('Please try again.'))}>Refresh status</button></p>}
  </section>;
 }
