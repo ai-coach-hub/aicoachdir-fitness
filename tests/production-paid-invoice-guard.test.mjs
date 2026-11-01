@@ -23,3 +23,24 @@ for(const [label,change,reason] of [
  ["wrong period",{walletPeriodMatches:false},"wallet_changed"],
  ["changed wallet",{walletLimitMatches:false},"wallet_changed"],
 ])test(label,()=>assert.equal(check({...good(),...change}).reason,reason));
+
+
+const renewal = mod.exports.isVerifiedPaidRenewalInvoice;
+const renewalInvoice=()=>({object:"invoice",livemode:true,status:"paid",billing_reason:"subscription_cycle",
+ status_transitions:{paid_at:1793500696},amount_remaining:0});
+test("current renewal invoice shape without paid boolean is accepted",()=>{
+ assert.equal(renewal(renewalInvoice(),true),true);
+});
+for (const [label,change] of [
+ ["wrong mode",{livemode:false}],["open",{status:"open"}],
+ ["missing transition",{status_transitions:{paid_at:null}}],
+ ["invalid timestamp",{status_transitions:{paid_at:0}}],
+ ["remaining balance",{amount_remaining:1}],
+ ["not a renewal",{billing_reason:"subscription_update"}],
+ ["not an invoice",{object:"payment_intent"}]
+])test("renewal proof rejects "+label,()=>assert.equal(renewal({...renewalInvoice(),...change},true),false));
+test("renewal reconciliation is wired to verified invoice proof",()=>{
+ const source=readFileSync("lib/tierRenewalReconciler.ts","utf8");
+ assert.match(source,/if\(!isVerifiedPaidRenewalInvoice\(invoice,live\)\)return 'ignored';/);
+ assert.doesNotMatch(source,/invoice\.paid\s*!==\s*true/);
+});
