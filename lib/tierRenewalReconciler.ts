@@ -1,9 +1,10 @@
 import {tierRuntime,obj,ident,iso} from './tierChangeRuntime';
 import {stripeUsageWindowFromVerifiedRecord} from './stripeUsagePeriod';
+import {isVerifiedPaidRenewalInvoice} from './productionPaidInvoiceGuard';
 export async function reconcileTierRenewal(invoiceId:string){
  const {sql,stripe,live,catalog}=await tierRuntime(true);
  const invoice=await stripe('/invoices/'+invoiceId);
- if(invoice.livemode!==live||invoice.status!=='paid'||invoice.paid!==true||invoice.billing_reason!=='subscription_cycle')return 'ignored';
+ if(!isVerifiedPaidRenewalInvoice(invoice,live))return 'ignored';
  const subId=ident(invoice.subscription||obj(obj(invoice.parent).subscription_details).subscription);
  if(!/^sub_[A-Za-z0-9]+$/.test(subId))return 'ignored';
  const intents=await sql`SELECT * FROM public.ai_tier_change_intents WHERE stripe_subscription_id=${subId} AND (state IN ('scheduled','applied') OR (state='awaiting_payment' AND direction='downgrade')) ORDER BY created_at DESC LIMIT 1`;
