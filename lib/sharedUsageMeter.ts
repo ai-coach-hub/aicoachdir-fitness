@@ -122,6 +122,23 @@ async function resolveCurrentSharedUsageWithState(email:string):Promise<QuotaPer
   const sub=await stripeRequest("/subscriptions/"+encodeURIComponent(subscriptionId));
   if(sub.id!==subscriptionId || sub.customer!==customerId ||
      !["active","trialing"].includes(String(sub.status||"")))return null;
+  // Tier prices consume only an already paid, durable wallet. Never create
+  // a new higher allowance merely because Stripe's subscription changed.
+  if(process.env.VERCEL_ENV==="production" && process.env.PRODUCTION_TIER_TRANSACTIONS_ENABLED==="true"){
+   let catalog:Record<string,string>={};
+   try{catalog=JSON.parse(process.env.LIVE_FOUR_TIER_PRICE_CATALOG||"{}");}catch{return null;}
+   const limits:Record<string,number>={starter:100,growth:200,premium:400,elite:600};
+   for(const [tier,priceId] of Object.entries(catalog)){
+    const window=stripeUsageWindowFromVerifiedRecord(sub,{customerId,subscriptionId,priceId});
+    if(!window.ok)continue;
+    const sql=await checkedDb();
+    const wallets=await sql`SELECT entitlement_key,period_end,limit_uses,completed_uses,reserved_uses FROM public.shared_ai_usage_periods WHERE member_key=${memberKey} AND period_start=${window.periodStart}::timestamptz LIMIT 2`;
+    if(wallets.length!==1)return null;
+    const w=wallets[0],limit=Number(w.limit_uses);
+    if(limit!==limits[tier]||iso(w.period_end)!==window.periodEnd||Number(w.completed_uses)<0||Number(w.reserved_uses)<0||Number(w.completed_uses)+Number(w.reserved_uses)>limit||Date.now()<Date.parse(window.periodStart)||Date.now()>=Date.parse(window.periodEnd))return null;
+    return {memberKey,entitlementKey:String(w.entitlement_key),periodStart:window.periodStart,periodEnd:window.periodEnd,limitUses:limit};
+   }
+  }
   // Explicit current and grandfathered price IDs only: no product creation.
   const prices=await approvedPrices();
   if(!prices.length)

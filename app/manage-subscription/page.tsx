@@ -1,3 +1,5 @@
+import TierChangeClient from "@/components/TierChangeClient";
+import {tierChangesEnabled} from "@/lib/tierChangeRuntime";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
@@ -26,6 +28,10 @@ type ManageSubscriptionProps = {
 };
 
 export default async function ManageSubscriptionPage({ searchParams }: ManageSubscriptionProps) {
+  // Isolated billing preview never enters legacy membership/Pickaxe reconciliation.
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feature/production-tier-release-guards-20261029") {
+    return <main className="signup-shell"><SiteHeader compact /><section className="login-config-card"><h1>Manage Subscription</h1><p>This is an isolated subscription test. Your real membership and billing remain unchanged.</p><TierChangeClient /><p><Link href="/fitness/login?destination=manage-subscription">Member Login</Link></p></section></main>;
+  }
   const contactConfigured = Boolean(process.env.RESEND_API_KEY && process.env.SUPPORT_CONTACT_FROM_EMAIL);
   const user = await currentUser();
   const primaryAddress = user?.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)
@@ -175,6 +181,7 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
             ) : null}
           </>
         )}
+        {tierChangesEnabled() && user && emailVerified ? <TierChangeClient /> : null}
         <details style={{ marginTop: 24 }}>
           <summary style={{ cursor: "pointer" }}>Contact Support</summary>
           {contactConfigured ? (
