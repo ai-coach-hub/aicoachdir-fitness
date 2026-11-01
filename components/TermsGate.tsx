@@ -7,13 +7,16 @@ import {
   FITNESS_INCLUDED_USES,
   FITNESS_PLAN,
   FITNESS_PRICE,
+  tierTermsSelection,
   TERMS_ACCEPTANCE_TEXT,
   TERMS_VERSION,
 } from "@/lib/termsAcceptance";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export default function TermsGate({ children, destination = "fitness" }: { children: ReactNode; destination?: "fitness" | "budget-coach" }) {
+export default function TermsGate({ children, destination = "fitness", tierSignupsEnabled = false }: { children: ReactNode; destination?: "fitness" | "budget-coach"; tierSignupsEnabled?: boolean }) {
+  const [tier,setTier]=useState("growth");
+  const selected=tierSignupsEnabled?tierTermsSelection(tier):null;
   const scroller = useRef<HTMLDivElement | null>(null);
   const filledFromLogin = useRef(false);
   const { isSignedIn, user } = useUser();
@@ -63,6 +66,7 @@ export default function TermsGate({ children, destination = "fitness" }: { child
         body: JSON.stringify({
           email: normalizedEmail,
           clientAcceptedAt,
+          ...(tierSignupsEnabled?{tier}:{}),
         }),
       });
 
@@ -86,9 +90,9 @@ export default function TermsGate({ children, destination = "fitness" }: { child
         acceptedAt: result.acceptedAt,
         clientAcceptedAt,
         acceptanceText: TERMS_ACCEPTANCE_TEXT,
-        plan: FITNESS_PLAN,
-        price: FITNESS_PRICE,
-        includedUses: FITNESS_INCLUDED_USES,
+        plan: selected?.plan || FITNESS_PLAN,
+        price: selected?.price || FITNESS_PRICE,
+        includedUses: selected?.includedUses || FITNESS_INCLUDED_USES,
       };
 
       try {
@@ -97,10 +101,11 @@ export default function TermsGate({ children, destination = "fitness" }: { child
         // Browser storage is only a secondary convenience. The server record already exists.
       }
 
+      const tierQuery=tierSignupsEnabled?`&tier=${tier}`:"";
       window.location.assign(
         isSignedIn
-          ? `/fitness/subscribe?destination=${destination}`
-          : `/fitness/create-account?destination=${destination}`
+          ? `/fitness/subscribe?destination=${destination}${tierQuery}`
+          : `/fitness/create-account?destination=${destination}${tierQuery}`
       );
     } catch {
       setSaveError("We couldn't record your agreement. Please try again. You have not been charged.");
@@ -118,10 +123,19 @@ export default function TermsGate({ children, destination = "fitness" }: { child
         </p>
       </div>
 
+      {tierSignupsEnabled && <div className="plan-summary">
+        <label htmlFor="terms-tier">Choose your monthly membership</label>
+        <select id="terms-tier" value={tier} disabled={isSaving} onChange={e=>{setTier(e.target.value);setAgreed(false);}} style={{padding:12,width:"100%"}}>
+          <option value="starter">Starter — $9/month · 100 messages</option>
+          <option value="growth">Growth — $15/month · 200 messages</option>
+          <option value="premium">Premium — $25/month · 400 messages</option>
+          <option value="elite">Elite — $35/month · 600 messages</option>
+        </select>
+      </div>}
       <div className="plan-summary" aria-label="Subscription summary">
-        <div><span>Plan</span><strong>{FITNESS_PLAN}</strong></div>
-        <div><span>Price</span><strong>$15 / month</strong></div>
-        <div><span>AI Coach Messages</span><strong>{FITNESS_INCLUDED_USES} messages / month</strong></div>
+        <div><span>Plan</span><strong>{selected?.plan || FITNESS_PLAN}</strong></div>
+        <div><span>Price</span><strong>{selected?.price || FITNESS_PRICE} </strong></div>
+        <div><span>AI Coach Messages</span><strong>{selected?.includedUses || FITNESS_INCLUDED_USES} messages / month</strong></div>
         <div><span>Renewal</span><strong>Automatic until canceled</strong></div>
       </div>
 
