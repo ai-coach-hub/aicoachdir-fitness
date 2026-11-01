@@ -38,9 +38,9 @@ export async function checkedNewTierPrice(
   const t = publicTiers.find(t => t.tier === selected);
   if (!t) throw Error("Choose a valid membership plan");
   if (!newTierSignupsEnabled()) throw Error("New membership plans are not released");
-  const account = await stripe("/account");
-  if (!process.env.TIER_STRIPE_ACCOUNT_ID || account.id !== process.env.TIER_STRIPE_ACCOUNT_ID)
-    throw Error("Stripe account mismatch");
+  // The approved Stripe price ID is account-scoped: it can only be retrieved
+  // using credentials for the Stripe account that owns it. Avoid /v1/account,
+  // which requires an unrelated Accounts Read permission on restricted keys.
   const id = approvedLiveTierCatalog()[t.tier];
   const price = await stripe("/prices/" + encodeURIComponent(id));
   const recurring = price.recurring as Record<string,unknown> | undefined;
