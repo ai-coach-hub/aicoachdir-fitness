@@ -123,15 +123,29 @@ export default function TermsGate({ children, destination = "fitness", tierSignu
         </p>
       </div>
 
-      {tierSignupsEnabled && <div className="plan-summary">
-        <label htmlFor="terms-tier">Choose your monthly membership</label>
-        <select id="terms-tier" value={tier} disabled={isSaving} onChange={e=>{setTier(e.target.value);setAgreed(false);}} style={{padding:12,width:"100%"}}>
-          <option value="starter">Starter — $9/month · 100 messages</option>
-          <option value="growth">Growth — $15/month · 200 messages</option>
-          <option value="premium">Premium — $25/month · 400 messages</option>
-          <option value="elite">Elite — $35/month · 600 messages</option>
-        </select>
-      </div>}
+      {tierSignupsEnabled && <fieldset className="terms-tier-chooser" disabled={isSaving}>
+        <legend>Choose your monthly membership</legend>
+        <div className="terms-tier-options">
+          {([
+            {id:"starter",name:"Starter",price:"$9",messages:100},
+            {id:"growth",name:"Growth",price:"$15",messages:200},
+            {id:"premium",name:"Premium",price:"$25",messages:400},
+            {id:"elite",name:"Elite",price:"$35",messages:600},
+          ] as const).map(plan => (
+            <label key={plan.id} className={`terms-tier-option${tier===plan.id?" is-selected":""}`}>
+              <input type="radio" name="membership-tier" value={plan.id} checked={tier===plan.id}
+                onChange={() => {setTier(plan.id);setAgreed(false);setSaveError("");}}
+                disabled={isSaving} />
+              <span className="terms-tier-option-top">
+                <strong>{plan.name}</strong>
+                <span className="terms-tier-radio-mark" aria-hidden="true" />
+              </span>
+              <span className="terms-tier-price">{plan.price}<small>/month</small></span>
+              <span className="terms-tier-messages">{plan.messages} AI Coach messages</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>}
       <div className="plan-summary" aria-label="Subscription summary">
         <div><span>Plan</span><strong>{selected?.plan || FITNESS_PLAN}</strong></div>
         <div><span>Price</span><strong>{selected?.price || FITNESS_PRICE} </strong></div>
