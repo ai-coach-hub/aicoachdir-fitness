@@ -41,8 +41,8 @@ test("customers without a Clerk account can see cancellation assistance", async 
   assert.match(signIn, /href="\/manage-subscription"/);
   assert.match(login, /Manage existing subscription/);
   assert.doesNotMatch(manage, /Manage Billing by Email|getPublicStripePortalLoginUrl/);
-  assert.match(manage, /\/api\/billing\/cancel-renewal/);
-  assert.match(manage, /Cancel Automatic Renewal/);
+  assert.match(manage, /action="\/api\/billing\/customer-portal"/);
+  assert.match(manage, /Manage or Cancel Subscription/);
   assert.match(cancel, /currentUser\(/);
   assert.match(cancel, /verification\?\.status !== "verified"/);
   assert.match(cancel, /String\(saved\.clerk_user_id \|\| ""\) !== user\.id/);
