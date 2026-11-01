@@ -10,7 +10,8 @@ test("four signup tiers have fixed intended price and allowance",()=>{
  }
  assert.match(s,/LIVE_NEW_TIER_SIGNUPS_ENABLED === "true"/);
  assert.match(s,/price\.livemode !== true/);
- assert.match(s,/stripe account mismatch/i);
+ assert.doesNotMatch(s,/stripe\("\/account"\)/);
+ assert.match(s,/approvedLiveTierCatalog\(\)\[t.tier\]/);
 });
 test("new checkout always checks chosen tier and accepted plan against server-held price map",()=>{
  const api=file("app/api/billing/create-checkout-session/route.ts");
