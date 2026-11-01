@@ -1,4 +1,5 @@
 import { currentUser } from "@clerk/nextjs/server";
+import {checkedNewTierPrice,newTierSignupsEnabled} from "@/lib/newTierCatalog";
 import { NextResponse } from "next/server";
 import { currentMembershipTermsId } from "@/lib/currentMembershipTerms";
 import {
@@ -29,8 +30,10 @@ function checkoutProblem(error: string, status: number, actionUrl?: string, acti
 
 export async function POST(request: Request) {
   let destination: "fitness" | "budget-coach" = "fitness";
+  let requestedTier: unknown = null;
   try {
-    const payload = (await request.json()) as { destination?: unknown };
+    const payload = (await request.json()) as { destination?: unknown; tier?: unknown };
+    requestedTier = payload.tier;
     if (payload.destination === "budget-coach") destination = "budget-coach";
   } catch {
     // Fitness is the default destination.
@@ -85,7 +88,11 @@ export async function POST(request: Request) {
 
   try {
     const origin = new URL(request.url).origin;
-    const { priceId } = await ensureStripeBillingResources(origin);
+    // When tiers are released, a selected, verified tier is required. Do not
+    // silently fall back to the legacy $15/400 product for new subscribers.
+    const tiersLive = newTierSignupsEnabled();
+    const tier = tiersLive ? await checkedNewTierPrice(requestedTier, stripeRequest) : null;
+    const priceId = tier ? tier.priceId : (await ensureStripeBillingResources(origin)).priceId;
     const existing = await getFitnessMembership(email);
     const storedCustomerId = String(existing?.stripe_customer_id || "");
 
@@ -145,6 +152,9 @@ export async function POST(request: Request) {
           String(metadata.member_email || "").trim().toLowerCase() !== email) {
         throw new Error("A prior checkout does not match this member.");
       }
+      // An old in-flight checkout for another tier must not be silently reused.
+      if (tier && String(metadata.member_tier || "") !== tier.tier)
+        return checkoutProblem("An earlier checkout for another plan is still open. Please complete or let it expire before choosing a different plan.",409);
       if (saved.status === "open" && reservation.checkoutUrl.startsWith("https://checkout.stripe.com/")) {
         return NextResponse.json(
           { ok: true, alreadyActive: false, url: reservation.checkoutUrl },
@@ -179,6 +189,10 @@ export async function POST(request: Request) {
       `${origin}/fitness/checkout/success?session_id={CHECKOUT_SESSION_ID}&destination=${reservation.destination}`);
     body.set("cancel_url",
       `${origin}/fitness/subscribe?destination=${reservation.destination}`);
+    if (tier) {
+      body.set("metadata[member_tier]",tier.tier);
+      body.set("subscription_data[metadata][member_tier]",tier.tier);
+    }
     body.set("metadata[member_email]", email);
     body.set("metadata[clerk_user_id]", user.id);
     body.set("metadata[terms_acceptance_id]", reservation.termsAcceptanceId);
