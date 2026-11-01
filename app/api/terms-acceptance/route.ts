@@ -3,12 +3,14 @@ import {
   FITNESS_INCLUDED_USES,
   FITNESS_PLAN,
   FITNESS_PRICE,
+  tierTermsSelection,
   TERMS_ACCEPTANCE_TEXT,
   TERMS_PATH,
   TERMS_SOURCE_PATH,
   TERMS_VERSION,
 } from "@/lib/termsAcceptance";
 import { ensureTermsAcceptanceSchema } from "@/lib/termsAcceptanceDb";
+import {newTierSignupsEnabled} from "@/lib/newTierCatalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,6 +78,11 @@ export async function POST(request: Request) {
 
   const input = body as Record<string, unknown>;
   const email = normalizeEmail(input.email);
+  const selection = newTierSignupsEnabled() ? tierTermsSelection(input.tier) : null;
+  if(newTierSignupsEnabled() && !selection)return jsonError("Please select a valid monthly plan before accepting the Terms.",400);
+  const chosenPlan = selection?.plan || FITNESS_PLAN;
+  const chosenPrice = selection?.price || FITNESS_PRICE;
+  const chosenMessages = selection?.includedUses || FITNESS_INCLUDED_USES;
   const clientAcceptedAt = parseClientAcceptedAt(input.clientAcceptedAt);
 
   if (!email) {
@@ -146,9 +153,9 @@ export async function POST(request: Request) {
         ${clientAcceptedAt}::timestamptz,
         ${TERMS_VERSION},
         ${TERMS_ACCEPTANCE_TEXT},
-        ${FITNESS_PLAN},
-        ${FITNESS_PRICE},
-        ${FITNESS_INCLUDED_USES},
+        ${chosenPlan},
+        ${chosenPrice},
+        ${chosenMessages},
         ${termsUrl},
         ${TERMS_SOURCE_PATH},
         ${ipAddress},

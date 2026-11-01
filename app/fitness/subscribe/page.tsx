@@ -2,6 +2,8 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import FitnessCheckoutCard from "@/components/FitnessCheckoutCard";
+import {newTierSignupsEnabled} from "@/lib/newTierCatalog";
+import {tierTermsSelection} from "@/lib/termsAcceptance";
 import SiteHeader from "@/components/SiteHeader";
 import { getFitnessMembership, memberHasFitnessAccess, refreshLinkedMembershipStatus, restoreVerifiedHistoricalBillingForMember } from "@/lib/fitnessMembershipDb";
 import { getVerifiedSubscription } from "@/lib/stripeMembershipState";
@@ -42,7 +44,7 @@ function SetupProblem({ message, destination = "fitness" }: { message: string; d
 }
 
 type SubscribePageProps = {
-  searchParams: Promise<{ destination?: string | string[] }>;
+  searchParams: Promise<{ destination?: string | string[]; tier?: string | string[] }>;
 };
 
 export default async function FitnessSubscribePage({ searchParams }: SubscribePageProps) {
@@ -51,11 +53,16 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
     ? params.destination[0]
     : params.destination;
   const destination = rawDestination === "budget-coach" ? "budget-coach" : "fitness";
-  const loginUrl = `/fitness/login?destination=${destination}`;
-  const signupUrl = `/fitness/signup?destination=${destination}`;
+  const rawTier=Array.isArray(params.tier)?params.tier[0]:params.tier;
+  const tierSignups=newTierSignupsEnabled();
+  const selection=tierSignups?tierTermsSelection(rawTier):null;
+  const tierQuery=selection?`&tier=${rawTier}`:"";
+  const loginUrl = `/fitness/login?destination=${destination}${tierQuery}`;
+  const signupUrl = `/fitness/signup?destination=${destination}${tierQuery}`;
   const activeDestination = destination === "budget-coach"
     ? "/budgeting/launch?destination=coach"
     : "/fitness/chat";
+  if(tierSignups&&!selection)redirect(signupUrl);
   const user = await currentUser();
   if (!user) redirect(loginUrl);
 
@@ -112,7 +119,7 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
 
   let acceptanceId = "";
   try {
-    acceptanceId = await currentMembershipTermsId(email);
+    acceptanceId = selection ? await currentMembershipTermsId(email,rawTier) : await currentMembershipTermsId(email);
   } catch {
     return (
       <SetupProblem destination={destination} message="We could not verify your current Terms acceptance. No charge was attempted." />
@@ -123,7 +130,7 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
   return (
     <main className="signup-shell">
       <SiteHeader compact />
-      <FitnessCheckoutCard destination={destination} />
+      <FitnessCheckoutCard destination={destination} tierSignupsEnabled={tierSignups} initialTier={selection?String(rawTier):"growth"} />
     </main>
   );
 }

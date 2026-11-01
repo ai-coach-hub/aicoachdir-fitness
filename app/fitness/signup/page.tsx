@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import TermsDocument from "@/components/TermsDocument";
 import TermsGate from "@/components/TermsGate";
+import {newTierSignupsEnabled} from "@/lib/newTierCatalog";
 import SiteHeader from "@/components/SiteHeader";
 
 export const metadata: Metadata = {
@@ -46,7 +47,7 @@ export default async function FitnessSignupPage({ searchParams }: SignupPageProp
         <Link href={`/fitness/login${destinationQuery}`} className="secondary-button returning-login-button">Member Login</Link>
       </section>
 
-      <TermsGate destination={destination}>
+      <TermsGate destination={destination} tierSignupsEnabled={newTierSignupsEnabled()}>
         <TermsDocument />
       </TermsGate>
 

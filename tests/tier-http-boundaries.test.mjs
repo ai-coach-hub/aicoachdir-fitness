@@ -29,7 +29,7 @@ test('signed webhook verifies mode, signature, retry response and renewal dispat
  const old=Object.fromEntries(names.map(k=>[k,process.env[k]]));
  Object.assign(process.env,{VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:'feature/production-tier-release-guards-20261029',UPGRADE_SANDBOX_WEBHOOK_ENABLED:'true',UPGRADE_SANDBOX_STRIPE_WEBHOOK_SECRET:'whsec_fixture'});
  let calls=0,fail=false;
- const mod=route('app/api/billing/tier-change/webhook/route.ts',{'@/lib/productionPaidUpgradeReconciler':{reconcileProductionPaidUpgrade:async()=>{calls++;if(fail)throw Error('temporary');return 'applied'}},'@/lib/tierRenewalReconciler':{reconcileTierRenewal:async()=>{calls++;return 'applied'},reconcileExpiredTierPayment:async()=>{calls++;return 'expired'}}});
+ const mod=route('app/api/billing/tier-change/webhook/route.ts',{'@/lib/productionPaidUpgradeReconciler':{reconcileProductionPaidUpgrade:async()=>{calls++;if(fail)throw Error('temporary');return 'applied'}},'@/lib/tierRenewalReconciler':{reconcileTierRenewal:async()=>{calls++;return 'applied'},reconcileExpiredTierPayment:async()=>{calls++;return 'expired'}},'@/lib/newTierPaidWallet':{settleNewTierPaidInvoice:async()=> 'ignored'}});
  const request=(override={},valid=true)=>{
   const raw=JSON.stringify({livemode:false,type:'invoice.paid',data:{object:{id:'in_fixture',object:'invoice',livemode:false,billing_reason:'subscription_update'}},...override});
   const stamp=String(Math.floor(Date.now()/1000));

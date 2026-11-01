@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-export default function FitnessCheckoutCard({ destination = "fitness" }: { destination?: "fitness" | "budget-coach" }) {
+export default function FitnessCheckoutCard({ destination = "fitness", tierSignupsEnabled = false,initialTier = "growth" }: { destination?: "fitness" | "budget-coach"; tierSignupsEnabled?: boolean; initialTier?: string }) {
+  const tier=initialTier;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [errorAction, setErrorAction] = useState<{
@@ -21,7 +22,7 @@ export default function FitnessCheckoutCard({ destination = "fitness" }: { desti
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({ destination }),
+        body: JSON.stringify({ destination, ...(tierSignupsEnabled ? {tier} : {}) }),
       });
       const data = (await response.json().catch(() => null)) as
         | {
@@ -57,10 +58,11 @@ export default function FitnessCheckoutCard({ destination = "fitness" }: { desti
     <section className="login-config-card" aria-labelledby="fitness-checkout-heading">
       <p className="eyebrow">MEMBERSHIP · SECURE CHECKOUT</p>
       <h1 id="fitness-checkout-heading">Confirm your AI Coach Directory membership</h1>
-      <p>
-        Your existing sign-in will be kept. Continue to secure checkout for
-        the $15/month AI Coach Directory membership, which includes Fitness, Budgeting, and Life Coach with 400 AI Coach Messages per month. If you are returning after cancellation, your existing account stays the same.
-      </p>
+      {tierSignupsEnabled ? <>
+        <p>Choose a monthly membership. Every plan includes Fitness, Budgeting, and Life Coach.</p>
+        <p><strong>{({starter:"Starter — $9/month · 100 messages",growth:"Growth — $15/month · 200 messages",premium:"Premium — $25/month · 400 messages",elite:"Elite — $35/month · 600 messages"} as Record<string,string>)[tier]}</strong></p>
+        <p>To select another plan, return to <a href="/fitness/signup">Review plans and Terms</a> before checkout.</p>
+      </> : <p>Your existing sign-in will be kept. Continue to secure checkout for the $15/month AI Coach Directory membership, which includes Fitness, Budgeting, and Life Coach with 400 AI Coach Messages per month. If you are returning after cancellation, your existing account stays the same.</p>}
 
       <button
         type="button"

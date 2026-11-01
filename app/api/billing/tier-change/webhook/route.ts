@@ -2,6 +2,7 @@ import {NextResponse} from "next/server";
 import {createHmac,timingSafeEqual} from "node:crypto";
 import {reconcileTierRenewal,reconcileExpiredTierPayment} from "@/lib/tierRenewalReconciler";
 import {reconcileProductionPaidUpgrade} from "@/lib/productionPaidUpgradeReconciler";
+import {settleNewTierPaidInvoice} from "@/lib/newTierPaidWallet";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 function signed(raw:string,header:string,secret:string){
@@ -40,8 +41,13 @@ export async function POST(req:Request){
  try{
  let status:string;
  if(event.type==="invoice.voided")status=await reconcileExpiredTierPayment(obj.id);
- else if(obj.billing_reason==="subscription_cycle")status=await reconcileTierRenewal(obj.id);
- else status=await reconcileProductionPaidUpgrade({eventType:"invoice.paid",invoiceId:obj.id,signedWebhook:true});
+ else if(obj.billing_reason==="subscription_cycle"){
+   status=await reconcileTierRenewal(obj.id);
+   if(status==="ignored") status=await settleNewTierPaidInvoice(obj.id,true);
+ } else {
+   status=await reconcileProductionPaidUpgrade({eventType:"invoice.paid",invoiceId:obj.id,signedWebhook:true});
+   if(status==="ignored") status=await settleNewTierPaidInvoice(obj.id,true);
+ }
  return NextResponse.json({received:true,status});
  }catch(error){
  console.error("[tier-change-webhook] reconciliation-failed",{

@@ -66,6 +66,7 @@ const upcomingCoaches = [
 export const dynamic = "force-dynamic";
 export default function HomePage() {
   const memberLoginUrl = "/fitness/login";
+  const fourTierSignups = process.env.VERCEL_ENV==="production" && process.env.LIVE_NEW_TIER_SIGNUPS_ENABLED==="true";
 
   // Release Life Coach to existing members with the same subscription only
   // after both production services and their opening balances are approved.
@@ -99,9 +100,16 @@ export default function HomePage() {
           <Link href="/fitness/signup" className="primary-button">Get Started</Link>
           <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
         </div>
-        <p className={styles.heroPlanNote}>$15/month · One membership · 400 AI Coach messages/month · Automatically renews until canceled</p>
+        <p className={styles.heroPlanNote}>{fourTierSignups ? "Plans from $9/month · 100–600 AI Coach messages/month · Renews monthly until canceled" : "$15/month · One membership · 400 AI Coach messages/month · Automatically renews until canceled"}</p>
       </section>
 
+      {fourTierSignups && <section className="feature-grid" aria-label="Monthly subscription plans">
+        {[{name:"Starter",price:9,messages:100},{name:"Growth",price:15,messages:200},{name:"Premium",price:25,messages:400},{name:"Elite",price:35,messages:600}].map(plan=><article key={plan.name}>
+          <h2>{plan.name}</h2><p><strong>${plan.price}/month</strong></p>
+          <p>{plan.messages} AI Coach messages per month across available coaches.</p>
+          <Link href="/fitness/signup" className="primary-button">Get Started</Link>
+        </article>)}
+      </section>}
       <section className="live-coaches-grid" aria-label="Available AI coaches">
         <article className="live-coach-card">
           <div className="live-coach-image-wrap">
