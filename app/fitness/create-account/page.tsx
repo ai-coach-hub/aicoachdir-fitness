@@ -22,6 +22,8 @@ function acceptedEmail() {
 
 export default function FitnessCreateAccountPage() {
   const destination = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("destination") === "budget-coach" ? "budget-coach" : "fitness";
+  const requestedTier=typeof window!=="undefined"?new URLSearchParams(window.location.search).get("tier"):"";
+  const tierQuery=requestedTier&&["starter","growth","premium","elite"].includes(requestedTier)?`&tier=${requestedTier}`:"";
   const { isLoaded, isSignedIn } = useUser();
   const [email, setEmail] = useState("");
   const [ready, setReady] = useState(false);
@@ -30,7 +32,7 @@ export default function FitnessCreateAccountPage() {
     if (!isLoaded) return;
 
     if (isSignedIn) {
-      window.location.replace(`/fitness/subscribe?destination=${destination}`);
+      window.location.replace(`/fitness/subscribe?destination=${destination}${tierQuery}`);
       return;
     }
 
@@ -60,7 +62,7 @@ export default function FitnessCreateAccountPage() {
               routing="hash"
               initialValues={email ? { emailAddress: email } : undefined}
               forceRedirectUrl={`/fitness/subscribe?destination=${destination}`}
-              signInUrl={`/fitness/login?destination=${destination}`}
+              signInUrl={`/fitness/login?destination=${destination}${tierQuery}`}
             />
           </div>
         )}
@@ -75,7 +77,7 @@ export default function FitnessCreateAccountPage() {
         </div>
 
         <div className="cta-row">
-          <Link href={`/fitness/signup?destination=${destination}`} className="secondary-button">
+          <Link href={`/fitness/signup?destination=${destination}${tierQuery}`} className="secondary-button">
             Back to Terms
           </Link>
         </div>
