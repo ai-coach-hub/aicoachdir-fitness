@@ -44,3 +44,17 @@ export function verifyPaidUpgradeInvoice(p:PaidInvoiceProof):InvoiceProofResult{
  if(!p.walletPeriodMatches||!p.walletLimitMatches)return deny("wallet_changed");
  return {ok:true};
 }
+
+/** Stripe's current invoice shape can omit the legacy 'paid' boolean.
+ * Renewal settlement requires a confirmed paid state and paid timestamp.
+ * This proof is necessary, not sufficient: the reconciler separately binds
+ * the invoice, subscription, target price, exact period, and wallet intent.
+ */
+export function isVerifiedPaidRenewalInvoice(invoice:Record<string,unknown>,expectedLiveMode:boolean):boolean{
+ const transitions=invoice.status_transitions;
+ const paidAt=transitions&&typeof transitions==="object"&&!Array.isArray(transitions)
+  ?(transitions as Record<string,unknown>).paid_at:undefined;
+ return invoice.object==="invoice"&&invoice.livemode===expectedLiveMode&&
+  invoice.status==="paid"&&typeof paidAt==="number"&&Number.isSafeInteger(paidAt)&&paidAt>0&&
+  invoice.amount_remaining===0&&invoice.billing_reason==="subscription_cycle";
+}
