@@ -22,8 +22,10 @@ export async function POST(req:Request){
  return NextResponse.json({error:"not_found"},{status:404});
  const raw=await req.text();
  const secret=process.env[preview?"UPGRADE_SANDBOX_STRIPE_WEBHOOK_SECRET":"PRODUCTION_UPGRADE_STRIPE_WEBHOOK_SECRET"]||"";
- if(!signed(raw,req.headers.get("stripe-signature")||"",secret))
+ if(!signed(raw,req.headers.get("stripe-signature")||"",secret)){
+ console.error("[tier-change-webhook] invalid-signature");
  return NextResponse.json({error:"invalid_signature"},{status:400});
+ }
  let event:Record<string,unknown>;
  try{
  const parsed=JSON.parse(raw);
@@ -41,5 +43,10 @@ export async function POST(req:Request){
  else if(obj.billing_reason==="subscription_cycle")status=await reconcileTierRenewal(obj.id);
  else status=await reconcileProductionPaidUpgrade({eventType:"invoice.paid",invoiceId:obj.id,signedWebhook:true});
  return NextResponse.json({received:true,status});
- }catch{return NextResponse.json({error:"retry"},{status:503});}
+ }catch(error){
+ console.error("[tier-change-webhook] reconciliation-failed",{
+  message:error instanceof Error?error.message:String(error),
+ });
+ return NextResponse.json({error:"retry"},{status:503});
+ }
 }
