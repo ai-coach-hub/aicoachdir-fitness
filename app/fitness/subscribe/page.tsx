@@ -119,7 +119,7 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
 
   let acceptanceId = "";
   try {
-    acceptanceId = await currentMembershipTermsId(email,selection?rawTier:undefined);
+    acceptanceId = selection ? await currentMembershipTermsId(email,rawTier) : await currentMembershipTermsId(email);
   } catch {
     return (
       <SetupProblem destination={destination} message="We could not verify your current Terms acceptance. No charge was attempted." />
