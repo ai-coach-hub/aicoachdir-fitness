@@ -9,6 +9,6 @@ export async function GET(){
   console.error('[tier-change-current] status-failed',{
    message:error instanceof Error?error.message:String(error),
   });
-  return NextResponse.json({ok:false,reason:'Sign in with your verified member account to manage plans.'},{status:403});
+  return NextResponse.json({ok:false,reason:'We could not load your plan details right now. Your subscription has not changed.'},{status:403});
  }
 }
