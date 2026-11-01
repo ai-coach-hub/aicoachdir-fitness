@@ -67,7 +67,7 @@ export default function FitnessCheckoutCard({ destination = "fitness", tierSignu
           <option value="premium">Premium — $25/month · 400 messages</option>
           <option value="elite">Elite — $35/month · 600 messages</option>
         </select>
-      </> : <p>Your existing sign-in will be kept. Continue to secure checkout for the $15/month AI Coach Directory membership, which includes Fitness, Budgeting, and Life Coach with 400 AI Coach messages per month. If you are returning after cancellation, your existing account stays the same.</p>}
+      </> : <p>Your existing sign-in will be kept. Continue to secure checkout for the $15/month AI Coach Directory membership, which includes Fitness, Budgeting, and Life Coach with 400 AI Coach Messages per month. If you are returning after cancellation, your existing account stays the same.</p>}
 
       <button
         type="button"
