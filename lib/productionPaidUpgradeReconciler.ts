@@ -83,7 +83,9 @@ export async function reconcileProductionPaidUpgrade(args:{eventType:string;invo
  const proof=verifyPaidUpgradeInvoice({
  signedWebhook:args.signedWebhook,liveMode:invoice.livemode===true,expectedLiveMode:live,
  eventType:args.eventType,invoiceId:args.invoiceId,
- invoiceStatus:string(invoice.status),invoicePaid:invoice.paid===true,
+ invoiceStatus:string(invoice.status),
+ invoicePaidAt:Number(obj(invoice.status_transitions).paid_at||0),
+ invoiceAmountRemaining:Number(invoice.amount_remaining),
  invoiceSubscriptionId:invoiceSubscription,
  invoiceCustomerId:string(invoice.customer),
  intentInvoiceId:string(i.invoice_id),
