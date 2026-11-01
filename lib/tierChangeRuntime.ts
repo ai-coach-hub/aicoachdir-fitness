@@ -55,8 +55,9 @@ export async function tierRuntime(webhook=false){
  const sql=preview?neon(url!):membershipDb();
  const branch=await sql`SELECT current_setting('neon.branch_id',true) AS id`;
  if(branch.length!==1||branch[0].id!==(preview?'br-young-salad-aubnf7xt':'br-sparkling-glitter-aucpz59d'))throw Error('Database branch mismatch');
- const account=await stripe('/account');
- if(!process.env.TIER_STRIPE_ACCOUNT_ID||account.id!==process.env.TIER_STRIPE_ACCOUNT_ID)throw Error('Stripe account mismatch');
+ // The server-approved price IDs can only be read with credentials belonging
+ // to their Stripe account. Avoid /v1/account: restricted keys do not require
+ // Accounts Read just to verify the subscription tier prices.
  const map=obj(JSON.parse(process.env[preview?'TEST_FOUR_TIER_PRICE_CATALOG':'LIVE_FOUR_TIER_PRICE_CATALOG']||'{}'));
  if(Object.keys(map).length!==4||new Set(Object.values(map)).size!==4||tiers.some(t=>!/^price_[A-Za-z0-9]+$/.test(String(map[t.tier]))))throw Error('Tier catalog missing');
  const catalog=await Promise.all(tiers.map(async t=>{
