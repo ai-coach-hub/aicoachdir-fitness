@@ -2,6 +2,7 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import FitnessCheckoutCard from "@/components/FitnessCheckoutCard";
+import {newTierSignupsEnabled} from "@/lib/newTierCatalog";
 import SiteHeader from "@/components/SiteHeader";
 import { getFitnessMembership, memberHasFitnessAccess, refreshLinkedMembershipStatus, restoreVerifiedHistoricalBillingForMember } from "@/lib/fitnessMembershipDb";
 import { getVerifiedSubscription } from "@/lib/stripeMembershipState";
@@ -123,7 +124,7 @@ export default async function FitnessSubscribePage({ searchParams }: SubscribePa
   return (
     <main className="signup-shell">
       <SiteHeader compact />
-      <FitnessCheckoutCard destination={destination} />
+      <FitnessCheckoutCard destination={destination} tierSignupsEnabled={newTierSignupsEnabled()} />
     </main>
   );
 }
