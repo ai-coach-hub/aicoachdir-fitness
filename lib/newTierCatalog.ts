@@ -12,7 +12,13 @@ export type PublicTier = typeof publicTiers[number]["tier"];
 const identifier = (v: unknown) => typeof v === "string" && /^price_[A-Za-z0-9]+$/.test(v);
 export function newTierSignupsEnabled() {
   return process.env.VERCEL_ENV === "production" &&
-    process.env.LIVE_NEW_TIER_SIGNUPS_ENABLED === "true";
+    process.env.LIVE_NEW_TIER_SIGNUPS_ENABLED === "true" &&
+    process.env.PUBLIC_TIER_UPGRADES_ENABLED === "true" &&
+    process.env.PRODUCTION_TIER_TRANSACTIONS_ENABLED === "true" &&
+    process.env.PRODUCTION_UPGRADE_WEBHOOK_ENABLED === "true" &&
+    process.env.SHARED_USAGE_GATE_ENABLED === "true" &&
+    process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED === "true" &&
+    String(process.env.PRODUCTION_UPGRADE_STRIPE_WEBHOOK_SECRET || "").startsWith("whsec_");
 }
 export function approvedLiveTierCatalog(): Record<PublicTier,string> {
   if (process.env.VERCEL_ENV !== "production") throw Error("Live tiers require production");
