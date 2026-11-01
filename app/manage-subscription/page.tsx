@@ -158,8 +158,9 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
             ) : null}
 
             {billingState === "active" && linkedMember ? (
-              <form method="post" action="/api/billing/cancel-renewal">
-                <button className="secondary-button" type="submit">Cancel Automatic Renewal</button>
+              <form method="post" action="/api/billing/customer-portal">
+                <button className="secondary-button" type="submit">Manage or Cancel Subscription</button>
+                <p className="microcopy">Opens secure Stripe billing, where you can cancel automatic renewal yourself. Your paid access continues until the end of the billing period.</p>
               </form>
             ) : null}
 
