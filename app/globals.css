@@ -1596,3 +1596,31 @@ footer { padding: 30px 0 48px; border-top: 1px solid rgba(255,255,255,.07); colo
 .terms-tier-chooser:disabled .terms-tier-option { opacity: .65; cursor: wait; }
 @media (max-width: 800px) { .terms-tier-options { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 @media (max-width: 460px) { .terms-tier-chooser { margin-left: 18px; margin-right: 18px; } .terms-tier-option { padding: 15px 12px; } .terms-tier-price { font-size: 25px; } }
+
+
+/* High-contrast controls scoped to the member billing screen. */
+.manage-subscription-card .secondary-button,
+.manage-subscription-card button.secondary-button {
+  color: #f4f7ff;
+  background: rgba(27, 43, 67, .88);
+  border: 1px solid rgba(171, 192, 222, .52);
+  text-shadow: none;
+}
+.manage-subscription-card .secondary-button:hover,
+.manage-subscription-card button.secondary-button:hover {
+  background: rgba(50, 68, 98, .96);
+  border-color: #c7dcff;
+}
+.manage-subscription-card button,
+.manage-subscription-card a.primary-button {
+  cursor: pointer;
+}
+.manage-subscription-card button:focus-visible,
+.manage-subscription-card a:focus-visible {
+  outline: 2px solid #cfabf0;
+  outline-offset: 3px;
+}
+.manage-subscription-card button:disabled {
+  opacity: .52;
+  cursor: not-allowed;
+}
