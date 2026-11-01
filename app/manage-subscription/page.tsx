@@ -107,7 +107,7 @@ export default async function ManageSubscriptionPage({ searchParams }: ManageSub
   return (
     <main className="signup-shell">
       <SiteHeader compact />
-      <section className="login-config-card" aria-labelledby="subscription-heading">
+      <section className="login-config-card manage-subscription-card" aria-labelledby="subscription-heading">
         <p className="eyebrow">ACCOUNT</p>
         <h1 id="subscription-heading">Manage Subscription</h1>
         <p>View your membership and manage billing, including renewal and payment details.</p>
