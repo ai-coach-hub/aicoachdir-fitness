@@ -103,7 +103,7 @@ export default function HomePage() {
         <p className={styles.heroPlanNote}>{fourTierSignups ? "Plans from $9/month · 100–600 AI Coach messages/month · Renews monthly until canceled" : "$15/month · One membership · 400 AI Coach messages/month · Automatically renews until canceled"}</p>
       </section>
 
-      {fourTierSignups && <section className="feature-grid" aria-label="Monthly subscription plans">
+      {fourTierSignups && <section className={styles.homePricingGrid} aria-label="Monthly subscription plans">
         {[{name:"Starter",price:9,messages:100},{name:"Growth",price:15,messages:200},{name:"Premium",price:25,messages:400},{name:"Elite",price:35,messages:600}].map(plan=><article key={plan.name}>
           <h2>{plan.name}</h2><p><strong>${plan.price}/month</strong></p>
           <p>{plan.messages} AI Coach messages per month across available coaches.</p>
