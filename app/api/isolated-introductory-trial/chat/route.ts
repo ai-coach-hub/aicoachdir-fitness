@@ -12,7 +12,7 @@ export const maxDuration=120;
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
 function providerToken(coach:IntroCoach){
  const names:Record<IntroCoach,string>={
-  fitness:"PICKAXE_FITNESS_COACH_DEPLOYMENT_TOKEN",
+  fitness:"PICKAXE_FITNESS_DEPLOYMENT_TOKEN",
   budgeting:"PICKAXE_BUDGETING_COACH_DEPLOYMENT_TOKEN",
   life:"PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN"
  };
