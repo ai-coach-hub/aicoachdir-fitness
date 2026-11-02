@@ -7,4 +7,6 @@ test("preview chat diagnostics identify stages without dumping sensitive payload
   assert.ok(route.includes(stage),stage);
  assert.match(route,/if\(!isolatedTrialPreviewEnabled\(\)\)return;/);
  assert.doesNotMatch(route,/console\.(?:warn|error|log)\([^\n]*(?:token|payload|message\.trim|verifiedEmail)/);
+ assert.match(route,/if\(response\.status===404\)return \{kind:"no-model" as const\}/);
+ assert.match(route,/if\(result\.status==="released"\)/);
 });
