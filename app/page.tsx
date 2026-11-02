@@ -107,7 +107,6 @@ export default function HomePage() {
         {[{name:"Starter",price:9,messages:100},{name:"Growth",price:15,messages:200},{name:"Premium",price:25,messages:400},{name:"Elite",price:35,messages:600}].map(plan=><article key={plan.name}>
           <h2>{plan.name}</h2><p><strong>${plan.price}/month</strong></p>
           <p>{plan.messages} AI Coach messages per month across available coaches.</p>
-          <Link href="/fitness/signup" className="primary-button">Get Started</Link>
         </article>)}
       </section>}
       <section className="live-coaches-grid" aria-label="Available AI coaches">
@@ -209,17 +208,7 @@ export default function HomePage() {
         </article>
       </section>
 
-      <section className="coming-soon-section" aria-labelledby="coming-soon-title">
-        <div className="coming-soon-header">
-          <div>
-            <p className="eyebrow">COMING SOON</p>
-            <h2 id="coming-soon-title">More AI coaching experiences are on the way.</h2>
-            <p>
-              {lifeAvailable ? "Fitness, Budgeting, and Life are available now. Other coaching experiences are in development." : "Fitness and Budgeting are available now. These additional coaching experiences are previews of what is coming next from AI Coach Directory."}
-            </p>
-          </div>
-        </div>
-
+      <section className="coming-soon-section" aria-label="Upcoming AI coaches">
         <div className="coming-soon-grid">
           {upcomingCoaches.filter((coach) => !lifeAvailable || coach.name !== "AI Coaching for Life").map((coach) => (
             <article key={coach.name} className="coming-soon-card">
