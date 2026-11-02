@@ -17,7 +17,9 @@ function providerToken(coach:IntroCoach){
   budgeting:"PICKAXE_BUDGETING_COACH_DEPLOYMENT_TOKEN",
   life:"PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN"
  };
- return String(process.env[names[coach]]||"").trim();
+ const key=String(process.env[names[coach]]||"").trim();
+ if(coach==="budgeting")return key||String(process.env.PICKAXE_BUDGETING_COACH_DEPLOYMENT_ID||"").trim();
+ return key;
 }
 function extractText(data:unknown):string{
  if(!data||typeof data!=="object")return "";
@@ -46,7 +48,7 @@ export async function POST(request:Request){
   if(!account)return reply({ok:false,error:"Verified private trial account required"},403);
   const selected=coach as IntroCoach;
   const token=providerToken(selected);
-  if(!token)return reply({ok:false,error:"Isolated coach provider not configured"},503);
+  if(!token)return reply({ok:false,error:`${selected==="life"?"Life":selected==="budgeting"?"Budgeting":"Fitness"} Coach is not configured in this private preview.`},503);
   const result=await executeIsolatedIntroductoryMessage(
    account,selected,key,isolatedIntroductoryTrialPort,async()=>{
     // This call is reachable ONLY after verified identity and atomic reservation.
