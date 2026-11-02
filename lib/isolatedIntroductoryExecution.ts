@@ -21,7 +21,10 @@ export async function executeIsolatedIntroductoryMessage<T>(
  if(!validKey(requestKey)||!validCoach(coach)||!/^member_[0-9a-f]{64}$/.test(account.memberKey))
   return {status:"invalid"};
  // For existing grants caller must reverify prior eligibility and no paid/legacy membership.
- if(!introductoryTrialEligible(account))return {status:"not_entitled"};
+ // A prior grant blocks issuing a *second* lifetime grant, not spending the
+ // remaining balance of the original grant. The grant adapter returns "existing".
+ if(!introductoryTrialEligible({...account,previouslyGranted:false}))
+  return {status:"not_entitled"};
  let status:string;
  try {
   const granted=await port.grant(account);
