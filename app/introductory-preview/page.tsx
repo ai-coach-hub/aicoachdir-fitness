@@ -17,6 +17,19 @@ export default function IntroductoryPreview(){
   .then(r=>r.ok?r.json():null).then(v=>{if(alive)setReady(v?.eligible?"eligible":"unavailable");})
   .catch(()=>{if(alive)setReady("unavailable");});return()=>{alive=false;};},[]);
  useEffect(()=>{bottom.current?.scrollIntoView({block:"end"});},[messages,busy]);
+ useEffect(()=>{
+  if(ready!=="eligible")return;
+  let active=true;
+  fetch("/api/isolated-introductory-trial/history",{cache:"no-store"})
+   .then(r=>r.ok?r.json():null)
+   .then(v=>{if(!active||!Array.isArray(v?.turns))return;
+    setMessages(v.turns.flatMap((t:{coach:Coach;user_message:string;coach_response:string})=>[
+     {coach:t.coach,role:"user" as const,text:t.user_message},
+     {coach:t.coach,role:"assistant" as const,text:t.coach_response}
+    ]));
+   }).catch(()=>{});
+  return()=>{active=false;};
+ },[ready]);
  async function send(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(busy||ready!=="eligible"||exhausted)return;
   const message=input.trim();if(!message)return;
