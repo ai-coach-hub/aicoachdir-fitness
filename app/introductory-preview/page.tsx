@@ -1,9 +1,11 @@
 "use client";
 import {useEffect,useRef,useState,type FormEvent} from "react";
+import {SignIn,useUser} from "@clerk/nextjs";
 type Coach="fitness"|"budgeting"|"life";
 type Message={coach:Coach;role:"user"|"assistant";text:string};
 const labels:Record<Coach,string>={fitness:"Fitness Coach",budgeting:"Budgeting Coach",life:"Life Coach"};
 export default function IntroductoryPreview(){
+ const {isLoaded,isSignedIn}=useUser();
  const [ready,setReady]=useState<"loading"|"eligible"|"unavailable">("loading");
  const [coach,setCoach]=useState<Coach>("fitness");
  const [messages,setMessages]=useState<Message[]>([]);
@@ -13,9 +15,9 @@ export default function IntroductoryPreview(){
  const [exhausted,setExhausted]=useState(false);
  const [pending,setPending]=useState<{coach:Coach;message:string;key:string}|null>(null);
  const bottom=useRef<HTMLDivElement|null>(null);
- useEffect(()=>{let alive=true;fetch("/api/isolated-introductory-trial",{cache:"no-store"})
+ useEffect(()=>{if(!isLoaded||!isSignedIn)return;let alive=true;fetch("/api/isolated-introductory-trial",{cache:"no-store"})
   .then(r=>r.ok?r.json():null).then(v=>{if(alive)setReady(v?.eligible?"eligible":"unavailable");})
-  .catch(()=>{if(alive)setReady("unavailable");});return()=>{alive=false;};},[]);
+  .catch(()=>{if(alive)setReady("unavailable");});return()=>{alive=false;};},[isLoaded,isSignedIn]);
  useEffect(()=>{bottom.current?.scrollIntoView({block:"end"});},[messages,busy]);
  useEffect(()=>{
   if(ready!=="eligible")return;
@@ -52,7 +54,9 @@ export default function IntroductoryPreview(){
   <p style={{fontSize:13,opacity:.7}}>Private trial preview — not a public membership</p>
   <h1>Try the AI Coaches</h1>
   <p>One introductory allowance of 15 messages shared across Fitness, Budgeting, and Life Coaching.</p>
-  {ready==="loading"?<p>Verifying your preview account…</p>:
+  {!isLoaded?<p>Checking sign-in…</p>:
+   !isSignedIn?<section><p>Sign in with your existing verified test account. No payment is required.</p><SignIn routing="hash" forceRedirectUrl="/introductory-preview" /></section>:
+   ready==="loading"?<p>Verifying your preview account…</p>:
    ready==="unavailable"?<p role="alert">This preview is not available for this account. Production memberships are unchanged.</p>:
    <>
     <nav aria-label="Choose coach" style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
