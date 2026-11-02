@@ -14,7 +14,7 @@ export function isolatedTrialPreviewEnabled(){
  process.env.VERCEL_GIT_COMMIT_REF===TRIAL_REF &&
  process.env.INTRODUCTORY_TRIAL_PREVIEW_ENABLED==="true";
 }
-export async function resolveIsolatedIntroductoryAccount():Promise<VerifiedTrialAccount|null>{
+export async function resolveIsolatedIntroductoryAccount():Promise<(VerifiedTrialAccount & {verifiedEmail:string})|null>{
  if(!isolatedTrialPreviewEnabled())return null;
  const user=await currentUser();
  if(!user||!/^user_[A-Za-z0-9_-]{8,128}$/.test(user.id))return null;
@@ -39,6 +39,6 @@ export async function resolveIsolatedIntroductoryAccount():Promise<VerifiedTrial
  const records=await db`SELECT clerk_user_id,stripe_customer_id,stripe_subscription_id,
     stripe_status,access_active FROM public.fitness_memberships WHERE email=${email} LIMIT 1`;
  if(records.length!==0)return null; // Never overwrite/bypass any existing subscriber.
- return {clerkUserId:user.id,memberKey,emailVerified:true,
+ return {clerkUserId:user.id,memberKey,verifiedEmail:email,emailVerified:true,
          existingPaidOrLegacyMember:false,previouslyGranted:false};
 }
