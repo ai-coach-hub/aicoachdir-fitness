@@ -21,7 +21,7 @@ export async function resolveIsolatedIntroductoryAccount():Promise<(VerifiedTria
  const primary=user.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
  if(!primary||primary.verification?.status!=="verified")return null;
  const email=primary.emailAddress.trim().toLowerCase();
- if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))return null;
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return null;
  const secret=String(process.env.BUDGET_MEMBERSHIP_HANDOFF_SECRET||"").trim();
  const memberKey=sharedUsageMemberKey(email,secret);
  if(!memberKey)return null;
