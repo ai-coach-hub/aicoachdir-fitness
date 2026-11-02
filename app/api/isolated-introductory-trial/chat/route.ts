@@ -65,7 +65,13 @@ export async function POST(request:Request){
        conversationId:`intro-${selected}-${key}`,stream:false}),
      cache:"no-store",signal:AbortSignal.timeout(100000)
     });}catch(e){diagnostic(e instanceof Error&&e.name==="TimeoutError"?"provider_timeout":"provider_network_failure",selected);throw Error("Provider request failed");}
-    if(!response.ok){diagnostic("provider_http_error",selected,response.status);throw Error("Provider failed");}
+    if(!response.ok){
+     diagnostic("provider_http_error",selected,response.status);
+     // Pickaxe says the deployment does not exist: no model completion occurred.
+     // Release this reservation instead of holding a message for reconciliation.
+     if(response.status===404)return {kind:"no-model" as const};
+     throw Error("Provider failed");
+    }
     let payload:unknown;
     try{payload=await response.json();}catch{diagnostic("provider_invalid_json",selected);throw Error("Provider invalid response");}
     if(payload && typeof payload==="object" && (payload as {success?:boolean}).success===false){diagnostic("provider_rejected",selected);throw Error("Provider failed");}
@@ -78,6 +84,7 @@ export async function POST(request:Request){
   if(result.status==="uncertain"||result.status==="unavailable")diagnostic("trial_"+result.status,selected);
   if(result.status==="completed")
    return reply({ok:true,response:result.value,coach:selected});
+  if(result.status==="released")return reply({ok:false,error:"This coach\u0027s Pickaxe API deployment was not found. No trial message was used. Check the coach\u0027s API/MCP deployment ID in Pickaxe."},503);
   if(result.status==="exhausted")return reply({ok:false,error:"Introductory allowance reached"},429);
   if(result.status.startsWith("duplicate_")||result.status==="replay_conflict")
    return reply({ok:false,error:"This request was already submitted"},409);
