@@ -35,7 +35,8 @@ export async function resolveIsolatedIntroductoryAccount():Promise<(VerifiedTria
  // Require an independently maintained allowlist of synthetic preview identities.
  const allowed=String(process.env.INTRODUCTORY_TRIAL_TEST_CLERK_IDS||"")
    .split(",").map(x=>x.trim()).filter(Boolean);
- if(!allowed.includes(user.id))return null;
+ const dedicatedTester=String(process.env.INTRODUCTORY_TRIAL_DEDICATED_TEST_CLERK_ID||"").trim();
+ if(!allowed.includes(user.id)&&user.id!==dedicatedTester)return null;
  const records=await db`SELECT clerk_user_id,stripe_customer_id,stripe_subscription_id,
     stripe_status,access_active FROM public.fitness_memberships WHERE email=${email} LIMIT 1`;
  if(records.length!==0)return null; // Never overwrite/bypass any existing subscriber.
