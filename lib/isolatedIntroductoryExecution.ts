@@ -3,7 +3,7 @@
  * The caller supplies server-verified identity/membership evidence; never a client assertion.
  * The SQL adapter must use the same dedicated lifetime grant on all three coaches.
  */
-import {introductoryTrialEligible,type TrialIdentity} from "./introductoryTrialPolicy";
+import {introductoryTrialEligible,type TrialIdentity} from "./introductoryTrialPolicy.ts";
 export type IntroCoach="fitness"|"budgeting"|"life";
 export type IntroOutcome="completed"|"released"|"uncertain";
 export type VerifiedTrialAccount=TrialIdentity & {memberKey:string};
