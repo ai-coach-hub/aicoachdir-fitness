@@ -76,7 +76,7 @@ export default function IntroductoryPreview(){
       disabled={busy||exhausted} placeholder="Ask your coach…" style={{flex:1,padding:12,minWidth:0}}/>
      <button type="submit" disabled={busy||exhausted||!input.trim()} style={{padding:"10px 20px"}}>{busy?"Sending…":"Send"}</button>
     </form>
-    {error&&<p role="alert">{error} {pending&&!exhausted?"Retry with the same message to avoid another charge.":""}</p>}
+    {error&&<p role="alert">{error} {pending&&!exhausted?"Do not resend this message until support verifies the result.":""}</p>}
     {exhausted&&<p role="status">Your introductory allowance has been used. You can review membership options.</p>}
    </>
   }
