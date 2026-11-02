@@ -26,7 +26,7 @@
 }
 .homePricingGrid article {
   min-width: 0;
-  min-height: 226px;
+  min-height: 174px;
   display: flex;
   flex-direction: column;
   padding: 23px 20px;
@@ -38,6 +38,6 @@
 .homePricingGrid h2 { font-size: 21px; margin: 0 0 12px; }
 .homePricingGrid p { margin: 0 0 12px; color: #aeb9c9; font-size: 14px; line-height: 1.55; }
 .homePricingGrid p strong { color: #fff; font-size: 19px; }
-.homePricingGrid .primary-button { align-self: flex-start; margin-top: auto; }
+.homePricingGrid p:last-child { margin-bottom: 0; }
 @media (max-width: 1000px) { .homePricingGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 540px) { .homePricingGrid { grid-template-columns: 1fr; gap: 12px; } .homePricingGrid article { min-height: 190px; } }
+@media (max-width: 540px) { .homePricingGrid { grid-template-columns: 1fr; gap: 12px; } .homePricingGrid article { min-height: 160px; } }
