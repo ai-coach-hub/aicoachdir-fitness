@@ -20,7 +20,7 @@ test("all three coaches use same verified ledger interface",async()=>{
  }
 });
 test("paid, unverified and previously granted accounts cannot access trial",async()=>{
- for(const edit of [{emailVerified:false},{existingPaidOrLegacyMember:true}]{
+ for(const edit of [{emailVerified:false},{existingPaidOrLegacyMember:true}]){
   const {calls,port}=mock();
   const result=await executeIsolatedIntroductoryMessage({...account,...edit},"life",request,port,async()=>({kind:"generated",value:"oops"}));
   assert.equal(result.status,"not_entitled");assert.equal(calls.length,0);
