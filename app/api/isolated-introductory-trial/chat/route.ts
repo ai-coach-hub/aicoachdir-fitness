@@ -5,6 +5,7 @@
  */
 import {isolatedTrialPreviewEnabled,resolveIsolatedIntroductoryAccount} from "@/lib/isolatedIntroductoryIdentity";
 import {isolatedIntroductoryTrialPort} from "@/lib/isolatedIntroductoryTrialDb";
+import {saveTrialTurn} from "@/lib/isolatedTrialHistory";
 import {executeIsolatedIntroductoryMessage,type IntroCoach} from "@/lib/isolatedIntroductoryExecution";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -62,6 +63,7 @@ export async function POST(request:Request){
     if(payload?.success===false)throw Error("Provider failed");
     const answer=extractText(payload);
     if(!answer)throw Error("Provider returned no answer");
+    await saveTrialTurn(account.clerkUserId,key,selected,message.trim(),answer);
     return {kind:"generated" as const,value:answer};
    }
   );
