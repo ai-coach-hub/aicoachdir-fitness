@@ -11,6 +11,10 @@ export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export const maxDuration=120;
 const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
+function diagnostic(stage:string,coach:IntroCoach,code?:number){
+ if(!isolatedTrialPreviewEnabled())return;
+ console.warn("[intro-trial-preview]",{stage,coach,...(code===undefined?{}:{httpStatus:code})});
+}
 function providerToken(coach:IntroCoach){
  const names:Record<IntroCoach,string>={
   fitness:"PICKAXE_FITNESS_DEPLOYMENT_TOKEN",
@@ -48,27 +52,30 @@ export async function POST(request:Request){
   if(!account)return reply({ok:false,error:"Verified private trial account required"},403);
   const selected=coach as IntroCoach;
   const token=providerToken(selected);
-  if(!token)return reply({ok:false,error:`${selected==="life"?"Life":selected==="budgeting"?"Budgeting":"Fitness"} Coach is not configured in this private preview.`},503);
+  if(!token){diagnostic("provider_missing",selected);return reply({ok:false,error:`${selected==="life"?"Life":selected==="budgeting"?"Budgeting":"Fitness"} Coach is not configured in this private preview.`},503);}
   const result=await executeIsolatedIntroductoryMessage(
    account,selected,key,isolatedIntroductoryTrialPort,async()=>{
     // This call is reachable ONLY after verified identity and atomic reservation.
     // Per-tester Pickaxe userId preserves isolation from any real customer identity.
-    const response=await fetch("https://api.pickaxe.co/v1/completions",{
+    let response:Response;
+    try{response=await fetch("https://api.pickaxe.co/v1/completions",{
      method:"POST",
      headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json",Accept:"application/json"},
      body:JSON.stringify({message:message.trim(),userId:account.verifiedEmail,
        conversationId:`intro-${selected}-${key}`,stream:false}),
      cache:"no-store",signal:AbortSignal.timeout(100000)
-    });
-    if(!response.ok)throw Error("Provider failed");
-    const payload=await response.json();
-    if(payload?.success===false)throw Error("Provider failed");
+    });}catch(e){diagnostic(e instanceof Error&&e.name==="TimeoutError"?"provider_timeout":"provider_network_failure",selected);throw Error("Provider request failed");}
+    if(!response.ok){diagnostic("provider_http_error",selected,response.status);throw Error("Provider failed");}
+    let payload:unknown;
+    try{payload=await response.json();}catch{diagnostic("provider_invalid_json",selected);throw Error("Provider invalid response");}
+    if(payload && typeof payload==="object" && (payload as {success?:boolean}).success===false){diagnostic("provider_rejected",selected);throw Error("Provider failed");}
     const answer=extractText(payload);
-    if(!answer)throw Error("Provider returned no answer");
-    await saveTrialTurn(account.clerkUserId,key,selected,message.trim(),answer);
+    if(!answer){diagnostic("provider_empty_response",selected);throw Error("Provider returned no answer");}
+    try{await saveTrialTurn(account.clerkUserId,key,selected,message.trim(),answer);}catch{diagnostic("history_persist_failure",selected);throw Error("History persistence failed");}
     return {kind:"generated" as const,value:answer};
    }
   );
+  if(result.status==="uncertain"||result.status==="unavailable")diagnostic("trial_"+result.status,selected);
   if(result.status==="completed")
    return reply({ok:true,response:result.value,coach:selected});
   if(result.status==="exhausted")return reply({ok:false,error:"Introductory allowance reached"},429);
