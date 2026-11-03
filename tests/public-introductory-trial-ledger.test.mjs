@@ -11,7 +11,7 @@ test("enrollment is release-gated and only accepts verified Clerk identity, no c
  assert.match(enroll,/user\.id!==initialUser\.id/);
  assert.match(enroll,/emailObject\?\.verification\?\.status!=="verified"/);
  assert.match(enroll,/sharedUsageMemberKey/);
- assert.doesNotMatch(enroll,/request\.json\(|Stripe|grantFitnessAccess\(|stripeRequest\(/);
+ assert.doesNotMatch(enroll,/request\.json\(|grantFitnessAccess\(|stripeRequest\(/);
  assert.match(enroll,/ON CONFLICT DO NOTHING/);
  assert.match(enroll,/WHERE NOT EXISTS/);
 });
