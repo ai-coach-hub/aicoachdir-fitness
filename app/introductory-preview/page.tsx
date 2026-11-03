@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useRef,useState,type FormEvent} from "react";
 import {SignIn,useUser} from "@clerk/nextjs";
+import {cleanLifeCoachText} from "@/lib/lifeCoachFormatting";
 type Coach="fitness"|"budgeting"|"life";
 type Message={coach:Coach;role:"user"|"assistant";text:string};
 const labels:Record<Coach,string>={fitness:"Fitness Coach",budgeting:"Budgeting Coach",life:"Life Coach"};
@@ -67,7 +68,7 @@ export default function IntroductoryPreview(){
     <section aria-label={labels[coach]+" messages"} role="log" aria-live="polite"
       style={{minHeight:240,maxHeight:440,overflowY:"auto",border:"1px solid #999",borderRadius:12,padding:16}}>
      {messages.filter(m=>m.coach===coach).map((m,i)=><p key={i} style={{marginBottom:12}}>
-      <strong>{m.role==="user"?"You":labels[m.coach]}:</strong> {m.text}</p>)}
+      <strong>{m.role==="user"?"You":labels[m.coach]}:</strong> {m.role==="assistant"?cleanLifeCoachText(m.text):m.text}</p>)}
      {!messages.some(m=>m.coach===coach)&&<p>Ask {labels[coach]} a question to begin.</p>}
      <div ref={bottom}/>
     </section>
