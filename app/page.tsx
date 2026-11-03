@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
+import {publicTrialReleaseGate} from "@/lib/publicIntroductoryTrialAdmission";
 import styles from "./home.module.css";
 
 const homepageTitle = "AI Coach Directory | Specialized AI Coaching";
@@ -66,6 +67,7 @@ const upcomingCoaches = [
 export const dynamic = "force-dynamic";
 export default function HomePage() {
   const memberLoginUrl = "/fitness/login";
+  const trialReleased=publicTrialReleaseGate(process.env);
   const fourTierSignups = process.env.VERCEL_ENV==="production" && process.env.LIVE_NEW_TIER_SIGNUPS_ENABLED==="true";
 
   // Release Life Coach to existing members with the same subscription only
@@ -97,9 +99,11 @@ export default function HomePage() {
           Build a workout plan, take control of your budget{lifeAvailable ? ", and work toward personal goals" : ""}. Pick the coach you need, and return to your saved work from one member dashboard.
         </p>
         <div className="cta-row">
-          <Link href="/fitness/signup" className="primary-button">Get Started</Link>
+          {trialReleased&&<Link href="/introductory-trial" className="primary-button">Try 15 Messages Free</Link>}
+          <Link href="/fitness/signup" className={trialReleased?"secondary-button":"primary-button"}>Get Started</Link>
           <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
         </div>
+        {trialReleased&&<p className={styles.heroPlanNote}>15 free messages across three coaches · No credit card · No automatic charge</p>}
         <p className={styles.heroPlanNote}>{fourTierSignups ? "Plans from $9/month · 100–600 AI Coach messages/month · Renews monthly until canceled" : "$15/month · One membership · 400 AI Coach messages/month · Automatically renews until canceled"}</p>
       </section>
 
