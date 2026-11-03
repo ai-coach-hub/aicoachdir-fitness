@@ -7,7 +7,8 @@ const ledger=src("../lib/publicIntroductoryTrialLedger.ts");
 test("enrollment is release-gated and only accepts verified Clerk identity, no client-provided billing claims",()=>{
  assert.match(enroll,/isPublicTrialPreflightAvailable\(\)/);
  assert.match(enroll,/origin!==new URL\(request\.url\)\.origin/);
- assert.match(enroll,/assessVerifiedPublicTrialUser\(\)/);
+ assert.match(enroll,/assessVerifiedPublicTrialUser\(initialUser\.id\)/);
+ assert.match(enroll,/user\.id!==initialUser\.id/);
  assert.match(enroll,/emailObject\?\.verification\?\.status!=="verified"/);
  assert.match(enroll,/sharedUsageMemberKey/);
  assert.doesNotMatch(enroll,/request\.json\(|Stripe|grantFitnessAccess\(|stripeRequest\(/);
