@@ -31,7 +31,8 @@ async function stripePreviouslySubscribed(email:string):Promise<boolean>{
  if(!Array.isArray(listed.data)||listed.has_more!==false)throw Error("Stripe customer verification incomplete");
  for(const value of listed.data){
   const customer=item(value);
-  if(customer.deleted===true||String(customer.email||"").trim().toLowerCase()!==email)continue;
+  if(customer.deleted===true)return true; // Treat deleted historical billing identity as ineligible
+  if(String(customer.email||"").trim().toLowerCase()!==email)continue;
   const id=String(customer.id||"");
   if(!/^cus_[A-Za-z0-9]+$/.test(id))throw Error("Stripe customer ID invalid");
   const subs=await stripeRequest("/subscriptions?"+new URLSearchParams({customer:id,status:"all",limit:"100"}));
@@ -94,6 +95,9 @@ export async function assessVerifiedPublicTrialUser(expectedClerkId?:string):Pro
   lifetime=grant.converted_at!=null?"converted":completed+reserved>=15?"exhausted":"in_progress";
  }
  const termsSql=getTermsDatabase();
+ const termsBranch=await termsSql`SELECT current_setting('neon.branch_id',true) AS branch`;
+ if(String(termsBranch[0]?.branch)!==PROD_NEON_BRANCH)
+  return noAccess("infrastructure_not_ready");
  const accepted=await termsSql`SELECT 1 FROM public.terms_acceptances
  WHERE email=${email} AND terms_version=${TERMS_VERSION}
  AND plan='AI Coach Directory Introductory Trial'
