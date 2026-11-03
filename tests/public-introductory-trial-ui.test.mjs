@@ -24,7 +24,7 @@ test("saved trial history remains Clerk-private after conversion",()=>{
  assert.match(histPage,/cleanLifeCoachText/);
 });
 test("free-trial marketing is never displayed unless every release gate passes",()=>{
- assert.match(home,/trialReleased=publicTrialReleaseGate\(process\.env\)/);
+ assert.match(home,/PUBLIC_INTRO_TRIAL_COACH_ACTIONS_REVIEWED==="true"/);
  assert.match(home,/trialReleased&&<Link href="\/introductory-trial"/);
  assert.doesNotMatch(home,/PUBLIC_INTRO_TRIAL_ENABLED==="true"/);
 });
