@@ -1,0 +1,30 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const src=p=>readFileSync(new URL(p,import.meta.url),"utf8");
+const enroll=src("../app/api/introductory-trial/enroll/route.ts");
+const ledger=src("../lib/publicIntroductoryTrialLedger.ts");
+test("enrollment is release-gated and only accepts verified Clerk identity, no client-provided billing claims",()=>{
+ assert.match(enroll,/isPublicTrialPreflightAvailable\(\)/);
+ assert.match(enroll,/origin!==new URL\(request\.url\)\.origin/);
+ assert.match(enroll,/assessVerifiedPublicTrialUser\(\)/);
+ assert.match(enroll,/emailObject\?\.verification\?\.status!=="verified"/);
+ assert.match(enroll,/sharedUsageMemberKey/);
+ assert.doesNotMatch(enroll,/request\.json\(|Stripe|grantFitnessAccess\(|stripeRequest\(/);
+ assert.match(enroll,/ON CONFLICT DO NOTHING/);
+ assert.match(enroll,/WHERE NOT EXISTS/);
+});
+test("a prior grant never resets and one shared ledger handles all coach reservations",()=>{
+ assert.match(enroll,/message_limit,completed_uses,reserved_uses/);
+ assert.match(enroll,/converted_at!=null/);
+ assert.doesNotMatch(enroll,/UPDATE public\.introductory_trial_grants|DELETE FROM/);
+ assert.match(ledger,/publicTrialReleaseGate\(process\.env\)/);
+ assert.match(ledger,/PROD_BRANCH/);
+ assert.match(ledger,/public\.intro_trial_reserve\(/);
+ assert.match(ledger,/public\.intro_trial_settle\(/);
+ assert.match(ledger,/r\.status='reserved'/);
+ assert.match(ledger,/r\.status='completed'/);
+ assert.match(ledger,/storePublicTrialTurn/);
+ assert.ok(ledger.indexOf("INSERT INTO public.introductory_trial_history")>0);
+ assert.doesNotMatch(ledger,/stripeRequest\(|fetch\(|grantFitnessAccess\(/);
+});
