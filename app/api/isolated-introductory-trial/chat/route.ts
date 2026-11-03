@@ -61,8 +61,12 @@ export async function POST(request:Request){
     try{response=await fetch("https://api.pickaxe.co/v1/completions",{
      method:"POST",
      headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json",Accept:"application/json"},
-     body:JSON.stringify({message:message.trim(),userId:account.verifiedEmail,
-       conversationId:`intro-${selected}-${key}`,stream:false}),
+     // Life Coach uses the exact minimal payload verified against this Pickaxe deployment.
+     // The signed-in account and chat history remain isolated in this site\u0027s trial database.
+     body:JSON.stringify(selected==="life"
+       ?{message:message.trim(),stream:false}
+       :{message:message.trim(),userId:account.verifiedEmail,
+         conversationId:`intro-${selected}-${key}`,stream:false}),
      cache:"no-store",signal:AbortSignal.timeout(100000)
     });}catch(e){diagnostic(e instanceof Error&&e.name==="TimeoutError"?"provider_timeout":"provider_network_failure",selected);throw Error("Provider request failed");}
     if(!response.ok){
