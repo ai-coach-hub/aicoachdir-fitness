@@ -19,12 +19,14 @@ export async function POST(request:Request){
  if(Number(request.headers.get("content-length")||0)>0)
   return respond({ok:false,error:"Trial enrollment requires no request data"},400);
  try{
-  const admission=await assessVerifiedPublicTrialUser();
+  const initialUser=await currentUser();
+  if(!initialUser)return respond({ok:false,error:"Verified login required"},401);
+  const admission=await assessVerifiedPublicTrialUser(initialUser.id);
   if(admission.kind!=="new"&&admission.kind!=="resume")
    return respond({ok:false,error:"Trial enrollment not available"},admission.kind==="deny"?403:503);
   const user=await currentUser();
   const emailObject=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
-  if(!user||emailObject?.verification?.status!=="verified")
+  if(!user||user.id!==initialUser.id||emailObject?.verification?.status!=="verified")
    return respond({ok:false,error:"Verified login required"},401);
   const email=emailObject.emailAddress.trim().toLowerCase();
   const key=sharedUsageMemberKey(email,String(process.env.BUDGET_MEMBERSHIP_HANDOFF_SECRET||""));
