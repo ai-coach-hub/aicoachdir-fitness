@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
-import {publicTrialReleaseGate} from "@/lib/publicIntroductoryTrialAdmission";
 import styles from "./home.module.css";
 
 const homepageTitle = "AI Coach Directory | Specialized AI Coaching";
@@ -67,7 +66,12 @@ const upcomingCoaches = [
 export const dynamic = "force-dynamic";
 export default function HomePage() {
   const memberLoginUrl = "/fitness/login";
-  const trialReleased=publicTrialReleaseGate(process.env);
+  const trialReleased=process.env.VERCEL_ENV==="production" &&
+    process.env.PUBLIC_INTRO_TRIAL_ENABLED==="true" &&
+    process.env.PUBLIC_INTRO_TRIAL_RELEASE_APPROVED==="true" &&
+    process.env.PUBLIC_INTRO_TRIAL_METER_READY==="true" &&
+    process.env.PUBLIC_INTRO_TRIAL_THREE_COACHES_READY==="true" &&
+    process.env.PUBLIC_INTRO_TRIAL_COACH_ACTIONS_REVIEWED==="true";
   const fourTierSignups = process.env.VERCEL_ENV==="production" && process.env.LIVE_NEW_TIER_SIGNUPS_ENABLED==="true";
 
   // Release Life Coach to existing members with the same subscription only
@@ -100,7 +104,7 @@ export default function HomePage() {
         </p>
         <div className="cta-row">
           {trialReleased&&<Link href="/introductory-trial" className="primary-button">Try 15 Messages Free</Link>}
-          <Link href="/fitness/signup" className={trialReleased?"secondary-button":"primary-button"}>Get Started</Link>
+          <Link href="/fitness/signup" className="primary-button">Get Started</Link>
           <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
         </div>
         {trialReleased&&<p className={styles.heroPlanNote}>15 free messages across three coaches · No credit card · No automatic charge</p>}
