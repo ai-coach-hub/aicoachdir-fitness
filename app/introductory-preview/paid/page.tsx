@@ -7,11 +7,16 @@ import {SignIn} from "@clerk/nextjs";
 import {introHistorySql,readTrialTurns} from "@/lib/isolatedTrialHistory";
 import {isolatedTrialPreviewEnabled} from "@/lib/isolatedIntroductoryIdentity";
 import {cleanLifeCoachText} from "@/lib/lifeCoachFormatting";
+import {verifiedIsolatedPaidContinuation} from "@/lib/isolatedPaidContinuation";
+import {readIsolatedPaidTurns} from "@/lib/isolatedPaidHistory";
+import PrivatePaidContinuation from "@/components/PrivatePaidContinuation";
 export const dynamic="force-dynamic";
 const labels:Record<string,string>={fitness:"Fitness Coach",budgeting:"Budgeting Coach",life:"Life Coach"};
 
 export default async function IsolatedConvertedHistory(){
  let turns:Awaited<ReturnType<typeof readTrialTurns>>=[];
+ let paidTurns:Awaited<ReturnType<typeof readIsolatedPaidTurns>>=[];
+ let paidVerified=false;
  let status:"ready"|"sign_in"|"wrong_account"|"unavailable"="unavailable";
  if(!isolatedTrialPreviewEnabled()){
   status="unavailable";
@@ -38,6 +43,9 @@ export default async function IsolatedConvertedHistory(){
     }else{
      turns=await readTrialTurns(user.id);
      status="ready";
+     const evidence=await verifiedIsolatedPaidContinuation();
+     paidVerified=evidence.ready;
+     if(paidVerified){try{paidTurns=await readIsolatedPaidTurns(user.id);}catch{paidVerified=false;}}
     }
    }
   }catch{
@@ -56,6 +64,8 @@ export default async function IsolatedConvertedHistory(){
     <p><strong>Coach:</strong> {cleanLifeCoachText(String(t.coach_response))}</p>
    </section>)}
   </>}
+  {status==="ready"&&paidVerified&&<PrivatePaidContinuation initial={paidTurns.map(t=>({coach:String(t.coach),user_message:String(t.user_message),coach_response:cleanLifeCoachText(String(t.coach_response))}))}/>}
+  {status==="ready"&&!paidVerified&&<p>Saved conversations are available. Continued paid coaching requires an independently verified Stripe TEST invoice and active message allowance. No new payment is required here.</p>}
   {status==="sign_in"&&<>
    <p>Use the same test login that completed the simulated checkout. No new account or payment is required.</p>
    <SignIn routing="hash" forceRedirectUrl="/introductory-preview/paid" />
