@@ -45,11 +45,12 @@ async function stripePreviouslySubscribed(email:string):Promise<boolean>{
 export function isPublicTrialPreflightAvailable():boolean{
  return publicTrialReleaseGate(process.env);
 }
-export async function assessVerifiedPublicTrialUser():Promise<TrialAdmission>{
+export async function assessVerifiedPublicTrialUser(expectedClerkId?:string):Promise<TrialAdmission>{
  if(!isPublicTrialPreflightAvailable())return noAccess("infrastructure_not_ready");
  const user=await currentUser();
  const primary=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
- if(!user||!primary||primary.verification?.status!=="verified")
+ if(!user||!primary||primary.verification?.status!=="verified"||
+    (expectedClerkId!==undefined&&user.id!==expectedClerkId))
   return {kind:"deny",reason:"unverified_identity"};
  const email=primary.emailAddress.trim().toLowerCase();
  const memberKey=sharedUsageMemberKey(email,String(process.env.BUDGET_MEMBERSHIP_HANDOFF_SECRET||""));
