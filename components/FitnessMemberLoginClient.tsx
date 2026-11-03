@@ -91,7 +91,7 @@ export default function FitnessMemberLoginClient({
           <span>
             {paymentNeedsAttention
               ? "Update your payment method or resolve an unpaid invoice. Please don't buy another subscription."
-              : "Use the email tied to your membership. If you already pay, verify your existing subscription before starting another one."}
+              : "Sign in with the email address associated with your membership. If you already have a subscription, verify it before purchasing another one."}
           </span>
         </div>
 

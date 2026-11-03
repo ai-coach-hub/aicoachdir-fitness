@@ -5,7 +5,7 @@ import {
 } from "@/lib/stripeConfigDb";
 
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
-const PLAN_NAME = "AI Fitness Coach 2.0";
+const PLAN_NAME = "AI Fitness Coach";
 const MONTHLY_AMOUNT_CENTS = 1500;
 const WEBHOOK_EVENTS = [
   "checkout.session.completed",
@@ -19,6 +19,13 @@ export const FITNESS_PRICE_DOLLARS = 15;
 export const FITNESS_INCLUDED_USES = 400;
 
 function configuredStripeKey() {
+  // Isolated upgrade QA must never fall back to the unrelated Preview Stripe
+  // account. Fail closed if the dedicated testing key has not been configured.
+  if (process.env.VERCEL_ENV === "preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF ===
+        "feature/verified-subscription-upgrade-policy-20261027") {
+    return process.env.UPGRADE_SANDBOX_STRIPE_SECRET_KEY?.trim() || "";
+  }
   return (
     process.env.STRIPE_RESTRICTED_KEY?.trim() ||
     process.env.STRIPE_SECRET_KEY?.trim() ||
@@ -147,7 +154,7 @@ export async function ensureFitnessPriceId() {
   if (!product) {
     const body = new URLSearchParams();
     body.set("name", PLAN_NAME);
-    body.set("description", "AI Fitness Coach 2.0 membership");
+    body.set("description", "AI Fitness Coach membership");
     body.set("metadata[aicoachdir_plan]", "fitness_v2");
     product = await stripeRequest("/products", { method: "POST", body });
   }
@@ -167,7 +174,7 @@ export async function ensureFitnessPriceId() {
     body.set("unit_amount", String(MONTHLY_AMOUNT_CENTS));
     body.set("recurring[interval]", "month");
     body.set("recurring[interval_count]", "1");
-    body.set("nickname", "AI Fitness Coach 2.0 - Monthly");
+    body.set("nickname", "AI Fitness Coach - Monthly");
     body.set("metadata[aicoachdir_plan]", "fitness_v2");
     price = await stripeRequest("/prices", { method: "POST", body });
   }

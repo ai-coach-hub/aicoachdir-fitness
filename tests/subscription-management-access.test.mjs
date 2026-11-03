@@ -19,7 +19,8 @@ test("billing portal is only created for the authenticated member's saved Stripe
 });
 test("billing management has a legacy/support fallback", async () => {
   const page = await source("app/manage-subscription/page.tsx");
-  assert.match(page, /Ai\.coach\.hub\.domain@gmail\.com/i);
+  assert.match(page, /SupportContactForm/);
+  assert.doesNotMatch(page, /mailto:|Ai\.coach\.hub\.domain@gmail\.com/i);
   assert.match(page, /customer-portal/);
 });
 

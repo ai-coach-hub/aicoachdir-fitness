@@ -12,6 +12,13 @@ import { discoverVerifiedHistoricalBilling } from "@/lib/legacyBillingVerificati
 
 const PREVIEW_SANDBOX_BRANCH = "feature/life-coach-agent-sandbox-20261011";
 const PREVIEW_NEON_BRANCH_ID = "br-autumn-breeze-auw38rgr";
+const UPGRADE_QA_BRANCH = "feature/verified-subscription-upgrade-policy-20261027";
+const UPGRADE_QA_NEON_BRANCH_ID = "br-young-salad-aubnf7xt";
+
+function onUpgradeQaPreview() {
+  return process.env.VERCEL_ENV === "preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF === UPGRADE_QA_BRANCH;
+}
 
 function onFitnessPreviewSandbox() {
   return process.env.VERCEL_ENV === "preview" &&
@@ -19,6 +26,13 @@ function onFitnessPreviewSandbox() {
 }
 
 function connectionString() {
+  // Never inherit production membership storage on the upgrade QA branch.
+  if (process.env.VERCEL_GIT_COMMIT_REF === UPGRADE_QA_BRANCH) {
+    if (!onUpgradeQaPreview()) throw new Error("Upgrade QA requires a preview environment.");
+    const isolated = process.env.UPGRADE_SANDBOX_DATABASE_URL;
+    if (!isolated) throw new Error("Isolated upgrade QA database is not configured.");
+    return isolated;
+  }
   // Never fall back to the inherited production database in this sandbox.
   if (onFitnessPreviewSandbox()) {
     const isolated = process.env.LIFE_COACH_DATABASE_URL;
@@ -41,9 +55,11 @@ let membershipSchemaReady: Promise<void> | null = null;
 
 async function verifiedMembershipDb() {
   const sql = membershipDb();
-  if (onFitnessPreviewSandbox()) {
+  const requiredBranch = onUpgradeQaPreview() ? UPGRADE_QA_NEON_BRANCH_ID
+    : onFitnessPreviewSandbox() ? PREVIEW_NEON_BRANCH_ID : "";
+  if (requiredBranch) {
     const rows = await sql`SELECT current_setting('neon.branch_id', true) AS branch_id`;
-    if (String(rows[0]?.branch_id || "") !== PREVIEW_NEON_BRANCH_ID) {
+    if (String(rows[0]?.branch_id || "") !== requiredBranch) {
       throw new Error("Sandbox membership database branch mismatch.");
     }
   }
@@ -545,7 +561,7 @@ export async function memberHasFitnessAccess(
     return false;
   }
 
-  if (onFitnessPreviewSandbox()) return false;
+  if (onFitnessPreviewSandbox() || onUpgradeQaPreview()) return false;
 
   const legacyActive = await pickaxeUserHasFitnessAccess(memberEmail, {
     fallbackToList: options.fallbackToPickaxeList ?? true,

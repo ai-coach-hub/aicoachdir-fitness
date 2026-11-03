@@ -34,8 +34,21 @@ export async function GET(request:Request) {
  try {
   const params=new URL(request.url).searchParams;
   if(params.get("availability")==="1"){
-   if(process.env.VERCEL_ENV!=="production")
+   const upgradeQaPreview=process.env.VERCEL_ENV==="preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF==="feature/verified-subscription-upgrade-policy-20261027";
+   if(process.env.VERCEL_ENV!=="production"&&!upgradeQaPreview)
     return json({ok:true,availability:"preview"});
+   if(upgradeQaPreview){
+    const signedIn=await (await import("@clerk/nextjs/server")).currentUser();
+    const primary=signedIn?.emailAddresses.find(e=>e.id===signedIn.primaryEmailAddressId);
+    if(!signedIn||signedIn.id!==member||primary?.verification?.status!=="verified")
+      return json({ok:false,error:"Verified membership required."},403);
+    if(process.env.UPGRADE_SANDBOX_SHARED_METER_ENABLED!=="true"||
+       !process.env.PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN?.trim())
+      return json({ok:true,availability:"not_entitled"});
+    const {lifeGenerationAvailability}=await import("@/lib/sharedUsageMeter");
+    return json({ok:true,availability:await lifeGenerationAvailability(primary.emailAddress.trim().toLowerCase())});
+   }
    const signedIn=await (await import("@clerk/nextjs/server")).currentUser();
    const primary=signedIn?.emailAddresses.find(e=>e.id===signedIn.primaryEmailAddressId);
    if(!signedIn||signedIn.id!==member||!primary||primary.verification?.status!=="verified")
@@ -148,6 +161,8 @@ export async function POST(request:Request) {
   // Free goal capture and saved-history answers have already returned above.
   const privateSandbox = process.env.VERCEL_ENV === "preview" &&
     process.env.VERCEL_GIT_COMMIT_REF === "feature/life-coach-agent-sandbox-20261011";
+  const upgradeQaSandbox = process.env.VERCEL_ENV === "preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF === "feature/verified-subscription-upgrade-policy-20261027";
   const cutover=String(process.env.SHARED_USAGE_CUTOVER_AT||"");
   const stamp=Date.parse(cutover);
   const cutoverReady=Number.isFinite(stamp)&&new Date(stamp).toISOString()===cutover;
@@ -161,8 +176,10 @@ export async function POST(request:Request) {
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
     openingReady &&
     process.env.LIFE_COACH_LIVE_ENABLED==="true";
-  if(!privateSandbox&&!productionReleased)
+  if(!privateSandbox&&!upgradeQaSandbox&&!productionReleased)
     return json({ok:false,error:"Life Coach generation is not enabled."},503);
+  if(upgradeQaSandbox&&process.env.UPGRADE_SANDBOX_SHARED_METER_ENABLED!=="true")
+    return json({ok:false,error:"Private Life Coach generation is not enabled."},503);
   if(privateSandbox && process.env.PREVIEW_SHARED_USAGE_METER_ENABLED !== "true")
     return json({ok:false,error:"Private Life Coach generation is not enabled."},503);
   // Only pay for model inference when the user needs actual coaching or new content.
@@ -180,6 +197,29 @@ export async function POST(request:Request) {
   // Production shares one authoritative wallet with Fitness and Budgeting.
   // The caller's email and period are re-verified server-side before reserving;
   // no second checkout, independent Life credits or client-supplied cap.
+  if(upgradeQaSandbox){
+   const requestKey=typeof body.requestKey==="string"?body.requestKey.trim():"";
+   if(!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey))
+    return json({ok:false,error:"A valid AI request ID is required."},400);
+   const {reserveSharedUsage,settleSharedUsage}=await import("@/lib/sharedUsageMeter");
+   const {runMeteredPreviewGeneration}=await import("@/lib/previewLifeUsageFlow");
+   const result=await runMeteredPreviewGeneration({
+     reserve:async()=> (await reserveSharedUsage(email,"life",requestKey)).status,
+     settle:outcome=>settleSharedUsage(email,"life",requestKey,outcome)
+   },async()=>{
+     const rawAnswer=await completeLifeCoachRequest(token,promptMessage,email,id);
+     const answer=cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories));
+     await saveLifeTurn(member,id,message,answer);
+     return {kind:"generated" as const,value:{ok:true,response:answer,conversationId:id,source:"coach"}};
+   });
+   if(result.status==="completed")return json(result.value);
+   if(result.status==="blocked")return json({ok:false,error:
+     result.reason==="exhausted"?"Your monthly AI message allowance has been reached.":
+     result.reason.startsWith("duplicate_")?"This message was already submitted. Check Previous chats.":
+     "Life Coach is not yet ready for this test account."},
+     result.reason==="exhausted"?429:result.reason.startsWith("duplicate_")?409:403);
+   return json({ok:false,error:"Message delivery needs review. Check Previous chats before trying again."},503);
+  }
   if(productionReleased){
 
    const requestKey=typeof body.requestKey==="string"?body.requestKey.trim():"";

@@ -73,7 +73,8 @@ function wallet({branch=PROD_BRANCH,env=live}={}){
       periodEnd:new Date(Date.now()+86400000).toISOString()
     })},
     "./sharedUsageMemberIdentity":{sharedUsageMemberKey:()=> "member_"+ "a".repeat(64)},
-    "./sharedUsagePriceApproval":{approvedSharedPriceIds:()=>["price_Approved123"]}
+    "./sandboxSharedUsagePermit":{sandboxSharedUsagePermit:async()=>null},
+  "./sharedUsagePriceApproval":{approvedSharedPriceIds:()=>["price_Approved123"]}
   });
   return {api,calls};
 }

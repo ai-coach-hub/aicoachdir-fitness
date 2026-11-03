@@ -25,6 +25,6 @@ test("ordinary coaching requests are not diverted or billed by safety fallback",
 test("private route places zero-model safety response before paid model gate",()=>{
  const route=readFileSync(new URL("../app/api/life/chat/route.ts",import.meta.url),"utf8");
  assert.ok(route.indexOf("urgentLifeCoachReply(message)")>0);
- assert.ok(route.indexOf("urgentLifeCoachReply(message)")<route.indexOf("PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN"));
+ assert.ok(route.indexOf("urgentLifeCoachReply(message)")<route.indexOf("PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN",route.indexOf("urgentLifeCoachReply(message)")));
  assert.match(route,/source:"safety"/);
 });

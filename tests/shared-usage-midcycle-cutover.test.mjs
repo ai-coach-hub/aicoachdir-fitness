@@ -37,7 +37,8 @@ function scenario({cutover=midCutover,seed=null,periodStart=begin,periodEnd=endi
     {id:"sub_Existing123",customer:"cus_Existing123",status:"active"}},
   "./stripeUsagePeriod":{stripeUsageWindowFromVerifiedRecord:()=>({ok:true,periodStart,periodEnd})},
   "./sharedUsageMemberIdentity":{sharedUsageMemberKey:()=>walletMember},
-  "./sharedUsagePriceApproval":{approvedSharedPriceIds:()=>["price_ExistingPlan"]}
+  "./sharedUsagePriceApproval":{approvedSharedPriceIds:()=>["price_ExistingPlan"]},
+  "./sandboxSharedUsagePermit":{sandboxSharedUsagePermit:async()=>null}
  };
  const mod={exports:{}};
  const env={VERCEL_ENV:"production",SHARED_USAGE_GATE_ENABLED:"true",

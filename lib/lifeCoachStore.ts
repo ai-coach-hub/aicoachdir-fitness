@@ -23,9 +23,11 @@ function database() {
     productionOpeningReady() &&
     productionCutoverReady() &&
     process.env.LIFE_COACH_LIVE_ENABLED==="true";
+  const upgradeQaPreview=process.env.VERCEL_ENV==="preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF==="feature/verified-subscription-upgrade-policy-20261027";
   const url=isProduction
     ? (process.env.STORAGE_URL||process.env.DATABASE_URL||process.env.POSTGRES_URL)
-    : process.env.LIFE_COACH_DATABASE_URL;
+    : upgradeQaPreview?process.env.UPGRADE_SANDBOX_DATABASE_URL:process.env.LIFE_COACH_DATABASE_URL;
   if (!url) throw new Error("Life Coach database is not configured");
   return neon(url);
 }
@@ -37,13 +39,15 @@ const PRODUCTION_NEON_BRANCH_ID = "br-sparkling-glitter-aucpz59d";
 async function db() {
   const privatePreview=process.env.VERCEL_ENV==="preview" &&
     process.env.VERCEL_GIT_COMMIT_REF===PRIVATE_PREVIEW_BRANCH;
+  const upgradeQaPreview=process.env.VERCEL_ENV==="preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF==="feature/verified-subscription-upgrade-policy-20261027";
   const productionReleased=process.env.VERCEL_ENV==="production" &&
     process.env.SHARED_USAGE_GATE_ENABLED==="true" &&
     process.env.SHARED_USAGE_PUBLIC_RELEASE_APPROVED==="true" &&
     productionOpeningReady() &&
     productionCutoverReady() &&
     process.env.LIFE_COACH_LIVE_ENABLED==="true";
-  if(!privatePreview&&!productionReleased)
+  if(!privatePreview&&!upgradeQaPreview&&!productionReleased)
     throw new Error("Life Coach storage is disabled until release");
   const sql=database();
   // Production must be migrated explicitly; never silently create tables
@@ -57,6 +61,12 @@ async function db() {
     return sql;
   }
   const identity = await sql`SELECT current_setting('neon.branch_id', true) AS branch_id`;
+  if(upgradeQaPreview){
+    if(String(identity[0]?.branch_id||"")!=="br-young-salad-aubnf7xt")
+      throw new Error("Life Coach upgrade QA database branch mismatch");
+    // This existing QA branch already has the schema. Do not run DDL on reads.
+    return sql;
+  }
   if (String(identity[0]?.branch_id || "") !== PRIVATE_NEON_BRANCH_ID)
     throw new Error("Private Life Coach database branch mismatch");
   await sql`CREATE TABLE IF NOT EXISTS life_chat_threads (
