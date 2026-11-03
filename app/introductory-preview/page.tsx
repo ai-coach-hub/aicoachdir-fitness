@@ -75,7 +75,7 @@ export default function IntroductoryPreview(){
   {!isLoaded?<p>Checking sign-in…</p>:
    !isSignedIn?<section><p>Sign in with your existing verified test account. No payment is required.</p><SignIn routing="hash" forceRedirectUrl="/introductory-preview" /></section>:
    ready==="loading"?<p>Verifying your preview account…</p>:
-   ready==="unavailable"?<p role="alert">This preview is not available for this account. Production memberships are unchanged.</p>:
+   ready==="unavailable"?<section><p role="alert">The introductory trial is unavailable for this account. If you completed the simulated checkout, your saved conversations remain available.</p><p><a href="/introductory-preview/paid">View converted test membership and saved conversations</a></p><p>Production memberships are unchanged.</p></section>:
    <>
     <nav aria-label="Choose coach" style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
      {(["fitness","budgeting","life"] as Coach[]).map(c=><button key={c} type="button" onClick={()=>setCoach(c)}
