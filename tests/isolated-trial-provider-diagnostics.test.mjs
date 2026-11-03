@@ -9,4 +9,8 @@ test("preview chat diagnostics identify stages without dumping sensitive payload
  assert.doesNotMatch(route,/console\.(?:warn|error|log)\([^\n]*(?:token|payload|message\.trim|verifiedEmail)/);
  assert.match(route,/if\(response\.status===404\)return \{kind:"no-model" as const\}/);
  assert.match(route,/if\(result\.status==="released"\)/);
+ // Confirm Life Coach uses the known-good minimal Pickaxe request,
+ // without changing the other coaches\u0027 identity and conversation fields.
+ assert.match(route,/selected==="life"\s*\?\{message:message\.trim\(\),stream:false\}/);
+ assert.match(route,/conversationId:`intro-\$\{selected\}-\$\{key\}`/);
 });
