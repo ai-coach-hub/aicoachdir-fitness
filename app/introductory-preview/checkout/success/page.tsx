@@ -75,6 +75,7 @@ export default async function PrivateTrialTestSuccess({searchParams}:Props){
   <h1>{confirmed?"Test conversion confirmed":"Test conversion needs review"}</h1>
   <p>{state}</p>
   {confirmed&&<p>Saved conversations retained: {retained}</p>}
+  {confirmed&&<p><a href="/introductory-preview/paid">View the three saved conversations in the converted test account</a></p>}
   <a href="/introductory-preview">Return to private trial</a>
  </main>;
 }
