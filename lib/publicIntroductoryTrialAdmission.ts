@@ -50,13 +50,7 @@ export function assessPublicTrialAdmission(e:TrialAdmissionEvidence):TrialAdmiss
 }
 
 /** Never switch on production trial messaging as a side effect of deployment. */
-export function publicTrialReleaseGate(env:{
-  VERCEL_ENV?:string;
-  PUBLIC_INTRO_TRIAL_ENABLED?:string;
-  PUBLIC_INTRO_TRIAL_RELEASE_APPROVED?:string;
-  PUBLIC_INTRO_TRIAL_METER_READY?:string;
-  PUBLIC_INTRO_TRIAL_THREE_COACHES_READY?:string;
-}):boolean{
+export function publicTrialReleaseGate(env:Record<string,string|undefined>):boolean{
   return env.VERCEL_ENV==="production"&&
     env.PUBLIC_INTRO_TRIAL_ENABLED==="true"&&
     env.PUBLIC_INTRO_TRIAL_RELEASE_APPROVED==="true"&&
