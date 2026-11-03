@@ -6,6 +6,7 @@
 import {isolatedTrialPreviewEnabled,resolveIsolatedIntroductoryAccount} from "@/lib/isolatedIntroductoryIdentity";
 import {isolatedIntroductoryTrialPort} from "@/lib/isolatedIntroductoryTrialDb";
 import {saveTrialTurn} from "@/lib/isolatedTrialHistory";
+import {cleanLifeCoachText} from "@/lib/lifeCoachFormatting";
 import {executeIsolatedIntroductoryMessage,type IntroCoach} from "@/lib/isolatedIntroductoryExecution";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -79,7 +80,8 @@ export async function POST(request:Request){
     let payload:unknown;
     try{payload=await response.json();}catch{diagnostic("provider_invalid_json",selected);throw Error("Provider invalid response");}
     if(payload && typeof payload==="object" && (payload as {success?:boolean}).success===false){diagnostic("provider_rejected",selected);throw Error("Provider failed");}
-    const answer=extractText(payload);
+    const rawAnswer=extractText(payload);
+    const answer=selected==="life"?cleanLifeCoachText(rawAnswer):rawAnswer;
     if(!answer){diagnostic("provider_empty_response",selected);throw Error("Provider returned no answer");}
     try{await saveTrialTurn(account.clerkUserId,key,selected,message.trim(),answer);}catch{diagnostic("history_persist_failure",selected);throw Error("History persistence failed");}
     return {kind:"generated" as const,value:answer};
