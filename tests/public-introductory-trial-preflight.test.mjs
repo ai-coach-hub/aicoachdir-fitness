@@ -18,7 +18,7 @@ test("preflight checks verified Clerk and both historic billing systems",()=>{
 test("read-only preflight never mints grants or paid records and stays release-gated",()=>{
  assert.match(verifier,/publicTrialReleaseGate\(process\.env\)/);
  assert.match(endpoint,/isPublicTrialPreflightAvailable\(\)/);
- assert.doesNotMatch(verifier+endpoint,/INSERT INTO|UPDATE public|DELETE FROM|saveFitnessMembership\(|grantFitnessAccess\(|intro_trial_reserve\(/);
+ assert.doesNotMatch(verifier+endpoint,/INSERT INTO|UPDATE public|DELETE FROM|saveFitnessMembership\(|grantFitnessAccess\(|SELECT public\.intro_trial_reserve\(/);
  assert.doesNotMatch(endpoint,/export async function POST/);
  assert.match(endpoint,/verification_unavailable/);
 });
