@@ -4,6 +4,10 @@ import {currentUser} from "@clerk/nextjs/server";
 import {redirect} from "next/navigation";
 import {memberHasFitnessAccess} from "@/lib/fitnessMembershipDb";
 import {lifeTester} from "@/lib/lifeCoachAccess";
+import {isolatedTrialPreviewEnabled} from "@/lib/isolatedIntroductoryIdentity";
+import {introHistorySql} from "@/lib/isolatedTrialHistory";
+import {assertIsolatedTrialTestCheckout} from "@/lib/isolatedTrialCheckoutSafety";
+import ConvertedTrialDashboard from "@/components/ConvertedTrialDashboard";
 import styles from "./dashboard.module.css";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +20,30 @@ export default async function DashboardPage() {
     return <main className="signup-shell"><h1>Verify your membership email</h1><Link href="/fitness/login">Member Login</Link></main>;
   }
   const email = primary.emailAddress.trim().toLowerCase();
+  // Strictly private PR #251: route the converted synthetic tester to the
+  // isolated history dashboard, not the real Pickaxe coaching integrations.
+  // Every regular production member continues through the existing path.
+  if(isolatedTrialPreviewEnabled() &&
+     user.id===process.env.INTRODUCTORY_TRIAL_DEDICATED_TEST_CLERK_ID){
+    try{
+      await assertIsolatedTrialTestCheckout();
+      const sql=await introHistorySql();
+      const [grants,members]=await Promise.all([
+        sql`SELECT converted_at FROM public.introductory_trial_grants
+          WHERE clerk_user_id=${user.id} LIMIT 1`,
+        sql`SELECT access_active,stripe_status FROM public.fitness_memberships
+          WHERE clerk_user_id=${user.id} AND email=${email}
+            AND stripe_customer_id IS NOT NULL AND stripe_subscription_id IS NOT NULL LIMIT 1`
+      ]);
+      if(grants.length===1&&grants[0].converted_at!=null&&members.length===1&&
+        members[0].access_active===true &&
+        ["active","trialing"].includes(String(members[0].stripe_status)))
+        return <ConvertedTrialDashboard firstName={user.firstName||""} userId={user.id}/>;
+      return <main className="signup-shell"><h1>Private test membership not ready</h1><p>No changes were made to your test payment or saved conversations.</p><Link href="/introductory-preview/paid">Review your saved test conversations</Link></main>;
+    }catch{
+      return <main className="signup-shell"><h1>Private test dashboard temporarily unavailable</h1><p>Your test subscription and saved conversations are unchanged. Please try again later.</p><Link href="/introductory-preview/paid">Review the separate saved-history page</Link></main>;
+    }
+  }
   let allowed = false;
   try { allowed = await memberHasFitnessAccess(email, user.id); }
   catch {
