@@ -11,6 +11,7 @@ import {
 } from "@/lib/termsAcceptance";
 import { ensureTermsAcceptanceSchema } from "@/lib/termsAcceptanceDb";
 import {newTierSignupsEnabled} from "@/lib/newTierCatalog";
+import {publicTrialReleaseGate} from "@/lib/publicIntroductoryTrialAdmission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -78,11 +79,15 @@ export async function POST(request: Request) {
 
   const input = body as Record<string, unknown>;
   const email = normalizeEmail(input.email);
-  const selection = newTierSignupsEnabled() ? tierTermsSelection(input.tier) : null;
-  if(newTierSignupsEnabled() && !selection)return jsonError("Please select a valid monthly plan before accepting the Terms.",400);
-  const chosenPlan = selection?.plan || FITNESS_PLAN;
-  const chosenPrice = selection?.price || FITNESS_PRICE;
-  const chosenMessages = selection?.includedUses || FITNESS_INCLUDED_USES;
+  const trialRequested=input.introductoryTrial===true;
+  if(trialRequested&&!publicTrialReleaseGate(process.env))
+    return jsonError("Introductory trial is not available.",404);
+  const selection = newTierSignupsEnabled()&&!trialRequested ? tierTermsSelection(input.tier) : null;
+  if(newTierSignupsEnabled()&&!trialRequested&&!selection)
+    return jsonError("Please select a valid monthly plan before accepting the Terms.",400);
+  const chosenPlan = trialRequested?"AI Coach Directory Introductory Trial":selection?.plan || FITNESS_PLAN;
+  const chosenPrice = trialRequested?"$0":selection?.price || FITNESS_PRICE;
+  const chosenMessages = trialRequested?15:selection?.includedUses || FITNESS_INCLUDED_USES;
   const clientAcceptedAt = parseClientAcceptedAt(input.clientAcceptedAt);
 
   if (!email) {
@@ -157,7 +162,7 @@ export async function POST(request: Request) {
         ${chosenPrice},
         ${chosenMessages},
         ${termsUrl},
-        ${TERMS_SOURCE_PATH},
+        ${trialRequested?"/introductory-trial":TERMS_SOURCE_PATH},
         ${ipAddress},
         ${userAgent},
         ${vercelGitCommitSha},
@@ -189,7 +194,7 @@ export async function POST(request: Request) {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      path: "/fitness",
+      path: trialRequested?"/":"/fitness",
       maxAge: 60 * 60,
     });
 

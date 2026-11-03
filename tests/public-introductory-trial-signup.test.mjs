@@ -1,0 +1,25 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const src=p=>readFileSync(new URL(p,import.meta.url),"utf8");
+const terms=src("../app/api/terms-acceptance/route.ts");
+const gate=src("../components/TrialTermsGate.tsx");
+const trial=src("../app/introductory-trial/page.tsx");
+const signup=src("../app/introductory-trial/create-account/page.tsx");
+const layout=src("../app/introductory-trial/create-account/layout.tsx");
+test("trial legal acceptance is $0 and 15 total messages, never routed through paid tier checkout",()=>{
+ assert.match(terms,/trialRequested=input\.introductoryTrial===true/);
+ assert.match(terms,/trialRequested&&!publicTrialReleaseGate\(process\.env\)/);
+ assert.match(terms,/trialRequested\?"\$0"/);
+ assert.match(terms,/trialRequested\?15/);
+ assert.match(terms,/chosenPlan = trialRequested\?"AI Coach Directory Introductory Trial"/);
+ assert.match(gate,/introductoryTrial:true/);
+ assert.match(gate,/TERMS_ACCEPTANCE_TEXT/);
+ assert.match(gate,/!end\|\|!agreed\|\|!valid/);
+});
+test("public trial signup remains hidden until explicit release and never charges for signup",()=>{
+ assert.match(trial,/publicTrialReleaseGate\(process\.env\)/);
+ assert.match(layout,/publicTrialReleaseGate\(process\.env\)/);
+ assert.match(signup,/forceRedirectUrl="\/introductory-trial\/chat"/);
+ assert.doesNotMatch(signup+gate,/checkout\.stripe\.com|\/api\/billing\/create-checkout-session/);
+});
