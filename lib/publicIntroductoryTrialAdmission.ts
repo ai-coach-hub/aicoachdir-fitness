@@ -55,5 +55,6 @@ export function publicTrialReleaseGate(env:Record<string,string|undefined>):bool
     env.PUBLIC_INTRO_TRIAL_ENABLED==="true"&&
     env.PUBLIC_INTRO_TRIAL_RELEASE_APPROVED==="true"&&
     env.PUBLIC_INTRO_TRIAL_METER_READY==="true"&&
-    env.PUBLIC_INTRO_TRIAL_THREE_COACHES_READY==="true";
+    env.PUBLIC_INTRO_TRIAL_THREE_COACHES_READY==="true"&&
+    env.PUBLIC_INTRO_TRIAL_COACH_ACTIONS_REVIEWED==="true";
 }
