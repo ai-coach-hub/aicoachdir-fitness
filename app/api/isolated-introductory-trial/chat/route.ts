@@ -24,6 +24,7 @@ function providerToken(coach:IntroCoach){
  };
  const key=String(process.env[names[coach]]||"").trim();
  if(coach==="budgeting")return key||String(process.env.PICKAXE_BUDGETING_COACH_DEPLOYMENT_ID||"").trim();
+ if(coach==="fitness")return String(process.env.PICKAXE_FITNESS_COACH_DEPLOYMENT_ID||"").trim()||String(process.env.PICKAXE_FITNESS_COACH_DEPLOYMENT_TOKEN||"").trim()||key;
  return key;
 }
 function extractText(data:unknown):string{
