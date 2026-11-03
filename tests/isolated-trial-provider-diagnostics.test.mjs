@@ -11,6 +11,7 @@ test("preview chat diagnostics identify stages without dumping sensitive payload
  assert.match(route,/if\(result\.status==="released"\)/);
  // Confirm Life Coach uses the known-good minimal Pickaxe request,
  // without changing the other coaches\u0027 identity and conversation fields.
- assert.match(route,/selected==="life"\s*\?\{message:message\.trim\(\),stream:false\}/);
+ assert.match(route,/selected==="fitness"\s*\?\{message:message\.trim\(\),userId:account\.verifiedEmail/);
+ assert.match(route,/:\{message:message\.trim\(\),stream:false\}/);
  assert.match(route,/conversationId:`intro-\$\{selected\}-\$\{key\}`/);
 });
