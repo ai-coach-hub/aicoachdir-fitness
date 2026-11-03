@@ -12,6 +12,8 @@ export default function IntroductoryPreview(){
  const [messages,setMessages]=useState<Message[]>([]);
  const [input,setInput]=useState("");
  const [busy,setBusy]=useState(false);
+ const [checkoutBusy,setCheckoutBusy]=useState(false);
+ const [checkoutError,setCheckoutError]=useState("");
  const [error,setError]=useState("");
  const [exhausted,setExhausted]=useState(false);
  const [pending,setPending]=useState<{coach:Coach;message:string;key:string}|null>(null);
@@ -51,6 +53,21 @@ export default function IntroductoryPreview(){
   }catch(e){setError(e instanceof Error?e.message:"Trial chat unavailable");}
   finally{setBusy(false);}
  }
+ async function startTestCheckout(){
+  if(checkoutBusy||ready!=="eligible")return;
+  setCheckoutBusy(true);setCheckoutError("");
+  try{
+   const response=await fetch("/api/isolated-introductory-trial/checkout",{method:"POST"});
+   const result=await response.json();
+   if(!response.ok||typeof result.url!=="string"||
+      !result.url.startsWith("https://checkout.stripe.com/"))
+    throw Error(String(result.error||"Test checkout unavailable"));
+   window.location.assign(result.url);
+  }catch(e){
+   setCheckoutError(e instanceof Error?e.message:"Test checkout unavailable");
+   setCheckoutBusy(false);
+  }
+ }
  return <main style={{maxWidth:760,margin:"3rem auto",padding:"1rem",fontFamily:"inherit"}}>
   <p style={{fontSize:13,opacity:.7}}>Private trial preview — not a public membership</p>
   <h1>Try the AI Coaches</h1>
@@ -79,6 +96,13 @@ export default function IntroductoryPreview(){
     </form>
     {error&&<p role="alert">{error} {pending&&!exhausted?"Do not resend this message until support verifies the result.":""}</p>}
     {exhausted&&<p role="status">Your introductory allowance has been used. You can review membership options.</p>}
+    <section style={{marginTop:28,paddingTop:16,borderTop:"1px solid #999"}}>
+     <h2>Private test: trial to subscription</h2>
+     <p>Simulate a Growth subscription in Stripe test mode. No real payment will be charged. This is not a public membership.</p>
+     <button type="button" disabled={checkoutBusy||busy} onClick={startTestCheckout}
+      style={{padding:"10px 16px"}}>{checkoutBusy?"Opening test checkout…":"Open Stripe TEST checkout"}</button>
+     {checkoutError&&<p role="alert">{checkoutError}</p>}
+    </section>
    </>
   }
  </main>;
