@@ -43,8 +43,9 @@ test("only verified identity, accepted terms, durable schema and all three coach
 });
 test("release gate defaults OFF even on production, and cannot activate in preview",()=>{
  assert.equal(gate({VERCEL_ENV:"production"}),false);
- assert.equal(gate({VERCEL_ENV:"preview",PUBLIC_INTRO_TRIAL_ENABLED:"true",PUBLIC_INTRO_TRIAL_RELEASE_APPROVED:"true",PUBLIC_INTRO_TRIAL_METER_READY:"true",PUBLIC_INTRO_TRIAL_THREE_COACHES_READY:"true"}),false);
- assert.equal(gate({VERCEL_ENV:"production",PUBLIC_INTRO_TRIAL_ENABLED:"true",PUBLIC_INTRO_TRIAL_RELEASE_APPROVED:"true",PUBLIC_INTRO_TRIAL_METER_READY:"true",PUBLIC_INTRO_TRIAL_THREE_COACHES_READY:"true"}),true);
+ assert.equal(gate({VERCEL_ENV:"production",PUBLIC_INTRO_TRIAL_ENABLED:"true",PUBLIC_INTRO_TRIAL_RELEASE_APPROVED:"true",PUBLIC_INTRO_TRIAL_METER_READY:"true",PUBLIC_INTRO_TRIAL_THREE_COACHES_READY:"true"}),false);
+ assert.equal(gate({VERCEL_ENV:"preview",PUBLIC_INTRO_TRIAL_ENABLED:"true",PUBLIC_INTRO_TRIAL_RELEASE_APPROVED:"true",PUBLIC_INTRO_TRIAL_METER_READY:"true",PUBLIC_INTRO_TRIAL_THREE_COACHES_READY:"true",PUBLIC_INTRO_TRIAL_COACH_ACTIONS_REVIEWED:"true"}),false);
+ assert.equal(gate({VERCEL_ENV:"production",PUBLIC_INTRO_TRIAL_ENABLED:"true",PUBLIC_INTRO_TRIAL_RELEASE_APPROVED:"true",PUBLIC_INTRO_TRIAL_METER_READY:"true",PUBLIC_INTRO_TRIAL_THREE_COACHES_READY:"true",PUBLIC_INTRO_TRIAL_COACH_ACTIONS_REVIEWED:"true"}),true);
 });
 test("no billing, database writes or coach-provider calls in eligibility evaluator",()=>{
  assert.doesNotMatch(source,/stripeRequest\(|fetch\(|currentUser\(|INSERT INTO|UPDATE public|DELETE FROM|grantFitnessAccess|reserveSharedUsage\(/);
