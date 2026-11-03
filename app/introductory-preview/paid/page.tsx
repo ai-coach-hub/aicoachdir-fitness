@@ -17,6 +17,7 @@ export default async function IsolatedConvertedHistory(){
  let turns:Awaited<ReturnType<typeof readTrialTurns>>=[];
  let paidTurns:Awaited<ReturnType<typeof readIsolatedPaidTurns>>=[];
  let paidVerified=false;
+ let paidUnavailableReason="verification_unavailable";
  let status:"ready"|"sign_in"|"wrong_account"|"unavailable"="unavailable";
  if(!isolatedTrialPreviewEnabled()){
   status="unavailable";
@@ -45,6 +46,7 @@ export default async function IsolatedConvertedHistory(){
      status="ready";
      const evidence=await verifiedIsolatedPaidContinuation();
      paidVerified=evidence.ready;
+     if(!evidence.ready)paidUnavailableReason=evidence.reason;
      if(paidVerified){try{paidTurns=await readIsolatedPaidTurns(user.id);}catch{paidVerified=false;}}
     }
    }
@@ -65,7 +67,12 @@ export default async function IsolatedConvertedHistory(){
    </section>)}
   </>}
   {status==="ready"&&paidVerified&&<PrivatePaidContinuation initial={paidTurns.map(t=>({coach:String(t.coach),user_message:String(t.user_message),coach_response:cleanLifeCoachText(String(t.coach_response))}))}/>}
-  {status==="ready"&&!paidVerified&&<p>Saved conversations are available. Continued paid coaching requires an independently verified Stripe TEST invoice and active message allowance. No new payment is required here.</p>}
+  {status==="ready"&&!paidVerified&&<section role="status" style={{padding:16,border:"1px solid #999",borderRadius:12,marginTop:24}}>
+   <h2>Paid coaching verification</h2>
+   <p>Your three saved conversations are safe. Continued coaching is not enabled until the private test subscription and its billing period pass verification.</p>
+   <p>Test verification status: <code>{paidUnavailableReason}</code></p>
+   <p>No new account, checkout, or payment is needed to investigate this status.</p>
+  </section>}
   {status==="sign_in"&&<>
    <p>Use the same test login that completed the simulated checkout. No new account or payment is required.</p>
    <SignIn routing="hash" forceRedirectUrl="/introductory-preview/paid" />
