@@ -13,6 +13,13 @@ function gated(){
 }
 export async function productionTrialSql(){
  gated();
+ return productionTrialHistorySql();
+}
+/** Existing saved trial conversations stay readable even after a rollout pause. */
+export async function productionTrialHistorySql(){
+ if(process.env.VERCEL_ENV!=="production"||
+    process.env.PUBLIC_INTRO_TRIAL_SCHEMA_READY!=="true")
+  throw Error("Public trial history is unavailable");
  const sql=membershipDb();
  const rows=await sql`SELECT current_setting('neon.branch_id',true) AS branch`;
  if(String(rows[0]?.branch)!==PROD_BRANCH)throw Error("Public trial database branch mismatch");
@@ -56,7 +63,7 @@ export async function settlePublicTrialTurn(account:{clerkId:string;memberKey:st
 }
 export async function readPublicTrialTurns(clerkId:string,member:string){
  if(!userId(clerkId)||!memberKey(member))throw Error("Invalid identity");
- const sql=await productionTrialSql();
+ const sql=await productionTrialHistorySql();
  return sql`SELECT h.coach,h.user_message,h.coach_response,h.created_at
  FROM public.introductory_trial_history h
  JOIN public.introductory_trial_requests r
