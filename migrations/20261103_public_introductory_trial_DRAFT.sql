@@ -74,6 +74,13 @@ BEGIN
  IF NOT FOUND THEN RETURN 'missing'; END IF;
  IF old.coach<>p_coach THEN RETURN 'replay_conflict'; END IF;
  IF old.status<>'reserved' THEN RETURN 'already_'||old.status; END IF;
+ -- A completed AI use must have a durable answer owned by this request.
+ -- A provider error or a failed history write cannot silently consume a credit.
+ IF p_outcome='completed' AND NOT EXISTS (
+  SELECT 1 FROM public.introductory_trial_history h
+  WHERE h.clerk_user_id=p_user AND h.request_key=p_request
+   AND h.coach=p_coach AND length(btrim(h.coach_response))>0
+ ) THEN RETURN 'history_missing'; END IF;
  UPDATE public.introductory_trial_requests SET status=p_outcome,changed_at=now()
  WHERE clerk_user_id=p_user AND request_key=p_request;
  UPDATE public.introductory_trial_grants
