@@ -17,7 +17,7 @@ export function nativeTrialWriteRequested(coach:TrialCoach,raw:string):boolean{
  }
  if(coach==="budgeting"){
   return /^(?:save|store|record|update|modify|change|edit|delete|remove|copy|duplicate|rollover|roll over)\b.{0,80}\b(?:budgets?|expenses?|transactions?|categories|income|planned amounts?|rollovers?)\b/.test(message)
-   || /^(?:add|log|record|track|enter|subtract)\s+(?:an?\s+)?(?:\$\s*\d|\d+(?:\.\d+)?\s+(?:dollars?|usd))\b/.test(message)
+   || /^(?:add|log|record|track|enter|subtract)\s+(?:an?\s+)?(?:\$\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s+(?:dollars?|usd))\b/.test(message)
    || /^(?:add|log|record|track|enter|delete|remove)\b.{0,75}\b(?:expenses?|transactions?|purchases?|income)\b/.test(message);
  }
  return /^(?:remember|save|store|track|record|set|update|change|delete|remove)\b.{0,80}\b(?:goals?|habits?|priorities|commitments?)\b/.test(message)
