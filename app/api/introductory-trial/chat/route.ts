@@ -9,6 +9,7 @@ import {sharedUsageMemberKey} from "@/lib/sharedUsageMemberIdentity";
 import {reservePublicTrialTurn,storePublicTrialTurn,settlePublicTrialTurn} from "@/lib/publicIntroductoryTrialLedger";
 import {cleanLifeCoachText} from "@/lib/lifeCoachFormatting";
 import {nativeTrialWriteRequested,nativeTrialWriteExplanation} from "@/lib/publicTrialNativeActionSafety";
+import {explicitLifeGoalRequest,saveIntroductoryLifeGoal} from "@/lib/publicIntroductoryLifeGoals";
 import type {IntroCoach} from "@/lib/isolatedIntroductoryExecution";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -58,6 +59,17 @@ export async function POST(request:Request){
    return send({ok:false,error:admission.kind==="new"?
      "Please enroll in your free trial first.":"Trial access is unavailable"},403);
  }catch{return send({ok:false,error:"Membership verification unavailable"},503);}
+ // Explicit saved goals use the SAME Clerk-owned Life Coach store
+ // read after conversion. As in paid Life, no model is generated and no
+ // shared message is consumed for deterministic goal saving.
+ if(coach==="life"&&explicitLifeGoalRequest(message)){
+  try{
+   const saved=await saveIntroductoryLifeGoal(user.id,key,message.trim());
+   return send({ok:true,coach,response:saved.response,conversationId:saved.conversationId,source:"saved-goal"});
+  }catch{
+   return send({ok:false,error:"Your goal could not be saved and verified. No trial message was used."},503);
+  }
+ }
  // The conversational trial has no verified native tools yet. Reject a
  // likely mutation rather than claim a workout, budget or goal was saved.
  // This returns before reservation, so no trial message is charged.
