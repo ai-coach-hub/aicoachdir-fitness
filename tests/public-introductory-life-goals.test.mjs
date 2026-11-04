@@ -9,7 +9,7 @@ const mod={exports:{}};
 const compile=new Function("require","module","exports",js);
 const fakeRequire=(name)=>{
  if(name==="node:crypto")return {createHash:()=>({update(){return this},digest(){return "a".repeat(64)}})};
- if(name==="./lifeCoachStore")return {saveLifeTurn:async()=>{},readLifeThread:async()=>null};
+ if(name.includes("lifeCoachStore"))return {saveLifeTurn:async()=>{},readLifeThread:async()=>null};
  throw Error("Unexpected imported dependency");
 };
 compile(fakeRequire,mod,mod.exports);
