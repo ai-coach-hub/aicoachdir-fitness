@@ -59,25 +59,39 @@ export async function POST(request:Request){
    return send({ok:false,error:admission.kind==="new"?
      "Please enroll in your free trial first.":"Trial access is unavailable"},403);
  }catch{return send({ok:false,error:"Membership verification unavailable"},503);}
- // Explicit saved goals use the SAME Clerk-owned Life Coach store
- // read after conversion. As in paid Life, no model is generated and no
- // shared message is consumed for deterministic goal saving.
- if(coach==="life"&&explicitLifeGoalRequest(message)){
-  try{
-   const saved=await saveIntroductoryLifeGoal(user.id,key,message.trim());
-   return send({ok:true,coach,response:saved.response,conversationId:saved.conversationId,source:"saved-goal"});
-  }catch{
-   return send({ok:false,error:"Your goal could not be saved and verified. No trial message was used."},503);
-  }
- }
- // The conversational trial has no verified native tools yet. Reject a
- // likely mutation rather than claim a workout, budget or goal was saved.
- // This returns before reservation, so no trial message is charged.
- if(nativeTrialWriteRequested(coach,message))
+ // Check the action boundary BEFORE charging any of the 15 model turns.
+ const nativeGoal=coach==="life"&&explicitLifeGoalRequest(message);
+ if(nativeTrialWriteRequested(coach,message)&&!nativeGoal)
   return send({ok:false,error:nativeTrialWriteExplanation(coach),nativeToolUnavailable:true},409);
+
+ // Deterministic goal capture uses the same Life storage as paid coaching.
+ // Reserve/RELEASE in the lifetime ledger to serialize concurrent identical
+ // request keys without charging an AI generation. Unknown persistence or
+ // settlement holds the reservation pending operator reconciliation.
+ const account={clerkId:user.id,memberKey};
+ if(nativeGoal){
+  let gate:string;
+  try{gate=await reservePublicTrialTurn(account,coach,key);}
+  catch{return send({ok:false,error:"Goal request cannot be safely reserved"},503);}
+  if(gate!=="reserved"){
+   if(gate.startsWith("duplicate_"))return send({ok:false,error:"This goal request already ran. Review Saved Goals."},409);
+   return send({ok:false,error:"Your trial allowance could not be verified",reason:gate},gate==="exhausted"?429:403);
+  }
+  let saved:{response:string;conversationId:string}|null=null;
+  let outcome:"released"|"uncertain"="uncertain";
+  try{
+   saved=await saveIntroductoryLifeGoal(user.id,key,message.trim());
+   outcome="released";
+  }catch{/* A partially saved goal must not be blindly retried. */}
+  try{
+   const settlement=await settlePublicTrialTurn(account,coach,key,outcome);
+   if(settlement!==outcome)throw Error("Trial goal settlement incomplete");
+  }catch{return send({ok:false,error:"Goal save needs reconciliation. Please review Saved Goals before retrying."},503);}
+  if(!saved)return send({ok:false,error:"Your goal could not be confirmed. No AI response was generated."},503);
+  return send({ok:true,coach,response:saved.response,conversationId:saved.conversationId,source:"saved-goal"});
+ }
  const deployment=token(coach);
  if(!deployment)return send({ok:false,error:"Coach service unavailable"},503);
- const account={clerkId:user.id,memberKey};
  let reservation:string;
  try{reservation=await reservePublicTrialTurn(account,coach,key);}
  catch{return send({ok:false,error:"Trial allowance unavailable"},503);}
