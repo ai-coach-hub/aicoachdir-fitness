@@ -92,7 +92,9 @@ export async function POST(request:Request){
   const model=await fetch("https://api.pickaxe.co/v1/completions",{
    method:"POST",
    headers:{Authorization:`Bearer ${deployment}`,"Content-Type":"application/json",Accept:"application/json"},
-   body:JSON.stringify({message:message.trim(),userId:email,
+   // Never send the paid member email as the Pickaxe actor for a trial.
+   // Native agent-side actions must not see a paid identity before action parity.
+   body:JSON.stringify({message:message.trim(),userId:`trial_${memberKey}`,
     conversationId:`intro-${coach}-${user.id}`,stream:false}),
    cache:"no-store",signal:AbortSignal.timeout(100000)
   });
