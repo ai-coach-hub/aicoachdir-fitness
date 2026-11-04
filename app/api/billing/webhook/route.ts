@@ -154,6 +154,23 @@ export async function POST(request: Request) {
             eventType,
             eventId,
           });
+          // A customer may close Checkout before the browser success page
+          // runs. This second (verified, idempotent) path preserves the
+          // trial-to-paid transition without another payment or user action.
+          // A failed trial-history update must NOT revoke already paid access.
+          if (process.env.VERCEL_ENV==="production" &&
+              process.env.PUBLIC_INTRO_TRIAL_CONVERSION_ENABLED==="true" &&
+              process.env.PUBLIC_INTRO_TRIAL_SCHEMA_READY==="true") {
+            try {
+              const {finalizePublicTrialPaidConversion}=await import("@/lib/publicIntroductoryTrialConversion");
+              await finalizePublicTrialPaidConversion({
+                clerkId:clerkUserId,email,customerId,subscriptionId,
+              });
+            } catch {
+              // The saved paid membership remains the source of truth.
+              console.error("[intro-trial-public] verified webhook conversion deferred");
+            }
+          }
         }
       }
     }
