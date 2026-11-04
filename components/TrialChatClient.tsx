@@ -14,6 +14,7 @@ export default function TrialChatClient(){
  const [reason,setReason]=useState("");
  const [coach,setCoach]=useState<Coach>("fitness");
  const [messages,setMessages]=useState<Message[]>([]);
+ const [goals,setGoals]=useState<{text:string;date:string}[]>([]);
  const [input,setInput]=useState("");
  const [busy,setBusy]=useState(false),[enrolling,setEnrolling]=useState(false);
  const [exhausted,setExhausted]=useState(false),[error,setError]=useState("");
@@ -47,6 +48,14 @@ export default function TrialChatClient(){
    }).catch(()=>{});
   return()=>{alive=false;};
  },[stage]);
+ async function refreshGoals(){
+  try{
+   const r=await fetch("/api/introductory-trial/goals",{cache:"no-store"});
+   const data=await r.json();
+   if(r.ok&&data?.ok&&Array.isArray(data.goals))setGoals(data.goals);
+  }catch{/* Goal data cannot be inferred from chat text. */}
+ }
+ useEffect(()=>{if(stage==="active")void refreshGoals();},[stage]);
  useEffect(()=>{bottom.current?.scrollIntoView({block:"nearest"});},[messages,busy]);
  async function enroll(){
   if(enrolling)return;setEnrolling(true);setError("");
@@ -76,6 +85,7 @@ export default function TrialChatClient(){
    setMessages(m=>[...m,{coach,role:"user",text:message},
       {coach,role:"assistant",text:String(result.response||"")}]);
    setInput("");setPending(null);
+   if(coach==="life"&&result.source==="saved-goal")void refreshGoals();
   }catch(e){setError(e instanceof Error?e.message:"Trial chat temporarily unavailable");}
   finally{setBusy(false);}
  }
@@ -120,6 +130,10 @@ export default function TrialChatClient(){
      {!messages.some(m=>m.coach===coach)&&<p>What would you like help with today?</p>}
      <div ref={bottom}/>
     </section>
+    {coach==="life"&&goals.length>0&&<section aria-label="Saved Life goals" style={{marginTop:16,padding:12,border:"1px solid #999",borderRadius:10}}>
+     <h2>Saved goals</h2>
+     {goals.slice(0,10).map((goal,i)=><p key={i}>{goal.text}</p>)}
+    </section>}
     <form onSubmit={send} style={{display:"flex",gap:8,marginTop:12}}>
      <input value={input} onChange={e=>setInput(e.target.value)}
       aria-label="Message your coach" placeholder="Ask your coach…"
