@@ -8,6 +8,7 @@ import {assessVerifiedPublicTrialUser,isPublicTrialPreflightAvailable} from "@/l
 import {sharedUsageMemberKey} from "@/lib/sharedUsageMemberIdentity";
 import {reservePublicTrialTurn,storePublicTrialTurn,settlePublicTrialTurn} from "@/lib/publicIntroductoryTrialLedger";
 import {cleanLifeCoachText} from "@/lib/lifeCoachFormatting";
+import {nativeTrialWriteRequested,nativeTrialWriteExplanation} from "@/lib/publicTrialNativeActionSafety";
 import type {IntroCoach} from "@/lib/isolatedIntroductoryExecution";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -57,6 +58,11 @@ export async function POST(request:Request){
    return send({ok:false,error:admission.kind==="new"?
      "Please enroll in your free trial first.":"Trial access is unavailable"},403);
  }catch{return send({ok:false,error:"Membership verification unavailable"},503);}
+ // The conversational trial has no verified native tools yet. Reject a
+ // likely mutation rather than claim a workout, budget or goal was saved.
+ // This returns before reservation, so no trial message is charged.
+ if(nativeTrialWriteRequested(coach,message))
+  return send({ok:false,error:nativeTrialWriteExplanation(coach),nativeToolUnavailable:true},409);
  const deployment=token(coach);
  if(!deployment)return send({ok:false,error:"Coach service unavailable"},503);
  const account={clerkId:user.id,memberKey};
