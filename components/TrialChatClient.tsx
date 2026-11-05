@@ -68,7 +68,7 @@ export default function TrialChatClient(){
   finally{setEnrolling(false);}
  }
  async function send(event:FormEvent<HTMLFormElement>){
-  event.preventDefault();if(busy||stage!=="active"||exhausted)return;
+  event.preventDefault();if(busy||stage!=="active"||exhausted||coach==="budgeting")return;
   const message=input.trim();if(!message)return;
   const key=pending?.coach===coach&&pending.message===message?pending.key:"intro-"+crypto.randomUUID();
   setPending({coach,message,key});setBusy(true);setError("");
@@ -120,10 +120,12 @@ export default function TrialChatClient(){
       style={{padding:"10px 14px",borderRadius:8,border:"1px solid currentColor",
        fontWeight:c===coach?700:400}}>{labels[c]}</button>)}
     </nav>
-    {coach==="budgeting"&&<p style={{padding:"10px 0"}}>
-      <Link href="/introductory-trial/budget">Open My Budget tracker</Link> — manually entered expenses and planned amounts
-      are saved to your member budget. Opening the tracker does not use an AI message.
-    </p>}
+    {coach==="budgeting"&&<section style={{padding:"10px 0"}}>
+      <p>Budgeting uses its own saved chat and monthly tracker. Both preserve your work when you move to a paid membership.</p>
+      <p><Link href="/introductory-trial/budget?destination=coach">Open Budgeting Coach</Link> · {" "}
+         <Link href="/introductory-trial/budget?destination=tracker">Open My Budget</Link></p>
+      <p>Viewing or editing your budget does not use an AI message. Sending a coach message uses your shared trial allowance.</p>
+    </section>}
     <section role="log" aria-live="polite" aria-label={labels[coach]+" messages"}
      style={{minHeight:230,maxHeight:470,overflowY:"auto",padding:15,borderRadius:12,border:"1px solid #999"}}>
      {messages.filter(m=>m.coach===coach).map((m,i)=>
@@ -141,8 +143,8 @@ export default function TrialChatClient(){
     <form onSubmit={send} style={{display:"flex",gap:8,marginTop:12}}>
      <input value={input} onChange={e=>setInput(e.target.value)}
       aria-label="Message your coach" placeholder="Ask your coach…"
-      maxLength={6000} disabled={busy||exhausted} style={{flex:1,minWidth:0,padding:12}}/>
-     <button type="submit" disabled={busy||exhausted||!input.trim()}
+      maxLength={6000} disabled={busy||exhausted||coach==="budgeting"} style={{flex:1,minWidth:0,padding:12}}/>
+     <button type="submit" disabled={busy||exhausted||coach==="budgeting"||!input.trim()}
       style={{padding:"10px 18px"}}>{busy?"Sending…":"Send"}</button>
     </form>
     {error&&<p role="alert">{error} {pending&&!exhausted?"Please do not resend an uncertain message.":""}</p>}
