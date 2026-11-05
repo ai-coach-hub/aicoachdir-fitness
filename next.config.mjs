@@ -4,6 +4,10 @@ const nextConfig = {
   async rewrites() {
     return [
       {
+        source: "/budget/trial/access",
+        destination: `${budgetingOrigin}/trial/access`,
+      },
+      {
         source: "/budget/tracker",
         destination: `${budgetingOrigin}/tracker`,
       },
