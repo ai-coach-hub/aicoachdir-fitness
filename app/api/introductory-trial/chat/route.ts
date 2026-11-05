@@ -114,7 +114,7 @@ export async function POST(request:Request){
     body:JSON.stringify({message:message.trim(),
       conversationId:"fitness-chat-"+memberKey.slice(7,55)})
    });
-   const native=await executeVerifiedTrialFitnessTurn(nativeRequest,user.id,email);
+   const native=await executeVerifiedTrialFitnessTurn(nativeRequest,user.id,email,key);
    const result:unknown=await native.json();
    const record=result&&typeof result==="object"&&!Array.isArray(result)?result as Record<string,unknown>:{};
    if(!native.ok||record.ok!==true||typeof record.response!=="string"||!record.response.trim())
