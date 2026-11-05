@@ -120,6 +120,10 @@ export default function TrialChatClient(){
       style={{padding:"10px 14px",borderRadius:8,border:"1px solid currentColor",
        fontWeight:c===coach?700:400}}>{labels[c]}</button>)}
     </nav>
+    {coach==="budgeting"&&<p style={{padding:"10px 0"}}>
+      <Link href="/introductory-trial/budget">Open My Budget tracker</Link> — manually entered expenses and planned amounts
+      are saved to your member budget. Opening the tracker does not use an AI message.
+    </p>}
     <section role="log" aria-live="polite" aria-label={labels[coach]+" messages"}
      style={{minHeight:230,maxHeight:470,overflowY:"auto",padding:15,borderRadius:12,border:"1px solid #999"}}>
      {messages.filter(m=>m.coach===coach).map((m,i)=>
