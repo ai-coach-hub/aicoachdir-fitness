@@ -23,3 +23,12 @@ test("one shared lifetime ledger is idempotent, holds uncertain provider request
  assert.match(migration,/REVOKE ALL ON FUNCTION public\.intro_trial_reserve/);
  assert.match(migration,/REVOKE ALL ON FUNCTION public\.intro_trial_settle/);
 });
+
+test("operator-only uncertainty reconciliation never refunds a duplicate or counts an unsaved response",()=>{
+ assert.match(migration,/CREATE OR REPLACE FUNCTION public\.intro_trial_reconcile\(/);
+ assert.match(migration,/old\.status<>'uncertain'/);
+ assert.match(migration,/IF p_outcome='completed' AND NOT EXISTS/);
+ assert.match(migration,/reserved_uses=reserved_uses-1/);
+ assert.match(migration,/RETURN 'history_missing'/);
+ assert.match(migration,/REVOKE ALL ON FUNCTION public\.intro_trial_reconcile/);
+});
