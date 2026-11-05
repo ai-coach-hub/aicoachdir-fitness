@@ -26,3 +26,10 @@ test("history remains available after trial release switches are disabled, but o
  assert.match(ledger,/WHERE g\.clerk_user_id=\$\{clerkId\} AND g\.member_key=\$\{member\}/);
  assert.doesNotMatch(history,/request\.json\(|searchParams|INSERT INTO|DELETE FROM/);
 });
+
+test("exhausted trial clearly redirects to paid membership while preserving prior conversations",()=>{
+ assert.match(chat,/admission\.reason==="trial_exhausted"/);
+ assert.match(chat,/introductory messages are complete/);
+ assert.match(chat,/saved conversations, workouts and budgets remain available/);
+ assert.match(chat,/,429\)/);
+});
