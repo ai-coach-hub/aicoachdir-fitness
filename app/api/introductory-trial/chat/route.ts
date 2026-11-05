@@ -46,6 +46,7 @@ export async function POST(request:Request){
     !/^[A-Za-z0-9_-]{16,100}$/.test(key)||
     typeof message!=="string"||!message.trim()||message.length>6000)
   return send({ok:false,error:"Invalid coaching request"},400);
+ if(coach==="budgeting")return send({ok:false,error:"Use the saved Budgeting Coach and My Budget through /introductory-trial/budget?destination=coach. No trial message was used."},409);
  const user=await currentUser();
  const primary=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
  if(!user||primary?.verification?.status!=="verified")
