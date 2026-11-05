@@ -10,6 +10,7 @@ import {reservePublicTrialTurn,storePublicTrialTurn,settlePublicTrialTurn} from 
 import {cleanLifeCoachText} from "@/lib/lifeCoachFormatting";
 import {nativeTrialWriteRequested,nativeTrialWriteExplanation} from "@/lib/publicTrialNativeActionSafety";
 import {explicitLifeGoalRequest,saveIntroductoryLifeGoal} from "@/lib/publicIntroductoryLifeGoals";
+import {executeVerifiedTrialFitnessTurn} from "@/app/api/fitness/chat/route";
 import type {IntroCoach} from "@/lib/isolatedIntroductoryExecution";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -62,7 +63,7 @@ export async function POST(request:Request){
  }catch{return send({ok:false,error:"Membership verification unavailable"},503);}
  // Check the action boundary BEFORE charging any of the 15 model turns.
  const nativeGoal=coach==="life"&&explicitLifeGoalRequest(message);
- if(nativeTrialWriteRequested(coach,message)&&!nativeGoal)
+ if(coach!=="fitness"&&nativeTrialWriteRequested(coach,message)&&!nativeGoal)
   return send({ok:false,error:nativeTrialWriteExplanation(coach),nativeToolUnavailable:true},409);
 
  // Deterministic goal capture uses the same Life storage as paid coaching.
@@ -92,7 +93,7 @@ export async function POST(request:Request){
   return send({ok:true,coach,response:saved.response,conversationId:saved.conversationId,source:"saved-goal"});
  }
  const deployment=token(coach);
- if(!deployment)return send({ok:false,error:"Coach service unavailable"},503);
+ if(coach!=="fitness"&&!deployment)return send({ok:false,error:"Coach service unavailable"},503);
  let reservation:string;
  try{reservation=await reservePublicTrialTurn(account,coach,key);}
  catch{return send({ok:false,error:"Trial allowance unavailable"},503);}
@@ -104,6 +105,24 @@ export async function POST(request:Request){
  let outcome:"completed"|"released"|"uncertain"="uncertain";
  let answer="";
  try{
+  if(coach==="fitness"){
+   // Native Fitness path validates and verifies saved workouts against the
+   // same Pickaxe member email used after conversion. Shared trial quota was
+   // reserved above; normal paid POST still requires paid membership.
+   const nativeRequest=new Request(request.url,{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({message:message.trim(),
+      conversationId:"fitness-chat-"+memberKey.slice(7,55)})
+   });
+   const native=await executeVerifiedTrialFitnessTurn(nativeRequest,user.id,email);
+   const result:unknown=await native.json();
+   const record=result&&typeof result==="object"&&!Array.isArray(result)?result as Record<string,unknown>:{};
+   if(!native.ok||record.ok!==true||typeof record.response!=="string"||!record.response.trim())
+    throw Error("Native Fitness did not return a verified coaching response");
+   answer=record.response.trim();
+   await storePublicTrialTurn(account,coach,key,message.trim(),answer);
+   outcome="completed";
+  }else{
   const model=await fetch("https://api.pickaxe.co/v1/completions",{
    method:"POST",
    headers:{Authorization:`Bearer ${deployment}`,"Content-Type":"application/json",Accept:"application/json"},
@@ -124,6 +143,7 @@ export async function POST(request:Request){
    if(!answer)throw Error("Coach returned no answer");
    await storePublicTrialTurn(account,coach,key,message.trim(),answer);
    outcome="completed";
+  }
   }
  }catch{
   // A timeout or unknown provider outcome may already have consumed a model
