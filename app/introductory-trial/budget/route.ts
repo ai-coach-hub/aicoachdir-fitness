@@ -12,7 +12,10 @@ export async function GET(request:Request){
   return NextResponse.redirect(new URL("/introductory-trial/chat",request.url));
  try{
   const admission=await assessVerifiedPublicTrialUser(user.id);
-  if(admission.kind!=="resume")return NextResponse.redirect(new URL("/introductory-trial/chat",request.url));
+  // An exhausted trial may still access its previously saved budget data.
+  // The Budgeting AI route separately reserves a shared credit and rejects #16.
+  if(admission.kind!=="resume"&&!(admission.kind==="deny"&&admission.reason==="trial_exhausted"))
+   return NextResponse.redirect(new URL("/introductory-trial/chat",request.url));
   const email=primary.emailAddress.trim().toLowerCase();
   const expires=String(Date.now()+90_000);
   const destination=new URL(request.url).searchParams.get("destination")==="coach"?"coach":"tracker";

@@ -26,7 +26,7 @@ export async function POST(request:Request){
   ]);
   if(members.length||grants.length!==1||grants[0].converted_at!=null)return response({ok:false},403);
   const remaining=Number(grants[0].message_limit)-Number(grants[0].completed_uses)-Number(grants[0].reserved_uses);
-  if(!Number.isInteger(remaining)||remaining<=0||remaining>15)return response({ok:false},403);
+  if(!Number.isInteger(remaining)||remaining<0||remaining>15)return response({ok:false},403);
   return response({ok:true,active:true,remaining,clerk,memberKey:key,email});
  }catch{return response({ok:false},503);}
 }
