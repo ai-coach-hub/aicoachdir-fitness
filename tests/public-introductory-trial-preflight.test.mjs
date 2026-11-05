@@ -14,6 +14,9 @@ test("preflight checks verified Clerk and both historic billing systems",()=>{
  assert.match(verifier,/member_key=\$\{memberKey\} OR clerk_user_id=\$\{user\.id\}/);
  assert.match(verifier,/TERMS_VERSION/);
  assert.match(verifier,/included_uses=15/);
+ assert.match(verifier,/cookies\(\)/);
+ assert.match(verifier,/termsCookie/);
+ assert.match(verifier,/consentVerified/);
 });
 test("read-only preflight never mints grants or paid records and stays release-gated",()=>{
  assert.match(verifier,/publicTrialReleaseGate\(process\.env\)/);

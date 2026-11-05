@@ -6,6 +6,7 @@
  * interpreted as an absence of previous membership or trial use.
  */
 import {currentUser} from "@clerk/nextjs/server";
+import {cookies} from "next/headers";
 import {membershipDb} from "@/lib/fitnessMembershipDb";
 import {getTermsDatabase} from "@/lib/termsAcceptanceDb";
 import {TERMS_VERSION} from "@/lib/termsMeta";
@@ -98,16 +99,23 @@ export async function assessVerifiedPublicTrialUser(expectedClerkId?:string):Pro
  const termsBranch=await termsSql`SELECT current_setting('neon.branch_id',true) AS branch`;
  if(String(termsBranch[0]?.branch)!==PROD_NEON_BRANCH)
   return noAccess("infrastructure_not_ready");
- const accepted=await termsSql`SELECT 1 FROM public.terms_acceptances
+ const termsCookie=(await cookies()).get("fitness_terms_acceptance")?.value||"";
+ const accepted=await termsSql`SELECT id::text AS id FROM public.terms_acceptances
  WHERE email=${email} AND terms_version=${TERMS_VERSION}
  AND plan='AI Coach Directory Introductory Trial'
- AND price='$0' AND included_uses=15 LIMIT 1`;
+ AND price='$0' AND included_uses=15
+ AND accepted_at>=now()-interval '1 hour' ORDER BY accepted_at DESC LIMIT 8`;
+ // New trial grants require consent from the *same signed-in browser session*.
+ // A prior email-only acceptance cannot enroll another Clerk account.
+ // Existing trial grants may resume even after the cookie has expired.
+ const consentVerified=lifetime==="in_progress"||accepted.some(row=>
+   String(row.id)===termsCookie&&/^[0-9a-f-]{36}$/i.test(termsCookie));
  const procedures=await sql`SELECT
     to_regprocedure('public.intro_trial_reserve(text,text,text,text)') IS NOT NULL AS reserve_ok,
     to_regprocedure('public.intro_trial_settle(text,text,text,text,text)') IS NOT NULL AS settle_ok`;
  const e:TrialAdmissionEvidence={
   clerkId:user.id,verifiedEmail:email,emailOwnershipVerified:true,
-  currentTermsAccepted:accepted.length===1,memberKey,
+  currentTermsAccepted:consentVerified,memberKey,
   exactActiveMembership:membership,historicalStripe,historicalPickaxe,
   lifetimeTrial:lifetime,trialSchemaVerified:grants!=null,
   coachProvidersReady:allTrue(),

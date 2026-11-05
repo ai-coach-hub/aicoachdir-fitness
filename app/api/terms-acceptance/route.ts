@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import {currentUser} from "@clerk/nextjs/server";
 import {
   FITNESS_INCLUDED_USES,
   FITNESS_PLAN,
@@ -82,6 +83,13 @@ export async function POST(request: Request) {
   const trialRequested=input.introductoryTrial===true;
   if(trialRequested&&!publicTrialReleaseGate(process.env))
     return jsonError("Introductory trial is not available.",404);
+  if(trialRequested){
+    const user=await currentUser();
+    const primary=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
+    if(!user||primary?.verification?.status!=="verified"||
+       normalizeEmail(primary.emailAddress)!==email)
+      return jsonError("Sign in with your verified email before accepting the trial Terms.",403);
+  }
   const selection = newTierSignupsEnabled()&&!trialRequested ? tierTermsSelection(input.tier) : null;
   if(newTierSignupsEnabled()&&!trialRequested&&!selection)
     return jsonError("Please select a valid monthly plan before accepting the Terms.",400);

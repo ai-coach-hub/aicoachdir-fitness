@@ -16,10 +16,14 @@ test("trial legal acceptance is $0 and 15 total messages, never routed through p
  assert.match(gate,/introductoryTrial:true/);
  assert.match(gate,/TERMS_ACCEPTANCE_TEXT/);
  assert.match(gate,/!end\|\|!agreed\|\|!valid/);
+ assert.match(terms,/currentUser\(\)/);
+ assert.match(terms,/normalizeEmail\(primary\.emailAddress\)!==email/);
+ assert.match(trial,/redirect\("\/introductory-trial\/create-account"\)/);
+ assert.match(gate,/readOnly value=\{email\}/);
 });
 test("public trial signup remains hidden until explicit release and never charges for signup",()=>{
  assert.match(trial,/publicTrialReleaseGate\(process\.env\)/);
  assert.match(layout,/publicTrialReleaseGate\(process\.env\)/);
- assert.match(signup,/forceRedirectUrl="\/introductory-trial\/chat"/);
+ assert.match(signup,/forceRedirectUrl="\/introductory-trial"/);
  assert.doesNotMatch(signup+gate,/checkout\.stripe\.com|\/api\/billing\/create-checkout-session/);
 });

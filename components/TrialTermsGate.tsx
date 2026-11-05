@@ -11,7 +11,7 @@ export default function TrialTermsGate({children}:{children:ReactNode}){
   const verified=user?.emailAddresses?.find(e=>e.id===user.primaryEmailAddressId);
   if(verified?.verification?.status==="verified")setEmail(verified.emailAddress.trim().toLowerCase());
  },[user]);
- const valid=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
+ const valid=isSignedIn&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
  async function agree(){
   if(!end||!agreed||!valid||saving)return;
   setSaving(true);setError("");
@@ -24,7 +24,7 @@ export default function TrialTermsGate({children}:{children:ReactNode}){
    });
    const data=await response.json();
    if(!response.ok||!data?.ok)throw Error(String(data?.message||"Unable to record Terms acceptance"));
-   window.location.assign(isSignedIn?"/introductory-trial/chat":"/introductory-trial/create-account");
+   window.location.assign("/introductory-trial/chat");
   }catch(e){setError(e instanceof Error?e.message:"Unable to record Terms acceptance");setSaving(false);}
  }
  return <section className="terms-card">
@@ -50,9 +50,9 @@ export default function TrialTermsGate({children}:{children:ReactNode}){
    <div className="acceptance-email-field">
     <label htmlFor="trial-email">Email address</label>
     <input id="trial-email" type="email" autoComplete="email" maxLength={254}
-     required value={email} onChange={e=>{setEmail(e.target.value);setError("");}}
+     required readOnly value={email}
      placeholder="you@example.com"/>
-    <span>Use the same email you will verify with Clerk. Existing paid and grandfathered members retain their normal membership.</span>
+    <span>This is your verified account email. The agreement is recorded only for this account. Existing members keep their paid or grandfathered access.</span>
    </div>
    <label className={end?"check-row":"check-row disabled"}>
     <input type="checkbox" checked={agreed} disabled={!end||saving}
