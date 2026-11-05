@@ -99,7 +99,7 @@ export async function assessVerifiedPublicTrialUser(expectedClerkId?:string):Pro
  const termsBranch=await termsSql`SELECT current_setting('neon.branch_id',true) AS branch`;
  if(String(termsBranch[0]?.branch)!==PROD_NEON_BRANCH)
   return noAccess("infrastructure_not_ready");
- const termsCookie=(await cookies()).get("fitness_terms_acceptance")?.value||"";
+ const termsCookie=(await cookies()).get("intro_trial_terms_acceptance")?.value||"";
  const accepted=await termsSql`SELECT id::text AS id FROM public.terms_acceptances
  WHERE email=${email} AND terms_version=${TERMS_VERSION}
  AND plan='AI Coach Directory Introductory Trial'

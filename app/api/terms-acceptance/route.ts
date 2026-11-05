@@ -21,6 +21,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LENGTH = 254;
 const MAX_USER_AGENT_LENGTH = 1024;
 const FITNESS_TERMS_COOKIE = "fitness_terms_acceptance";
+const INTRO_TRIAL_TERMS_COOKIE = "intro_trial_terms_acceptance";
 
 function normalizeEmail(value: unknown) {
   if (typeof value !== "string") return null;
@@ -197,7 +198,7 @@ export async function POST(request: Request) {
     );
 
     response.cookies.set({
-      name: FITNESS_TERMS_COOKIE,
+      name: trialRequested?INTRO_TRIAL_TERMS_COOKIE:FITNESS_TERMS_COOKIE,
       value: String(stored.id),
       httpOnly: true,
       sameSite: "lax",

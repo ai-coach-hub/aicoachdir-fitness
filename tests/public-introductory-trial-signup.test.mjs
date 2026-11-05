@@ -17,6 +17,10 @@ test("trial legal acceptance is $0 and 15 total messages, never routed through p
  assert.match(gate,/TERMS_ACCEPTANCE_TEXT/);
  assert.match(gate,/!end\|\|!agreed\|\|!valid/);
  assert.match(terms,/currentUser\(\)/);
+ assert.match(terms,/INTRO_TRIAL_TERMS_COOKIE = "intro_trial_terms_acceptance"/);
+ assert.match(terms,/trialRequested\?INTRO_TRIAL_TERMS_COOKIE:FITNESS_TERMS_COOKIE/);
+ assert.match(terms,/path: trialRequested\?"\/":"\/fitness"/);
+ assert.match(src("../lib/publicIntroductoryTrialPreflight.ts"),/get\("intro_trial_terms_acceptance"\)/);
  assert.match(terms,/normalizeEmail\(primary\.emailAddress\)!==email/);
  assert.match(trial,/redirect\("\/introductory-trial\/create-account"\)/);
  assert.match(gate,/readOnly value=\{email\}/);
