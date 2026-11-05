@@ -15,3 +15,10 @@ test("saved Budgeting reply must be persisted at hub before one settled charge",
  assert.match(s,/v\.reply\.trim\(\)/);
  assert.match(s,/status==="already_"\+outcome/);
 });
+
+test("retried Budgeting settlement only accepts the exact previously persisted message and response",()=>{
+ assert.match(s,/h\.user_message=\$\{v\.message\}/);
+ assert.match(s,/h\.coach_response=\$\{v\.reply\}/);
+ assert.match(s,/r\.status IN \('reserved','completed'\)/);
+ assert.match(s,/prior\.length!==1/);
+});
