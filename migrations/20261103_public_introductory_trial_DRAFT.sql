@@ -89,6 +89,35 @@ BEGIN
  WHERE clerk_user_id=p_user;
  RETURN p_outcome;
 END $fn$;
+-- Operator-only reconciliation after authoritative provider/history evidence.
+-- An uncertain turn holds a reservation. This routine never guesses whether
+-- generation occurred, and is not exposed through any customer API route.
+CREATE OR REPLACE FUNCTION public.intro_trial_reconcile(
+ p_user text,p_member text,p_request text,p_coach text,p_outcome text
+) RETURNS text LANGUAGE plpgsql AS $reconcile$
+DECLARE v public.introductory_trial_grants%ROWTYPE; old public.introductory_trial_requests%ROWTYPE;
+BEGIN
+ IF p_outcome NOT IN ('completed','released') THEN RETURN 'invalid'; END IF;
+ SELECT * INTO v FROM public.introductory_trial_grants WHERE clerk_user_id=p_user FOR UPDATE;
+ IF NOT FOUND OR v.member_key<>p_member THEN RETURN 'not_entitled'; END IF;
+ SELECT * INTO old FROM public.introductory_trial_requests
+ WHERE clerk_user_id=p_user AND request_key=p_request FOR UPDATE;
+ IF NOT FOUND OR old.coach<>p_coach THEN RETURN 'missing_or_conflicting'; END IF;
+ IF old.status<>'uncertain' THEN RETURN 'already_'||old.status; END IF;
+ IF p_outcome='completed' AND NOT EXISTS(
+  SELECT 1 FROM public.introductory_trial_history
+  WHERE clerk_user_id=p_user AND request_key=p_request AND coach=p_coach
+    AND length(btrim(coach_response))>0
+ ) THEN RETURN 'history_missing'; END IF;
+ UPDATE public.introductory_trial_requests SET status=p_outcome,changed_at=now()
+ WHERE clerk_user_id=p_user AND request_key=p_request AND status='uncertain';
+ UPDATE public.introductory_trial_grants SET
+ reserved_uses=reserved_uses-1,
+ completed_uses=completed_uses+CASE WHEN p_outcome='completed' THEN 1 ELSE 0 END
+ WHERE clerk_user_id=p_user;
+ RETURN p_outcome;
+END $reconcile$;
 REVOKE ALL ON FUNCTION public.intro_trial_reserve(text,text,text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.intro_trial_reconcile(text,text,text,text,text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.intro_trial_settle(text,text,text,text,text) FROM PUBLIC;
 COMMIT;
