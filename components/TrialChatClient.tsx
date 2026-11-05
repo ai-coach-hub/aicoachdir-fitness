@@ -120,6 +120,9 @@ export default function TrialChatClient(){
       style={{padding:"10px 14px",borderRadius:8,border:"1px solid currentColor",
        fontWeight:c===coach?700:400}}>{labels[c]}</button>)}
     </nav>
+    {coach==="fitness"&&<p style={{padding:"10px 0"}}>
+      <Link href="/introductory-trial/workouts">My Workouts</Link> — view verified saved plans and this week's schedule.
+    </p>}
     {coach==="budgeting"&&<section style={{padding:"10px 0"}}>
       <p>Budgeting uses its own saved chat and monthly tracker. Both preserve your work when you move to a paid membership.</p>
       <p><Link href="/introductory-trial/budget?destination=coach">Open Budgeting Coach</Link> · {" "}
