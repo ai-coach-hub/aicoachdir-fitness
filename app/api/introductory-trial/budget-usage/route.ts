@@ -58,7 +58,19 @@ export async function POST(request:Request){
    // reach this signed path. The hub stores its own authoritative copy before
    // settling the one-time shared trial allowance.
    try{await storePublicTrialTurn(account,"budgeting",v.requestKey,v.message,v.reply);}
-   catch{return response({ok:false,status:"history_reconciliation_required"},503);}
+   catch{
+    // Stripe-style retried settlement is idempotent: only the exact
+    // previously saved response for this member, coach and request key
+    // may continue to settle. A changed answer must not overwrite data.
+    const prior=await sql`SELECT 1 FROM public.introductory_trial_history h
+     JOIN public.introductory_trial_requests r
+      ON r.clerk_user_id=h.clerk_user_id AND r.request_key=h.request_key
+     WHERE h.clerk_user_id=${v.clerk} AND h.request_key=${v.requestKey}
+      AND h.coach='budgeting' AND h.user_message=${v.message}
+      AND h.coach_response=${v.reply} AND r.coach='budgeting'
+      AND r.status IN ('reserved','completed') LIMIT 2`;
+    if(prior.length!==1)return response({ok:false,status:"history_reconciliation_required"},503);
+   }
   }
   const outcome=v.outcome==="completed"?"completed":v.outcome==="released"?"released":"uncertain";
   const status=await settlePublicTrialTurn(account,"budgeting",v.requestKey,outcome);
