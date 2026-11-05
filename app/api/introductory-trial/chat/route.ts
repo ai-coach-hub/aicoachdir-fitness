@@ -57,6 +57,8 @@ export async function POST(request:Request){
  if(!memberKey)return send({ok:false,error:"Verified identity unavailable"},503);
  try{
   const admission=await assessVerifiedPublicTrialUser(user.id);
+  if(admission.kind==="deny"&&admission.reason==="trial_exhausted")
+   return send({ok:false,error:"Your 15 introductory messages are complete. Your saved conversations, workouts and budgets remain available. Choose a membership to continue coaching."},429);
   if(admission.kind!=="resume")
    return send({ok:false,error:admission.kind==="new"?
      "Please enroll in your free trial first.":"Trial access is unavailable"},403);
