@@ -1,38 +1,27 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-const adapter = fs.readFileSync("lib/previewFitnessChat.ts", "utf8");
-const route = fs.readFileSync("app/api/fitness/chat/route.ts", "utf8");
-const client = fs.readFileSync("app/fitness/chat/page.tsx", "utf8");
-
-test("Fitness shared meter is isolated to preview, exact sandbox branch and explicit opt-in", () => {
-  assert.match(adapter, /VERCEL_ENV !== "preview"/);
-  assert.match(adapter, /VERCEL_GIT_COMMIT_REF !== "feature\/life-coach-agent-sandbox-20261011"/);
-  assert.match(adapter, /PREVIEW_SHARED_USAGE_METER_ENABLED !== "true"/);
-  assert.match(adapter, /lifeTester\(\)/);
-  assert.match(adapter, /lifeTestStatus\(member\)/);
-  assert.match(adapter, /if \(!enrollment\.active\) return Response\.json/);
+import {readFileSync} from "node:fs";
+const read=p=>readFileSync(new URL(p,import.meta.url),"utf8");
+const native=read("../app/api/fitness/chat/route.ts");
+const trial=read("../app/api/introductory-trial/chat/route.ts");
+const api=read("../app/api/introductory-trial/workouts/route.ts");
+test("final reserved Fitness trial request is permitted even after shared balance reaches zero",()=>{
+ assert.match(native,/trialFitnessIdentity\(clerkId,email,requestKey\)/);
+ assert.match(native,/status='reserved'/);
+ assert.match(native,/coach='fitness'/);
+ assert.match(native,/request_key=\$\{requestKey\}/);
+ assert.match(native,/grants\[0\]\.converted_at!=null/);
+ assert.match(native,/memberRows\.length===0/);
+ assert.match(native,/return requestRows\.length===1/);
+ assert.match(trial,/executeVerifiedTrialFitnessTurn\(nativeRequest,user\.id,email,key\)/);
+ assert.ok(trial.indexOf("reservePublicTrialTurn(account,coach,key)")<trial.indexOf("executeVerifiedTrialFitnessTurn(nativeRequest,user.id,email,key)"));
 });
-test("Workout completion is not charged and Fitness entitlement checked before reservation", () => {
-  assert.match(adapter, /body\.action === "complete_workout"/);
-  assert.match(adapter, /body\.action === "sync_completed_workout"/);
-  assert.ok(adapter.indexOf("memberHasFitnessAccess(") < adapter.indexOf("runMeteredPreviewGeneration("));
-});
-test("Fitness chat uses shared Life test allowance and reserves before provider invocation", () => {
-  assert.match(adapter, /previewLifeTestSubscription/);
-  assert.match(adapter, /previewLifeTestPeriod/);
-  assert.match(adapter, /coach: "fitness" as const/);
-  assert.match(adapter, /reservePreviewAiUse\(usage\)/);
-  assert.match(adapter, /settlePreviewAiUse\(usage, outcome\)/);
-  assert.match(adapter, /body\.message\.trim\(\) !== "TEST SHARED COUNTER"/);
-  assert.match(adapter, /previewSimulation: true/);
-  assert.ok(adapter.indexOf('body.message.trim() !== "TEST SHARED COUNTER"') < adapter.indexOf("runMeteredPreviewGeneration("));
-  assert.match(adapter, /result\.reason === "exhausted"/);
-});
-test("Fitness provides a request key from the browser and retains old handler", () => {
-  assert.ok(client.includes('? previous.requestKey : `fitness-${crypto.randomUUID()}`'));
-  assert.ok(client.includes('pendingChatRequest.current={message,conversationId,requestKey}'));
-  assert.match(route, /previewFitnessChat\(request, postFitnessWithoutPreviewMeter\)/);
-  assert.match(route, /async function postFitnessWithoutPreviewMeter\([\s\S]*?request: Request/);
-  assert.match(route, /if\(!trialIdentityMatches\)/);
+test("native saved plan readback survives trial exhaustion and conversion under same verified Clerk ID",()=>{
+ assert.match(native,/if\(!requestKey\)return true/);
+ assert.match(native,/return readMemberWorkoutData\(email,studioToken\)/);
+ assert.match(native,/primary\.verification\?\.status!=="verified"/);
+ assert.match(native,/return await postFitnessWithoutPreviewMeter\(request,\{clerkId,email\}\)/);
+ assert.match(native,/confirmSavedMutation\(/);
+ assert.match(native,/writePlanMemory\(memberEmail, studioToken/);
+ assert.match(api,/readVerifiedTrialFitnessWorkouts\(user\.id,email\)/);
 });
