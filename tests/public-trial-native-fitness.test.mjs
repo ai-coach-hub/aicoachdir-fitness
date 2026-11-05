@@ -19,7 +19,7 @@ test("final reserved Fitness trial request is permitted even after shared balanc
 test("native saved plan readback survives trial exhaustion and conversion under same verified Clerk ID",()=>{
  assert.match(native,/if\(!requestKey\)return true/);
  assert.match(native,/return readMemberWorkoutData\(email,studioToken\)/);
- assert.match(native,/primary\.verification\?\.status!=="verified"/);
+ assert.match(native,/primary\?\.verification\?\.status!=="verified"/);
  assert.match(native,/return await postFitnessWithoutPreviewMeter\(request,\{clerkId,email\}\)/);
  assert.match(native,/confirmSavedMutation\(/);
  assert.match(native,/writePlanMemory\(memberEmail, studioToken/);
