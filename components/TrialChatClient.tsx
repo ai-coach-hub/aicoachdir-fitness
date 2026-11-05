@@ -105,8 +105,11 @@ export default function TrialChatClient(){
      reason==="trial_converted"?"Your introductory trial was converted to a membership.":
      reason==="trial_exhausted"?"Your introductory messages are complete.":
      "Trial eligibility could not be verified. No payment was attempted."}</p>
-    <p><Link href="/introductory-trial">Review Trial Terms</Link> · <Link href="/dashboard">Member Dashboard</Link> · <Link href="/introductory-trial/history">Saved trial conversations</Link>
-    {reason==="trial_exhausted"&&<p><Link href="/introductory-trial/budget?destination=tracker">My saved budget</Link> · <Link href="/introductory-trial/workouts">My saved workouts</Link></p>}</p>
+    <p><Link href="/introductory-trial">Review Trial Terms</Link> · <Link href="/dashboard">Member Dashboard</Link> · <Link href="/introductory-trial/history">Saved trial conversations</Link></p>
+    {reason==="trial_exhausted"&&<>
+     <p><Link href="/introductory-trial/budget?destination=tracker">My saved budget</Link> · <Link href="/introductory-trial/workouts">My saved workouts</Link></p>
+     <p><Link href="/fitness/signup" className="secondary-button">Continue with a Membership</Link></p>
+    </>}
    </section>:
    stage==="offer"?<section>
     <p>You're eligible to start your one-time introductory allowance.</p>
