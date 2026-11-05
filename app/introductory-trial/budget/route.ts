@@ -15,7 +15,9 @@ export async function GET(request:Request){
   if(admission.kind!=="resume")return NextResponse.redirect(new URL("/introductory-trial/chat",request.url));
   const email=primary.emailAddress.trim().toLowerCase();
   const expires=String(Date.now()+90_000);
+  const destination=new URL(request.url).searchParams.get("destination")==="coach"?"coach":"tracker";
   const url=new URL("/budget/trial/access",request.url);
+  url.searchParams.set("destination",destination);
   url.searchParams.set("email",email);
   url.searchParams.set("clerk",user.id);
   url.searchParams.set("expires",expires);
