@@ -2298,26 +2298,56 @@ export async function POST(request: Request) {
   return postFitnessWithoutPreviewMeter(request);
 }
 
-async function postFitnessWithoutPreviewMeter(request: Request) {
+/**
+ * Verified trial only: use the same member-scoped workout validation,
+ * persistence and readback as paid Fitness, without issuing paid access.
+ * Called internally AFTER the shared 15-message reservation. The ordinary
+ * Fitness HTTP route continues to require active paid/legacy membership.
+ */
+async function trialFitnessIdentity(clerkId:string,email:string){
+ const {publicTrialReleaseGate}=await import("@/lib/publicIntroductoryTrialAdmission");
+ if(!publicTrialReleaseGate(process.env))return false;
+ const user=await currentUser();
+ const primary=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
+ if(!user||user.id!==clerkId||primary?.verification?.status!=="verified"||
+    primary.emailAddress.trim().toLowerCase()!==email)return false;
+ const {assessVerifiedPublicTrialUser}=await import("@/lib/publicIntroductoryTrialPreflight");
+ const result=await assessVerifiedPublicTrialUser(user.id);
+ return result.kind==="resume";
+}
+export async function executeVerifiedTrialFitnessTurn(request:Request,clerkId:string,email:string){
+ try{
+  if(!await trialFitnessIdentity(clerkId,email))return Response.json({ok:false,error:"Trial Fitness verification failed"},{status:403});
+  return await postFitnessWithoutPreviewMeter(request,{clerkId,email});
+ }catch{return Response.json({ok:false,error:"Trial Fitness verification unavailable"},{status:503});}
+}
+export async function readVerifiedTrialFitnessWorkouts(clerkId:string,email:string){
+ if(!await trialFitnessIdentity(clerkId,email))throw Error("Trial Fitness verification failed");
+ const studioToken=getStudioToken();
+ if(!studioToken)throw Error("Workout storage unavailable");
+ return readMemberWorkoutData(email,studioToken);
+}
+async function postFitnessWithoutPreviewMeter(
+ request: Request,verifiedTrial?:{clerkId:string;email:string},
+) {
   const user = await currentUser();
   const memberEmail = primaryEmailForUser(user);
   if (!user || !memberEmail) {
     return Response.json({ ok: false, error: "Sign in is required." }, { status: 401 });
   }
-
-  try {
-    const active = await memberHasFitnessAccess(memberEmail, user.id);
-    if (!active) {
-      return Response.json(
-        { ok: false, error: "An active Fitness Coach membership is required." },
-        { status: 403 },
-      );
-    }
-  } catch {
-    return Response.json(
-      { ok: false, error: "Fitness membership verification is temporarily unavailable." },
-      { status: 503 },
-    );
+  const trialIdentityMatches=!!verifiedTrial&&
+   verifiedTrial.clerkId===user.id&&verifiedTrial.email===memberEmail&&
+   user.emailAddresses.some(e=>e.id===user.primaryEmailAddressId&&
+     e.verification?.status==="verified"&&e.emailAddress.trim().toLowerCase()===memberEmail);
+  if(verifiedTrial&&!trialIdentityMatches)
+   return Response.json({ok:false,error:"Trial workout ownership mismatch"},{status:403});
+  if(!trialIdentityMatches){
+   try{
+    const active=await memberHasFitnessAccess(memberEmail,user.id);
+    if(!active)return Response.json({ok:false,error:"An active Fitness Coach membership is required."},{status:403});
+   }catch{
+    return Response.json({ok:false,error:"Fitness membership verification is temporarily unavailable."},{status:503});
+   }
   }
 
   const studioToken = getStudioToken();
