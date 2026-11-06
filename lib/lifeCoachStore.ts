@@ -1,6 +1,12 @@
 import { selectLifeMemories } from "./lifeCoachMemory";
 import { neon } from "@neondatabase/serverless";
-import {isolatedTrialPreviewEnabled} from "./isolatedIntroductoryIdentity";
+// Match the isolated PR #251 environment without adding dependencies to the
+// production Life store. Existing paid Life tests load this module in isolation.
+function isolatedTrialPreviewEnabled(){
+ return process.env.VERCEL_ENV==="preview" &&
+  process.env.VERCEL_GIT_COMMIT_REF==="feature/intro-15-messages-isolated-20261101" &&
+  process.env.INTRODUCTORY_TRIAL_PREVIEW_ENABLED==="true";
+}
 
 export type LifeMessage = { role: "user" | "assistant"; text: string; createdAt: string };
 export type LifeThread = { id: string; title: string; updatedAt: string };
