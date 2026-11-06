@@ -11,6 +11,25 @@ export default function NativeReadbackPage(){
  const {isLoaded,isSignedIn}=useUser();
  const [data,setData]=useState<Data|null>(null);
  const [state,setState]=useState("Checking the isolated test account…");
+  const [savingGoal,setSavingGoal]=useState(false);
+  const [goalStatus,setGoalStatus]=useState("");
+  async function verifyNativeLifeGoal(){
+   if(savingGoal)return;
+   setSavingGoal(true);setGoalStatus("");
+   try{
+    const response=await fetch("/api/isolated-introductory-trial/native-life-goal",{
+      method:"POST",headers:{"Content-Type":"application/json"},cache:"no-store"
+    });
+    const body=await response.json();
+    if(!response.ok||body.verified!==true)
+      throw Error(String(body.error||"Goal verification failed"));
+    setGoalStatus("Verified: your example goal was saved and read back from native Life Coach storage.");
+    const updated=await fetch("/api/isolated-introductory-trial/native-readback",{cache:"no-store"});
+    if(updated.ok){const next=await updated.json();if(next.ok===true)setData(next);}
+   }catch(e){setGoalStatus(e instanceof Error?e.message:"Goal verification failed");}
+   finally{setSavingGoal(false);}
+  }
+
  useEffect(()=>{
   if(!isLoaded||!isSignedIn)return;
   let active=true;
@@ -38,6 +57,12 @@ export default function NativeReadbackPage(){
     <p>Saved Fitness plan: {data.native.fitnessPlan?"Found":"Not found for this test account"}.</p>
     <p>Budget months: {data.native.budgetMonths}; native Budgeting replies: {data.native.budgetChatTurns}.</p>
     <p>Life goal statements: {data.native.lifeGoalStatements}.</p>
+    <section aria-label="Life Coach native goal verification">
+     <h3>Test native Life Coach goal saving</h3>
+     <p>Save one example goal and verify that the native Life Coach store can read it back. This uses your isolated test database, not an AI message.</p>
+     <button type="button" disabled={savingGoal} onClick={verifyNativeLifeGoal}>{savingGoal?"Verifying…":"Save and verify example Life goal"}</button>
+     {goalStatus&&<p role="status">{goalStatus}</p>}
+    </section>
     <p role="status">These are real reads of the isolated native data tables, not proof of a new save through the production Coach interfaces. An item marked not found may simply not have been created in this test account.</p>
    </>:<p role="status">{state}</p>}
   <p><Link href="/introductory-preview/paid">Previously verified test membership</Link> · <Link href="/introductory-preview">Original trial preview</Link></p>

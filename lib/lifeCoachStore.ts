@@ -1,5 +1,6 @@
 import { selectLifeMemories } from "./lifeCoachMemory";
 import { neon } from "@neondatabase/serverless";
+import {isolatedTrialPreviewEnabled} from "./isolatedIntroductoryIdentity";
 
 export type LifeMessage = { role: "user" | "assistant"; text: string; createdAt: string };
 export type LifeThread = { id: string; title: string; updatedAt: string };
@@ -25,7 +26,9 @@ function database() {
     process.env.LIFE_COACH_LIVE_ENABLED==="true";
   const url=isProduction
     ? (process.env.STORAGE_URL||process.env.DATABASE_URL||process.env.POSTGRES_URL)
-    : process.env.LIFE_COACH_DATABASE_URL;
+    : isolatedTrialPreviewEnabled()
+      ? process.env.INTRODUCTORY_TRIAL_DATABASE_URL
+      : process.env.LIFE_COACH_DATABASE_URL;
   if (!url) throw new Error("Life Coach database is not configured");
   return neon(url);
 }
@@ -35,6 +38,7 @@ const PRIVATE_NEON_BRANCH_ID = "br-autumn-breeze-auw38rgr";
 const PRODUCTION_NEON_BRANCH_ID = "br-sparkling-glitter-aucpz59d";
 
 async function db() {
+  const isolatedPreview=isolatedTrialPreviewEnabled();
   const privatePreview=process.env.VERCEL_ENV==="preview" &&
     process.env.VERCEL_GIT_COMMIT_REF===PRIVATE_PREVIEW_BRANCH;
   const productionReleased=process.env.VERCEL_ENV==="production" &&
@@ -43,7 +47,7 @@ async function db() {
     productionOpeningReady() &&
     productionCutoverReady() &&
     process.env.LIFE_COACH_LIVE_ENABLED==="true";
-  if(!privatePreview&&!productionReleased)
+  if(!privatePreview&&!productionReleased&&!isolatedPreview)
     throw new Error("Life Coach storage is disabled until release");
   const sql=database();
   // Production must be migrated explicitly; never silently create tables
@@ -57,6 +61,13 @@ async function db() {
     return sql;
   }
   const identity = await sql`SELECT current_setting('neon.branch_id', true) AS branch_id`;
+  if(isolatedPreview){
+    // Dedicated PR #251 test database. No automatic schema creation or
+    // production Life Coach URL can be reached through this preview branch.
+    if(String(identity[0]?.branch_id||"")!=="br-spring-cloud-aui2mogd")
+      throw new Error("Private trial Life storage branch mismatch");
+    return sql;
+  }
   if (String(identity[0]?.branch_id || "") !== PRIVATE_NEON_BRANCH_ID)
     throw new Error("Private Life Coach database branch mismatch");
   await sql`CREATE TABLE IF NOT EXISTS life_chat_threads (
