@@ -40,9 +40,9 @@ export default function NativeReadbackPage(){
   return()=>{active=false;};
  },[isLoaded,isSignedIn]);
  return <main style={{maxWidth:750,margin:"3rem auto",padding:"1rem"}}>
-  <p>Private trial • isolated test branch • read-only</p>
+  <p>Private trial • isolated test branch • optional Life goal verification</p>
   <h1>Saved coaching verification</h1>
-  <p>This page checks your original test account's existing records. It does not create a trial, spend messages, save new workouts, change budgets, or start checkout.</p>
+  <p>This page checks your existing test account records. The optional Life goal button saves one example only to the isolated database. It does not create a trial, consume AI messages, create workouts, change budgets, or start checkout.</p>
   {!isLoaded?<p>Checking sign-in…</p>:!isSignedIn?
    <section><p>Sign in using the same Clerk test account you used for the simulated conversion.</p>
     <SignIn routing="hash" forceRedirectUrl="/introductory-preview/native-verification"/>
