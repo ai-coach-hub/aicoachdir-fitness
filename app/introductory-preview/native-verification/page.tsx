@@ -57,6 +57,11 @@ export default function NativeReadbackPage(){
     <p>Saved Fitness plan: {data.native.fitnessPlan?"Found":"Not found for this test account"}.</p>
     <p>Budget months: {data.native.budgetMonths}; native Budgeting replies: {data.native.budgetChatTurns}.</p>
     <p>Life goal statements: {data.native.lifeGoalStatements}.</p>
+    <section aria-label="Budgeting native expense verification">
+     <h3>Test native Budgeting expense saving</h3>
+     <p>Open the private Budgeting verification page with this same test login. It tests the real Budgeting API against the isolated Neon branch; it does not use AI credits or run checkout.</p>
+     <a href="/api/isolated-introductory-trial/budget-handoff">Open Budgeting expense verification</a>
+    </section>
     <section aria-label="Life Coach native goal verification">
      <h3>Test native Life Coach goal saving</h3>
      <p>Save one example goal and verify that the native Life Coach store can read it back. This uses your isolated test database, not an AI message.</p>
