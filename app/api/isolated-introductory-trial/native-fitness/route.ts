@@ -20,7 +20,7 @@ export async function GET(){
     user.id!==String(process.env.INTRODUCTORY_TRIAL_DEDICATED_TEST_CLERK_ID||""))
   return response({ok:false,error:"Dedicated verified test login required"},403);
  const email=primary.emailAddress.trim().toLowerCase();
- if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
   return response({ok:false,error:"Invalid verified test identity"},403);
  try{
   // The same attested isolated Neon connection is used for both identity and cache.
