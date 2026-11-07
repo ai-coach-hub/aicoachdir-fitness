@@ -65,6 +65,11 @@ export default function NativeReadbackPage(){
      <p>Opens the private Budgeting test with your existing login. Saves and reopens a $1 test expense in the isolated database.</p>
      <a style={actionStyle} href="/api/isolated-introductory-trial/budget-handoff">Open Budgeting test <span aria-hidden="true" style={{marginLeft:10}}>→</span></a>
     </section>
+    <section style={sectionStyle} aria-label="Fitness native workout readback">
+     <h2 style={{marginTop:0}}>Fitness: check saved workout storage</h2>
+     <p>This private read-only check looks for your own workout in Pickaxe memory and the isolated database. It does not generate or save a workout, use AI credits or establish save-action parity.</p>
+     <a style={secondaryStyle} href="/api/isolated-introductory-trial/native-fitness">Check Fitness workout readback</a>
+    </section>
     <section style={sectionStyle} aria-label="Life Coach native goal verification">
      <h2 style={{marginTop:0}}>2. Test Life Coach goal saving</h2>
      <p>Save one example goal and verify that the native Life Coach store can read it back. This uses your isolated test database, not an AI message.</p>
