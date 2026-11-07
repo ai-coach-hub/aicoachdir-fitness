@@ -66,6 +66,12 @@ const upcomingCoaches = [
 export const dynamic = "force-dynamic";
 export default function HomePage() {
   const memberLoginUrl = "/fitness/login";
+  const trialReleased=process.env.VERCEL_ENV==="production" &&
+    process.env.PUBLIC_INTRO_TRIAL_ENABLED==="true" &&
+    process.env.PUBLIC_INTRO_TRIAL_RELEASE_APPROVED==="true" &&
+    process.env.PUBLIC_INTRO_TRIAL_METER_READY==="true" &&
+    process.env.PUBLIC_INTRO_TRIAL_THREE_COACHES_READY==="true" &&
+    process.env.PUBLIC_INTRO_TRIAL_COACH_ACTIONS_REVIEWED==="true";
   const fourTierSignups = process.env.VERCEL_ENV==="production" && process.env.LIVE_NEW_TIER_SIGNUPS_ENABLED==="true";
 
   // Release Life Coach to existing members with the same subscription only
@@ -97,9 +103,11 @@ export default function HomePage() {
           Build a workout plan, take control of your budget{lifeAvailable ? ", and work toward personal goals" : ""}. Pick the coach you need, and return to your saved work from one member dashboard.
         </p>
         <div className="cta-row">
+          {trialReleased&&<Link href="/introductory-trial" className="primary-button">Try 15 Messages Free</Link>}
           <Link href="/fitness/signup" className="primary-button">Get Started</Link>
           <Link href={memberLoginUrl} className="secondary-button">Member Login</Link>
         </div>
+        {trialReleased&&<p className={styles.heroPlanNote}>15 free messages across three coaches · No credit card · No automatic charge</p>}
         <p className={styles.heroPlanNote}>{fourTierSignups ? "Plans from $9/month · 100–600 AI Coach messages/month · Renews monthly until canceled" : "$15/month · One membership · 400 AI Coach messages/month · Automatically renews until canceled"}</p>
       </section>
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import {currentUser} from "@clerk/nextjs/server";
 import {
   FITNESS_INCLUDED_USES,
   FITNESS_PLAN,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/termsAcceptance";
 import { ensureTermsAcceptanceSchema } from "@/lib/termsAcceptanceDb";
 import {newTierSignupsEnabled} from "@/lib/newTierCatalog";
+import {publicTrialReleaseGate} from "@/lib/publicIntroductoryTrialAdmission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +21,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LENGTH = 254;
 const MAX_USER_AGENT_LENGTH = 1024;
 const FITNESS_TERMS_COOKIE = "fitness_terms_acceptance";
+const INTRO_TRIAL_TERMS_COOKIE = "intro_trial_terms_acceptance";
 
 function normalizeEmail(value: unknown) {
   if (typeof value !== "string") return null;
@@ -78,11 +81,22 @@ export async function POST(request: Request) {
 
   const input = body as Record<string, unknown>;
   const email = normalizeEmail(input.email);
-  const selection = newTierSignupsEnabled() ? tierTermsSelection(input.tier) : null;
-  if(newTierSignupsEnabled() && !selection)return jsonError("Please select a valid monthly plan before accepting the Terms.",400);
-  const chosenPlan = selection?.plan || FITNESS_PLAN;
-  const chosenPrice = selection?.price || FITNESS_PRICE;
-  const chosenMessages = selection?.includedUses || FITNESS_INCLUDED_USES;
+  const trialRequested=input.introductoryTrial===true;
+  if(trialRequested&&!publicTrialReleaseGate(process.env))
+    return jsonError("Introductory trial is not available.",404);
+  if(trialRequested){
+    const user=await currentUser();
+    const primary=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
+    if(!user||primary?.verification?.status!=="verified"||
+       normalizeEmail(primary.emailAddress)!==email)
+      return jsonError("Sign in with your verified email before accepting the trial Terms.",403);
+  }
+  const selection = newTierSignupsEnabled()&&!trialRequested ? tierTermsSelection(input.tier) : null;
+  if(newTierSignupsEnabled()&&!trialRequested&&!selection)
+    return jsonError("Please select a valid monthly plan before accepting the Terms.",400);
+  const chosenPlan = trialRequested?"AI Coach Directory Introductory Trial":selection?.plan || FITNESS_PLAN;
+  const chosenPrice = trialRequested?"$0":selection?.price || FITNESS_PRICE;
+  const chosenMessages = trialRequested?15:selection?.includedUses || FITNESS_INCLUDED_USES;
   const clientAcceptedAt = parseClientAcceptedAt(input.clientAcceptedAt);
 
   if (!email) {
@@ -157,7 +171,7 @@ export async function POST(request: Request) {
         ${chosenPrice},
         ${chosenMessages},
         ${termsUrl},
-        ${TERMS_SOURCE_PATH},
+        ${trialRequested?"/introductory-trial":TERMS_SOURCE_PATH},
         ${ipAddress},
         ${userAgent},
         ${vercelGitCommitSha},
@@ -184,12 +198,12 @@ export async function POST(request: Request) {
     );
 
     response.cookies.set({
-      name: FITNESS_TERMS_COOKIE,
+      name: trialRequested?INTRO_TRIAL_TERMS_COOKIE:FITNESS_TERMS_COOKIE,
       value: String(stored.id),
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      path: "/fitness",
+      path: trialRequested?"/":"/fitness",
       maxAge: 60 * 60,
     });
 

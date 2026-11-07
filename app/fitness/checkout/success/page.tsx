@@ -2,6 +2,8 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import { grantFitnessAccess } from "@/lib/pickaxeAccess";
+import { finalizeIsolatedTrialConversion } from "@/lib/isolatedTrialPaidHandoff";
+import {finalizePublicTrialPaidConversion,publicTrialConversionEnabled} from "@/lib/publicIntroductoryTrialConversion";
 import { saveFitnessMembership } from "@/lib/fitnessMembershipDb";
 import {
   stripeRequest,
@@ -103,6 +105,36 @@ export default async function FitnessCheckoutSuccessPage({
     });
 
     accessConfirmed = true;
+    // Only after paid Stripe checkout and the matching existing membership
+    // have been verified and recorded; no public trial writes without gates.
+    if(publicTrialConversionEnabled()){
+      try{
+        await finalizePublicTrialPaidConversion({clerkId:user.id,email,customerId,subscriptionId});
+      }catch{
+        // Payment access is authoritative; do not ask a member to pay again
+        // because trial history conversion needs an operator reconciliation.
+        console.error("[intro-trial-public] conversion reconciliation deferred");
+      }
+    }
+    // PR #251: only this isolated preview may mark a trial as converted.
+    // Payment and identity checks, plus paid membership save, already passed.
+    if (process.env.VERCEL_ENV==="preview" &&
+        process.env.VERCEL_GIT_COMMIT_REF==="feature/intro-15-messages-isolated-20261101" &&
+        process.env.INTRODUCTORY_TRIAL_PREVIEW_ENABLED==="true") {
+      try {
+        await finalizeIsolatedTrialConversion({
+          clerkId:user.id,paymentClerkId:clientReferenceId,
+          paid:paymentStatus==="paid",
+          active:stripeSubscriptionIsActive(subscriptionStatus),
+          customerMatches:Boolean(customerId&&String(session.customer||"")===customerId),
+          subscriptionMatches:Boolean(subscriptionId&&String(subscription.id||session.subscription||"")===subscriptionId)
+        });
+      } catch (error) {
+        console.error("[intro-trial-preview] paid handoff deferred", {
+          message:error instanceof Error?error.message:"unavailable"
+        });
+      }
+    }
 
     try {
       await grantFitnessAccess(email);

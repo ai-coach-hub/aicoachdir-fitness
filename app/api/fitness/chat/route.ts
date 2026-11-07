@@ -2298,26 +2298,72 @@ export async function POST(request: Request) {
   return postFitnessWithoutPreviewMeter(request);
 }
 
-async function postFitnessWithoutPreviewMeter(request: Request) {
+/**
+ * Verified trial only: use the same member-scoped workout validation,
+ * persistence and readback as paid Fitness, without issuing paid access.
+ * Called internally AFTER the shared 15-message reservation. The ordinary
+ * Fitness HTTP route continues to require active paid/legacy membership.
+ */
+async function trialFitnessIdentity(clerkId:string,email:string,requestKey?:string){
+ const user=await currentUser();
+ const primary=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
+ if(!user||user.id!==clerkId||primary?.verification?.status!=="verified"||
+    primary.emailAddress.trim().toLowerCase()!==email)return false;
+ const {sharedUsageMemberKey}=await import("@/lib/sharedUsageMemberIdentity");
+ const key=sharedUsageMemberKey(email,String(process.env.BUDGET_MEMBERSHIP_HANDOFF_SECRET||""));
+ if(!key)return false;
+ const {productionTrialSql,productionTrialHistorySql}=await import("@/lib/publicIntroductoryTrialLedger");
+ const sql=requestKey?await productionTrialSql():await productionTrialHistorySql();
+ const grants=await sql`SELECT converted_at FROM public.introductory_trial_grants
+  WHERE clerk_user_id=${clerkId} AND member_key=${key} LIMIT 2`;
+ if(grants.length!==1)return false;
+ // Reads remain accessible after exhaustion and conversion. For provider
+ // generation, require the exact pre-reserved Fitness request rather than
+ // repeating admission AFTER reservation (which would reject message #15).
+ if(!requestKey)return true;
+ if(!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey)||grants[0].converted_at!=null)return false;
+ const [requestRows,memberRows]=await Promise.all([
+  sql`SELECT 1 FROM public.introductory_trial_requests
+   WHERE clerk_user_id=${clerkId} AND request_key=${requestKey}
+   AND coach='fitness' AND status='reserved' LIMIT 2`,
+  sql`SELECT 1 FROM public.fitness_memberships WHERE email=${email} LIMIT 2`
+ ]);
+ return requestRows.length===1&&memberRows.length===0;
+}
+export async function executeVerifiedTrialFitnessTurn(request:Request,clerkId:string,email:string,requestKey:string){
+ try{
+  if(!await trialFitnessIdentity(clerkId,email,requestKey))
+   return Response.json({ok:false,error:"Trial Fitness reservation verification failed"},{status:403});
+  return await postFitnessWithoutPreviewMeter(request,{clerkId,email});
+ }catch{return Response.json({ok:false,error:"Trial Fitness verification unavailable"},{status:503});}
+}
+export async function readVerifiedTrialFitnessWorkouts(clerkId:string,email:string){
+ if(!await trialFitnessIdentity(clerkId,email))throw Error("Trial Fitness verification failed");
+ const studioToken=getStudioToken();
+ if(!studioToken)throw Error("Workout storage unavailable");
+ return readMemberWorkoutData(email,studioToken);
+}
+async function postFitnessWithoutPreviewMeter(
+ request: Request,verifiedTrial?:{clerkId:string;email:string},
+) {
   const user = await currentUser();
   const memberEmail = primaryEmailForUser(user);
   if (!user || !memberEmail) {
     return Response.json({ ok: false, error: "Sign in is required." }, { status: 401 });
   }
-
-  try {
-    const active = await memberHasFitnessAccess(memberEmail, user.id);
-    if (!active) {
-      return Response.json(
-        { ok: false, error: "An active Fitness Coach membership is required." },
-        { status: 403 },
-      );
-    }
-  } catch {
-    return Response.json(
-      { ok: false, error: "Fitness membership verification is temporarily unavailable." },
-      { status: 503 },
-    );
+  const trialIdentityMatches=!!verifiedTrial&&
+   verifiedTrial.clerkId===user.id&&verifiedTrial.email===memberEmail&&
+   user.emailAddresses.some(e=>e.id===user.primaryEmailAddressId&&
+     e.verification?.status==="verified"&&e.emailAddress.trim().toLowerCase()===memberEmail);
+  if(verifiedTrial&&!trialIdentityMatches)
+   return Response.json({ok:false,error:"Trial workout ownership mismatch"},{status:403});
+  if(!trialIdentityMatches){
+   try{
+    const active=await memberHasFitnessAccess(memberEmail,user.id);
+    if(!active)return Response.json({ok:false,error:"An active Fitness Coach membership is required."},{status:403});
+   }catch{
+    return Response.json({ok:false,error:"Fitness membership verification is temporarily unavailable."},{status:503});
+   }
   }
 
   const studioToken = getStudioToken();
