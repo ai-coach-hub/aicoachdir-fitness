@@ -2343,6 +2343,28 @@ export async function readVerifiedTrialFitnessWorkouts(clerkId:string,email:stri
  if(!studioToken)throw Error("Workout storage unavailable");
  return readMemberWorkoutData(email,studioToken);
 }
+/**
+ * Dedicated preview-only native Fitness driver. This explicitly does not grant
+ * paid access: the calling route must first verify the converted synthetic
+ * TEST Stripe subscription and reserve one isolated TEST wallet message.
+ * Never reachable from an ordinary customer route.
+ */
+export async function executeIsolatedNativeFitnessSaveForTester(request:Request,clerkId:string,email:string){
+ const {isolatedTrialPreviewEnabled}=await import("@/lib/isolatedIntroductoryIdentity");
+ if(!isolatedTrialPreviewEnabled())return Response.json({ok:false,error:"Not available"},{status:404});
+ const user=await currentUser();
+ const primary=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
+ if(!user||!primary||primary.verification?.status!=="verified"||
+    user.id!==clerkId||user.id!==String(process.env.INTRODUCTORY_TRIAL_DEDICATED_TEST_CLERK_ID||"")||
+    primary.emailAddress.trim().toLowerCase()!==email)
+  return Response.json({ok:false,error:"Dedicated tester identity mismatch"},{status:403});
+ const {verifiedIsolatedPaidContinuation}=await import("@/lib/isolatedPaidContinuation");
+ const paid=await verifiedIsolatedPaidContinuation();
+ if(!paid.ready||paid.clerkId!==clerkId)
+  return Response.json({ok:false,error:"Isolated test subscription unavailable"},{status:403});
+ return postFitnessWithoutPreviewMeter(request,{clerkId,email});
+}
+
 async function postFitnessWithoutPreviewMeter(
  request: Request,verifiedTrial?:{clerkId:string;email:string},
 ) {
