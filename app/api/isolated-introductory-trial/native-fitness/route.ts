@@ -37,6 +37,9 @@ export async function GET(){
   const studioToken=String(process.env.PICKAXE_WORKSPACE_API_TOKEN||"").trim();
   if(!studioToken)return response({ok:false,error:"Read-only Pickaxe access unavailable"},503);
   // No fallback to STORAGE_URL / production. Only the isolated, verified sql object.
+  const attemptRows=await sql`SELECT status,created_at FROM public.shared_ai_usage_requests
+    WHERE request_key='native-fitness-save-qa-20261107' AND coach='fitness' LIMIT 2`;
+  const attemptStatus=attemptRows.length===1?String(attemptRows[0].status):null;
   const result=await readLegacyMemberPlan(email,studioToken,{
    cacheReader:async memberEmail=>{
     if(memberEmail!==email)throw Error("Member mismatch");
@@ -48,7 +51,9 @@ export async function GET(){
   return response({ok:true,mode:"isolated-preview",readOnly:true,
    found:result.plan!==null,source:result.source,
    // A found plan proves readback only. It does NOT certify a new save action.
-   savedThroughCurrentTrialVerified:false});
+   savedThroughCurrentTrialVerified:false,
+   fitnessSaveAttemptStatus:attemptStatus,
+   fitnessSaveRetryAllowed:attemptStatus===null});
  }catch{
   return response({ok:false,error:"Isolated Fitness readback unavailable"},503);
  }
