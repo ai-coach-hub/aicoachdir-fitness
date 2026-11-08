@@ -96,7 +96,7 @@ export default function NativeReadbackPage(){
       disabled={savingFitness||fitnessAttempted||data.native.fitnessPlan} onClick={saveAndVerifyFitness}>
       {savingFitness?"Saving and verifying…":"Save and verify one Fitness workout"}
      </button>
-     {fitnessStatus&&<p role="status">{fitnessStatus}</p>
+     {fitnessStatus&&<p role="status">{fitnessStatus}</p>}
     </section>
     <section style={sectionStyle} aria-label="Life Coach native goal verification">
      <h2 style={{marginTop:0}}>2. Test Life Coach goal saving</h2>
