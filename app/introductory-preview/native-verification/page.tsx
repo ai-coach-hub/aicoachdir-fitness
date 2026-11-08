@@ -11,8 +11,30 @@ export default function NativeReadbackPage(){
  const {isLoaded,isSignedIn}=useUser();
  const [data,setData]=useState<Data|null>(null);
  const [state,setState]=useState("Checking the isolated test account…");
+  const [savingFitness,setSavingFitness]=useState(false);
+  const [fitnessStatus,setFitnessStatus]=useState("");
+  const [fitnessAttempted,setFitnessAttempted]=useState(false);
   const [savingGoal,setSavingGoal]=useState(false);
   const [goalStatus,setGoalStatus]=useState("");
+  async function saveAndVerifyFitness(){
+   if(savingFitness||fitnessAttempted)return;
+   setFitnessAttempted(true);setSavingFitness(true);setFitnessStatus("");
+   try{
+    const response=await fetch("/api/isolated-introductory-trial/native-fitness-save",{
+     method:"POST",headers:{"Content-Type":"application/json"},cache:"no-store"
+    });
+    const result=await response.json();
+    if(response.ok&&result.verified===true&&result.savedPlanVerified===true){
+      setFitnessStatus("PASS: a real native Fitness workout was saved and reopened for the isolated test account. One test membership message was used.");
+    }else{
+      setFitnessStatus(String(result.error||"Workout not verified. Do not retry; the one-time attempt needs review."));
+    }
+    const updated=await fetch("/api/isolated-introductory-trial/native-readback",{cache:"no-store"});
+    if(updated.ok){const next=await updated.json();if(next.ok===true)setData(next);}
+   }catch{
+    setFitnessStatus("The test result could not be confirmed. Do not retry; check the one-time attempt before another AI call.");
+   }finally{setSavingFitness(false);}
+  }
   async function verifyNativeLifeGoal(){
    if(savingGoal)return;
    setSavingGoal(true);setGoalStatus("");
@@ -45,7 +67,7 @@ export default function NativeReadbackPage(){
  return <main style={{maxWidth:750,margin:"2rem auto",padding:"1rem",fontFamily:"system-ui, sans-serif",lineHeight:1.55}}>
   <p style={{fontSize:13,fontWeight:700,letterSpacing:".04em",color:"#60466f"}}>PRIVATE TEST • ISOLATED DATABASE</p>
   <h1 style={{fontSize:"clamp(1.7rem, 4vw, 2.3rem)",marginBottom:8}}>Saved coaching verification</h1>
-  <p>Review the saved results below, then use the clearly labeled test buttons. These checks use your isolated test account. No checkout or AI credits are used.</p>
+  <p>Review the saved results for your isolated test account. Read-only checks do not use AI messages. The optional one-time native Fitness save uses one message from the existing Stripe TEST membership, with no new checkout or live charge.</p>
   {!isLoaded?<p>Checking sign-in…</p>:!isSignedIn?
    <section><p>Sign in using the same Clerk test account you used for the simulated conversion.</p>
     <SignIn routing="hash" forceRedirectUrl="/introductory-preview/native-verification"/>
@@ -69,6 +91,12 @@ export default function NativeReadbackPage(){
      <h2 style={{marginTop:0}}>Fitness: check saved workout storage</h2>
      <p>This private read-only check looks for your own workout in Pickaxe memory and the isolated database. It does not generate or save a workout, use AI credits or establish save-action parity.</p>
      <a style={secondaryStyle} href="/api/isolated-introductory-trial/native-fitness">Check Fitness workout readback</a>
+     <p>Because no workout was found for this test account, run one real native Pickaxe save and independently reopen it. This uses one test membership message; do not click twice or retry after an error.</p>
+     <button type="button" style={{...actionStyle,opacity:savingFitness||fitnessAttempted?0.6:1}}
+      disabled={savingFitness||fitnessAttempted||data.native.fitnessPlan} onClick={saveAndVerifyFitness}>
+      {savingFitness?"Saving and verifying…":"Save and verify one Fitness workout"}
+     </button>
+     {fitnessStatus&&<p role="status">{fitnessStatus}</p>
     </section>
     <section style={sectionStyle} aria-label="Life Coach native goal verification">
      <h2 style={{marginTop:0}}>2. Test Life Coach goal saving</h2>
