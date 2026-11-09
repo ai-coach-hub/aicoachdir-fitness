@@ -77,8 +77,8 @@ export async function assessVerifiedPublicTrialUser(expectedClerkId?:string):Pro
  // subscriptions. A previously canceled payer cannot restart a new trial.
  const hadStripe=await stripePreviouslySubscribed(email);
  const historicalStripe:TrialAdmissionEvidence["historicalStripe"]=hadStripe?"paid":"none";
- const legacy=await getPickaxeUser(email,{fallbackToList:true});
- const hasLegacy=legacy!=null && await pickaxeUserHasFitnessAccess(email,{fallbackToList:true});
+ const legacy=await getPickaxeUser(email,{fallbackToList:true,requireExhaustiveList:true});
+ const hasLegacy=legacy!=null && await pickaxeUserHasFitnessAccess(email,{fallbackToList:true,requireExhaustiveList:true});
  const historicalPickaxe:TrialAdmissionEvidence["historicalPickaxe"]=hasLegacy?"legacy":"none";
 
  const grants=await sql`SELECT clerk_user_id,member_key,completed_uses,reserved_uses,
