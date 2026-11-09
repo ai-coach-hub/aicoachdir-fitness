@@ -134,8 +134,10 @@ export async function POST(request:Request){
     conversationId:`intro-${coach}-${user.id}`,stream:false}),
    cache:"no-store",signal:AbortSignal.timeout(100000)
   });
-  if(model.status===404){outcome="released";}
-  else{
+  // A provider 404 is not authoritative proof that no generation was billed.
+  // Keep the reservation uncertain until provider/history reconciliation.
+  if(model.status===404)throw Error("Provider completion not independently verified");
+  {
    if(!model.ok)throw Error("Coach unavailable");
    const payload:unknown=await model.json();
    if(payload&&typeof payload==="object"&&(payload as {success?:boolean}).success===false)
