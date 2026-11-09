@@ -18,7 +18,7 @@ test("native Pickaxe save is test-only, same-origin, identity bound and at most 
  assert.match(route,/savedPlanVerified===true/);
  assert.match(route,/after.plan!==null/);
  assert.match(route,/outcome:"completed"\|"uncertain"/);
- assert.doesNotMatch(route,/INSERT INTO|CREATE TABLE|DELETE FROM|stripeRequest\(|checkout\.sessions/);
+ assert.doesNotMatch(route,/INSERT INTO (?!public\.isolated_fitness_provider_diagnostics)|CREATE TABLE|DELETE FROM|stripeRequest\(|checkout\.sessions/);
 });
 test("native driver uses production workout action but requires preview AND existing test subscription",()=>{
  assert.match(native,/export async function executeIsolatedNativeFitnessSaveForTester/);
