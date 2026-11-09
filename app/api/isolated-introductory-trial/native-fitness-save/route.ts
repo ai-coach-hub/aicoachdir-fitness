@@ -75,6 +75,27 @@ export async function POST(request:Request){
   providerStatus=native.status;
   const result:unknown=await native.json();
   const record=result&&typeof result==="object"&&!Array.isArray(result)?result as Record<string,unknown>:{};
+  // Persist only whitelisted diagnostic metadata to the isolated TEST branch.
+  // This never saves provider bodies, model output, token values or member PII.
+  const diagnostic=record.providerDiagnostic;
+  if(diagnostic&&typeof diagnostic==="object"&&!Array.isArray(diagnostic)){
+   const info=diagnostic as Record<string,unknown>;
+   const allowed=new Set(["not_received","deployment_not_found","authorization_rejected",
+    "completion_route_not_found","usage_limited","unspecified_not_found","unclassified_http_failure"]);
+   const classification=typeof info.classification==="string"&&allowed.has(info.classification)
+    ? info.classification:"unclassified_http_failure";
+   const httpStatus=typeof info.httpStatus==="number"&&Number.isInteger(info.httpStatus)&&
+    info.httpStatus>=100&&info.httpStatus<=599?info.httpStatus:null;
+   try{
+    await sql`INSERT INTO public.isolated_fitness_provider_diagnostics
+      (request_key,http_status,classification)
+      VALUES (${REQUEST_KEY},${httpStatus},${classification})
+      ON CONFLICT (request_key) DO NOTHING`;
+   }catch{
+    // Diagnostic failure must never trigger another provider call or wallet charge.
+    console.warn("[isolated-fitness-save] diagnostic-store-unavailable");
+   }
+  }
   savedPlanVerified=native.ok&&record.ok===true&&record.savedPlanVerified===true;
   if(savedPlanVerified){
    // The native Fitness driver already checked the actual Pickaxe write/readback.
