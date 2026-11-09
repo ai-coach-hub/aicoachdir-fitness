@@ -33,3 +33,10 @@ test("exhausted trial clearly redirects to paid membership while preserving prio
  assert.match(chat,/saved conversations, workouts and budgets remain available/);
  assert.match(chat,/,429\)/);
 });
+
+test("provider 404 is uncertain, never silently refunded or retried",()=>{
+ assert.match(chat,/if\(model\.status===404\)throw Error\("Provider completion not independently verified"\)/);
+ assert.doesNotMatch(chat,/if\(model\.status===404\)\{outcome="released"/);
+ assert.match(chat,/catch\{[\s\S]*?outcome="uncertain";/);
+ assert.match(chat,/settlePublicTrialTurn\(account,coach,key,outcome\)/);
+});
