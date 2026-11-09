@@ -2723,6 +2723,10 @@ async function postFitnessWithoutPreviewMeter(
   if (mustConfirmSavedPlanMutation) {
     const mutationCompletionAbort = new AbortController();
     let mutationDriverStatus = "pending";
+    // Only allowlisted diagnostic classifications are exposed to the isolated tester.
+    // No upstream text, prompts, credentials or member identifiers are recorded.
+    let mutationProviderDiagnostic = "not_received";
+    let mutationProviderHttpStatus: number | null = null;
 
     // Drive the coach through the completion endpoint that has historically
     // executed the workout Actions reliably, while independently watching the
@@ -2752,9 +2756,24 @@ async function postFitnessWithoutPreviewMeter(
         });
 
         mutationDriverStatus = `http-${driverResponse.status}`;
+        mutationProviderHttpStatus = driverResponse.status;
         // Drain the response so the request completes cleanly. The member-facing
         // result still comes only from a validated Action FINAL_DELIVERY.
         const raw = await driverResponse.text().catch(() => "");
+        if (!driverResponse.ok) {
+          const errorText = raw.slice(0, 2048).toLowerCase();
+          mutationProviderDiagnostic = /deployment.{0,48}(not found|missing|invalid)|(?:not found|missing|invalid).{0,48}deployment/.test(errorText)
+            ? "deployment_not_found"
+            : /(?:unauthorized|forbidden|invalid.{0,24}(?:token|key)|(?:token|key).{0,24}invalid)/.test(errorText)
+            ? "authorization_rejected"
+            : /(?:route|endpoint|path).{0,48}(?:not found|missing|invalid)|(?:not found|missing).{0,48}(?:route|endpoint|path)/.test(errorText)
+            ? "completion_route_not_found"
+            : /(?:rate.limit|quota|limit.exceeded)/.test(errorText)
+            ? "usage_limited"
+            : /not found/.test(errorText)
+            ? "unspecified_not_found"
+            : "unclassified_http_failure";
+        }
         let completionText = "";
         try { completionText = extractResult(JSON.parse(raw)); } catch {}
         return { ok: driverResponse.ok, text: completionText };
@@ -2819,6 +2838,10 @@ async function postFitnessWithoutPreviewMeter(
           conversationId,
           relaySource: "action-session-timeout",
           actionRunCount: relay.runCount,
+          ...(verifiedTrial ? { providerDiagnostic: {
+            httpStatus: mutationProviderHttpStatus,
+            classification: mutationProviderDiagnostic,
+          } } : {}),
         },
         { status: 504 },
       );
