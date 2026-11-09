@@ -14,7 +14,7 @@ test("released trial messages verify signed-in member and reserve before calling
  assert.match(chat,/storePublicTrialTurn\(account,coach,key,message\.trim\(\),answer\)/);
  assert.match(chat,/settlePublicTrialTurn\(account,coach,key,outcome\)/);
  assert.match(chat,/outcome="uncertain"/);
- assert.match(chat,/outcome="released"/);
+ assert.match(chat,/if\(model\.status===404\)throw Error/);
  assert.doesNotMatch(chat,/saveFitnessMembership\(|grantFitnessAccess\(|stripeRequest\(/);
 });
 test("history remains available after trial release switches are disabled, but only to same Clerk user",()=>{
