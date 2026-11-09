@@ -159,6 +159,5 @@ export async function POST(request:Request){
   if(state!==outcome)throw Error("Ledger settlement discrepancy");
  }catch{return send({ok:false,error:"Message needs reconciliation. Please do not resend."},503);}
  if(outcome==="completed")return send({ok:true,coach,response:answer});
- if(outcome==="released")return send({ok:false,error:"This coach is unavailable. No message was used."},503);
  return send({ok:false,error:"Message needs reconciliation. Please do not resend."},503);
 }
