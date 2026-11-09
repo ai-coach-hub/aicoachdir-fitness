@@ -62,7 +62,7 @@ function normalizedEmail(value: unknown) {
   return String(value || "").trim().toLowerCase();
 }
 
-async function findPickaxeUserInList(email: string) {
+async function findPickaxeUserInList(email: string, requireExhaustiveList = false) {
   const target = normalizedEmail(email);
 
   for (let skip = 0; skip < 1000; skip += 100) {
@@ -74,6 +74,8 @@ async function findPickaxeUserInList(email: string) {
     }
 
     const unwrapped = unwrapData(payload);
+    const validPage = Array.isArray(unwrapped) || Boolean(unwrapped && typeof unwrapped === "object" && Array.isArray((unwrapped as Record<string, unknown>).items));
+    if (requireExhaustiveList && !validPage) throw new Error("Pickaxe legacy-member listing incomplete");
     const users = Array.isArray(unwrapped)
       ? unwrapped
       : unwrapped &&
@@ -90,6 +92,7 @@ async function findPickaxeUserInList(email: string) {
 
     if (match) return match;
     if (users.length < 100) break;
+    if (requireExhaustiveList && skip === 900) throw new Error("Pickaxe legacy-member listing truncated");
   }
 
   return null;
@@ -97,6 +100,7 @@ async function findPickaxeUserInList(email: string) {
 
 type PickaxeUserLookupOptions = {
   fallbackToList?: boolean;
+  requireExhaustiveList?: boolean;
 };
 
 export async function getPickaxeUser(
@@ -109,7 +113,7 @@ export async function getPickaxeUser(
 
   if (response.status === 404) {
     if (options.fallbackToList === false) return null;
-    return findPickaxeUserInList(email);
+    return findPickaxeUserInList(email, options.requireExhaustiveList === true);
   }
 
   if (!response.ok) {
@@ -130,7 +134,7 @@ export async function getPickaxeUser(
 
     if (returnedEmail && returnedEmail !== requestedEmail) {
       if (options.fallbackToList === false) return null;
-      return findPickaxeUserInList(email);
+      return findPickaxeUserInList(email, options.requireExhaustiveList === true);
     }
   }
 
@@ -166,11 +170,14 @@ function derivedProductIds(payload: unknown) {
   return Array.from(found);
 }
 
-async function fitnessLegacyProductIds() {
+async function fitnessLegacyProductIds(requireCompleteLookup = false) {
   const { response, payload } = await pickaxeRequest(
     `/studio/access-group/${encodeURIComponent(FITNESS_ACCESS_GROUP_ID)}`,
   );
-  if (!response.ok) return [];
+  if (!response.ok) {
+    if (requireCompleteLookup) throw new Error("Pickaxe legacy access-group lookup unavailable");
+    return [];
+  }
   return derivedProductIds(payload);
 }
 
@@ -188,7 +195,7 @@ export async function pickaxeUserHasFitnessAccess(
   // Pickaxe's older member records may still reference the legacy product IDs
   // that were migrated into the current access group. The current API exposes
   // those IDs through derivedFromProductIds on the access group.
-  const legacyProductIds = await fitnessLegacyProductIds();
+  const legacyProductIds = await fitnessLegacyProductIds(options.requireExhaustiveList === true);
   const legacyMatch = legacyProductIds.some((productId) =>
     objectContainsValue(user, productId),
   );
