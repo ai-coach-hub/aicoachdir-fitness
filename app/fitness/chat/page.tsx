@@ -802,6 +802,26 @@ export default function FitnessChatPage() {
         ? "Flexible plan"
         : "Saved plan";
   const todayKey = dateKeyForPlan(plan);
+  // Week-specific progress counts scheduled sessions, not all historical completions.
+  // Deduplicate a scheduled workout by its identity and date; never count rest days.
+  const scheduledSessions = useMemo(() => {
+    const seen = new Set<string>();
+    return rows.flatMap((row) => {
+      const id = String(row.workoutId || "");
+      const date = String(row.date || "");
+      if (row.isRestDay === true || !id || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return [];
+      const key = completionKey(id, date);
+      if (seen.has(key)) return [];
+      seen.add(key);
+      return [{ id, date, row }];
+    });
+  }, [rows]);
+  const weekCompletedCount = scheduledSessions.filter(({id,date}) =>
+    completedScheduleKeys.has(completionKey(id,date))).length;
+  const nextScheduledSession = scheduledSessions
+    .filter(({id,date}) => (!todayKey || date >= todayKey) &&
+      !completedScheduleKeys.has(completionKey(id,date)))
+    .sort((a,b) => a.date.localeCompare(b.date))[0] || null;
 
   useEffect(() => {
     if (activeWorkoutTracker) {
@@ -1032,10 +1052,22 @@ export default function FitnessChatPage() {
               <div className="workout-summary-strip">
                 <div><span>Plan style</span><strong>{scheduleMode}</strong></div>
                 <div><span>Workouts</span><strong>{workoutList.length}</strong></div>
-                <div><span>Recent completions</span><div className="workout-history-summary"><strong>{completedCount}</strong><a href="#workout-history" className="text-button">View workout history</a></div></div>
+                <div><span>{scheduledSessions.length ? "This week's progress" : "Workout history"}</span><div className="workout-history-summary"><strong>{scheduledSessions.length ? `${weekCompletedCount} of ${scheduledSessions.length} complete` : `${completedCount} completed`}</strong><a href="#workout-history" className="text-button">View history</a></div></div>
               </div>
 
               {completionNotice ? <p role="status">{completionNotice}</p> : null}
+              {nextScheduledSession && asRecord(currentWorkouts[nextScheduledSession.id]) ? (
+                <div className="member-next-session" role="region" aria-label="Next scheduled workout">
+                  <div>
+                    <span className="eyebrow compact-eyebrow">UP NEXT</span>
+                    <p><strong>{workoutTitle(asRecord(currentWorkouts[nextScheduledSession.id]), nextScheduledSession.id)}</strong> · {formatDate(nextScheduledSession.date)}</p>
+                  </div>
+                  <button type="button" className="primary-button"
+                    onClick={() => openWorkoutTracker("current",nextScheduledSession.row,asRecord(currentWorkouts[nextScheduledSession.id])!)}>
+                    Open workout
+                  </button>
+                </div>
+              ) : null}
 
               {rows.length ? (
                 <section aria-labelledby="current-saved-week">
