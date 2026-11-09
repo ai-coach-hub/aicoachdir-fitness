@@ -27,3 +27,14 @@ test("native driver uses production workout action but requires preview AND exis
  assert.match(native,/verifiedIsolatedPaidContinuation\(\)/);
  assert.match(native,/return postFitnessWithoutPreviewMeter\(request,\{clerkId,email\}\)/);
 });
+
+test("provider failure diagnostics remain TEST-only, redacted and durable without retries",()=>{
+ assert.match(native,/mutationProviderDiagnostic = "not_received"/);
+ assert.match(native,/if \(!driverResponse\.ok\)/);
+ assert.match(native,/raw\.slice\(0, 2048\)\.toLowerCase\(\)/);
+ assert.match(native,/\.\.\.\(verifiedTrial \? \{ providerDiagnostic:/);
+ assert.match(route,/isolated_fitness_provider_diagnostics/);
+ assert.match(route,/ON CONFLICT \(request_key\) DO NOTHING/);
+ assert.match(route,/diagnostic-store-unavailable/);
+ assert.doesNotMatch(route,/console\.(?:log|warn|error)\([^\n]*(?:raw|token|providerDiagnostic)/);
+});
