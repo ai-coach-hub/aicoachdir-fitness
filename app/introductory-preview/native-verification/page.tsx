@@ -16,6 +16,8 @@ export default function NativeReadbackPage(){
   const [fitnessAttempted,setFitnessAttempted]=useState(false);
   const [priorFitnessAttempt,setPriorFitnessAttempt]=useState<string|null>(null);
   const [fitnessRecordChecked,setFitnessRecordChecked]=useState(false);
+  const [registeringPickaxe,setRegisteringPickaxe]=useState(false);
+  const [pickaxeRegistrationStatus,setPickaxeRegistrationStatus]=useState("");
   const [savingGoal,setSavingGoal]=useState(false);
   const [goalStatus,setGoalStatus]=useState("");
   async function saveAndVerifyFitness(){
@@ -36,6 +38,19 @@ export default function NativeReadbackPage(){
    }catch{
     setFitnessStatus("The test result could not be confirmed. Do not retry; check the one-time attempt before another AI call.");
    }finally{setSavingFitness(false);}
+  }
+  async function registerPickaxeTestIdentity(){
+   if(registeringPickaxe)return;
+   setRegisteringPickaxe(true);setPickaxeRegistrationStatus("");
+   try{
+    const response=await fetch("/api/isolated-introductory-trial/fitness-pickaxe-register",{
+     method:"POST",headers:{"Content-Type":"application/json"},cache:"no-store"
+    });
+    const result=await response.json();
+    if(!response.ok||result.registered!==true)throw Error(String(result.error||"Pickaxe registration could not be verified"));
+    setPickaxeRegistrationStatus("PASS: dedicated test identity verified in Pickaxe Studio. The previous uncertain workout save stays locked. No AI message was used.");
+   }catch(e){setPickaxeRegistrationStatus(e instanceof Error?e.message:"Pickaxe registration unavailable");}
+   finally{setRegisteringPickaxe(false);}
   }
   async function verifyNativeLifeGoal(){
    if(savingGoal)return;
@@ -111,6 +126,11 @@ export default function NativeReadbackPage(){
      <h2 style={{marginTop:0}}>Fitness: check saved workout storage</h2>
      <p>This private read-only check looks for your own workout in Pickaxe memory and the isolated database. It does not generate or save a workout, use AI credits or establish save-action parity.</p>
      <a style={secondaryStyle} href="/api/isolated-introductory-trial/native-fitness">Check Fitness workout readback</a>
+     <p>Pickaxe confirmed the prior 404 was caused by the test account not being registered in Studio. You can register this dedicated test account without granting a paid Pickaxe access group or consuming an AI message. This does not unlock or repeat the failed workout save.</p>
+     <button type="button" style={{...secondaryStyle,opacity:registeringPickaxe?0.6:1}} disabled={registeringPickaxe} onClick={registerPickaxeTestIdentity}>
+      {registeringPickaxe?"Registering test identity…":"Register test identity in Pickaxe"}
+     </button>
+     {pickaxeRegistrationStatus&&<p role="status" style={{color:"#4a2033",fontWeight:650}}>{pickaxeRegistrationStatus}</p>}
      <p>A one-time test may use one TEST membership message. Existing attempts are locked against repeats; no new test should be started after an uncertain provider response.</p>
      <button type="button" style={{...actionStyle,opacity:savingFitness||fitnessAttempted?0.6:1}}
       disabled={savingFitness||fitnessAttempted||!!priorFitnessAttempt||!fitnessRecordChecked||data.native.fitnessPlan} onClick={saveAndVerifyFitness}>
