@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   const email = primary?.emailAddress.trim().toLowerCase() || "";
   if (!user || !primary || primary.verification?.status !== "verified" ||
       user.id !== String(process.env.INTRODUCTORY_TRIAL_DEDICATED_TEST_CLERK_ID || "") ||
-      !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return respond({ ok: false, error: "Dedicated verified test identity required" }, 403);
 
   const paid = await verifiedIsolatedPaidContinuation();
