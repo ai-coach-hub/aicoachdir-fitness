@@ -16,6 +16,11 @@ export default function NativeReadbackPage(){
   const [fitnessAttempted,setFitnessAttempted]=useState(false);
   const [priorFitnessAttempt,setPriorFitnessAttempt]=useState<string|null>(null);
   const [fitnessRecordChecked,setFitnessRecordChecked]=useState(false);
+  const [postRegistrationReady,setPostRegistrationReady]=useState(false);
+  const [postRegistrationChecked,setPostRegistrationChecked]=useState(false);
+  const [postRegistrationAttempted,setPostRegistrationAttempted]=useState(false);
+  const [postRegistrationSaving,setPostRegistrationSaving]=useState(false);
+  const [postRegistrationStatus,setPostRegistrationStatus]=useState("");
   const [registeringPickaxe,setRegisteringPickaxe]=useState(false);
   const [pickaxeRegistrationStatus,setPickaxeRegistrationStatus]=useState("");
   const [savingGoal,setSavingGoal]=useState(false);
@@ -38,6 +43,24 @@ export default function NativeReadbackPage(){
    }catch{
     setFitnessStatus("The test result could not be confirmed. Do not retry; check the one-time attempt before another AI call.");
    }finally{setSavingFitness(false);}
+  }
+  async function runPostRegistrationSave(){
+   if(!postRegistrationReady||postRegistrationAttempted||postRegistrationSaving)return;
+   setPostRegistrationAttempted(true);setPostRegistrationSaving(true);setPostRegistrationReady(false);
+   setPostRegistrationStatus("Running one verified Fitness save/readback. Do not refresh or retry this request.");
+   try{
+    const res=await fetch("/api/isolated-introductory-trial/native-fitness-post-registration",{
+      method:"POST",headers:{"Content-Type":"application/json"},cache:"no-store"
+    });
+    const result=await res.json();
+    if(res.ok&&result.savedPlanVerified===true&&result.verified===true)
+      setPostRegistrationStatus("PASS: actual native Fitness workout was saved and independently reopened in the dedicated test account. The old uncertain request is preserved. Trial verification succeeded.");
+    else setPostRegistrationStatus("Not verified. "+String(result.error||"Provider result unresolved.")+" Do not click again.");
+    const updated=await fetch("/api/isolated-introductory-trial/native-readback",{cache:"no-store"});
+    if(updated.ok){const next=await updated.json();if(next.ok===true)setData(next);}
+   }catch{
+    setPostRegistrationStatus("Result unavailable. The attempt may have run; do not click again.");
+   }finally{setPostRegistrationSaving(false);}
   }
   async function registerPickaxeTestIdentity(){
    if(registeringPickaxe)return;
@@ -69,6 +92,29 @@ export default function NativeReadbackPage(){
    finally{setSavingGoal(false);}
   }
 
+ useEffect(()=>{
+  if(!isLoaded||!isSignedIn)return;
+  let active=true;
+  fetch("/api/isolated-introductory-trial/native-fitness-post-registration",{cache:"no-store"})
+   .then(async response=>{const result=await response.json();if(!response.ok||result.ok!==true)throw Error(String(result.error||"Registration preflight unavailable"));return result;})
+   .then(result=>{
+    if(!active)return;
+    setPostRegistrationChecked(true);
+    setPostRegistrationReady(result.ready===true);
+    if(result.newAttemptStatus){
+      setPostRegistrationAttempted(true);
+      setPostRegistrationStatus(result.newAttemptStatus==="completed"
+       ?"Previous post-registration attempt completed. Check saved Fitness plan before marking PASS."
+       :"Post-registration attempt is "+String(result.newAttemptStatus)+". Do not retry.");
+    }else if(result.savedPlanFound){
+      setPostRegistrationStatus("A saved plan already exists. No new test will be started.");
+    }else if(!result.ready){
+      setPostRegistrationStatus("Post-registration save is not safe to start. No AI message was used.");
+    }
+   })
+   .catch(e=>{if(active){setPostRegistrationChecked(true);setPostRegistrationReady(false);setPostRegistrationStatus(e instanceof Error?e.message:"Preflight failed");}});
+  return()=>{active=false;};
+ },[isLoaded,isSignedIn]);
  useEffect(()=>{
   if(!isLoaded||!isSignedIn)return;
   let active=true;
@@ -137,6 +183,16 @@ export default function NativeReadbackPage(){
       {savingFitness?"Saving and verifying…":priorFitnessAttempt?"Fitness test already attempted":!fitnessRecordChecked?"Checking prior attempt…":"Save and verify one Fitness workout"}
      </button>
      {fitnessStatus&&<p role="status" style={{color:"#4a2033",fontWeight:650}}>{fitnessStatus}</p>}
+     <div style={{borderTop:"1px solid #d8d3de",paddingTop:16,marginTop:16}}>
+      <h3>Final post-registration Fitness save verification</h3>
+      <p>The original 404 request stays locked and its test-message reservation is preserved. This is a separate, one-time request after Pickaxe registration, using at most one additional TEST membership message. It saves a 15-minute workout and checks native readback. No new checkout or production changes.</p>
+      <button type="button" style={{...actionStyle,opacity:!postRegistrationReady||postRegistrationAttempted||postRegistrationSaving?0.6:1}}
+       disabled={!postRegistrationChecked||!postRegistrationReady||postRegistrationAttempted||postRegistrationSaving}
+       onClick={runPostRegistrationSave}>
+       {postRegistrationSaving?"Running save and readback…":postRegistrationAttempted?"Post-registration test already attempted":!postRegistrationChecked?"Checking Pickaxe registration and wallet…":"Run final Fitness save/readback test"}
+      </button>
+      {postRegistrationStatus&&<p role="status" style={{color:"#4a2033",fontWeight:650}}>{postRegistrationStatus}</p>}
+     </div>
     </section>
     <section style={sectionStyle} aria-label="Life Coach native goal verification">
      <h2 style={{marginTop:0}}>2. Test Life Coach goal saving</h2>
