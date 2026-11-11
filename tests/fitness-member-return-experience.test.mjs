@@ -31,3 +31,14 @@ test("member dashboard offers direct Fitness resume links without new access or 
  assert.match(dashboardStyle,/\.continueActions/);
  assert.match(fitnessStyle,/\.member-next-session/);
 });
+
+test("Fitness scheduled-date guard accepts ISO day keys and rejects invalid dates",()=>{
+ const guard = fitness.match(/!\s*(\/\^[^\n]+?\$\/)\.test\(date\)/);
+ assert.ok(guard, "expected scheduled-date validation in the Fitness page");
+ const datePattern = new RegExp(guard[1].slice(1,-1));
+ assert.equal(datePattern.test("2026-11-10"),true);
+ assert.equal(datePattern.test("2026-01-05"),true);
+ assert.equal(datePattern.test("2026/11/10"),false);
+ assert.equal(datePattern.test("2026-1-10"),false);
+ assert.equal(datePattern.test("not-a-date"),false);
+});

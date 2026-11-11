@@ -809,7 +809,7 @@ export default function FitnessChatPage() {
     return rows.flatMap((row) => {
       const id = String(row.workoutId || "");
       const date = String(row.date || "");
-      if (row.isRestDay === true || !id || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return [];
+      if (row.isRestDay === true || !id || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
       const key = completionKey(id, date);
       if (seen.has(key)) return [];
       seen.add(key);
