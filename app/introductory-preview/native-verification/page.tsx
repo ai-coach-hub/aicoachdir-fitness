@@ -172,6 +172,8 @@ export default function NativeReadbackPage(){
      <h2 style={{marginTop:0}}>Fitness: check saved workout storage</h2>
      <p>This private read-only check looks for your own workout in Pickaxe memory and the isolated database. It does not generate or save a workout, use AI credits or establish save-action parity.</p>
      <a style={secondaryStyle} href="/api/isolated-introductory-trial/native-fitness">Check Fitness workout readback</a>
+     <p>To investigate the later HTTP 500 without another AI message, use the read-only Fitness access diagnostic. It checks the test user, required access group and deployed API identity without modifying any access settings.</p>
+     <a style={secondaryStyle} href="/api/isolated-introductory-trial/fitness-access-diagnostic">Check Pickaxe Fitness access (read-only)</a>
      <p>Pickaxe confirmed the prior 404 was caused by the test account not being registered in Studio. You can register this dedicated test account without granting a paid Pickaxe access group or consuming an AI message. This does not unlock or repeat the failed workout save.</p>
      <button type="button" style={{...secondaryStyle,opacity:registeringPickaxe?0.6:1}} disabled={registeringPickaxe} onClick={registerPickaxeTestIdentity}>
       {registeringPickaxe?"Registering test identity…":"Register test identity in Pickaxe"}
