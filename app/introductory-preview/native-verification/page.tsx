@@ -16,11 +16,11 @@ export default function NativeReadbackPage(){
   const [fitnessAttempted,setFitnessAttempted]=useState(false);
   const [priorFitnessAttempt,setPriorFitnessAttempt]=useState<string|null>(null);
   const [fitnessRecordChecked,setFitnessRecordChecked]=useState(false);
-  const [postRegistrationReady,setPostRegistrationReady]=useState(false);
-  const [postRegistrationChecked,setPostRegistrationChecked]=useState(false);
-  const [postRegistrationAttempted,setPostRegistrationAttempted]=useState(false);
-  const [postRegistrationSaving,setPostRegistrationSaving]=useState(false);
-  const [postRegistrationStatus,setPostRegistrationStatus]=useState("");
+  const [postAccessReady,setPostAccessReady]=useState(false);
+  const [postAccessChecked,setPostAccessChecked]=useState(false);
+  const [postAccessAttempted,setPostAccessAttempted]=useState(false);
+  const [postAccessSaving,setPostAccessSaving]=useState(false);
+  const [postAccessStatus,setPostAccessStatus]=useState("");
   const [registeringPickaxe,setRegisteringPickaxe]=useState(false);
   const [pickaxeRegistrationStatus,setPickaxeRegistrationStatus]=useState("");
   const [savingGoal,setSavingGoal]=useState(false);
@@ -44,23 +44,23 @@ export default function NativeReadbackPage(){
     setFitnessStatus("The test result could not be confirmed. Do not retry; check the one-time attempt before another AI call.");
    }finally{setSavingFitness(false);}
   }
-  async function runPostRegistrationSave(){
-   if(!postRegistrationReady||postRegistrationAttempted||postRegistrationSaving)return;
-   setPostRegistrationAttempted(true);setPostRegistrationSaving(true);setPostRegistrationReady(false);
-   setPostRegistrationStatus("Running one verified Fitness save/readback. Do not refresh or retry this request.");
+  async function runPostAccessSave(){
+   if(!postAccessReady||postAccessAttempted||postAccessSaving)return;
+   setPostAccessAttempted(true);setPostAccessSaving(true);setPostAccessReady(false);
+   setPostAccessStatus("Running one verified Fitness save/readback. Do not refresh or retry this request.");
    try{
-    const res=await fetch("/api/isolated-introductory-trial/native-fitness-post-registration",{
+    const res=await fetch("/api/isolated-introductory-trial/native-fitness-post-access-group",{
       method:"POST",headers:{"Content-Type":"application/json"},cache:"no-store"
     });
     const result=await res.json();
     if(res.ok&&result.savedPlanVerified===true&&result.verified===true)
-      setPostRegistrationStatus("PASS: actual native Fitness workout was saved and independently reopened in the dedicated test account. The old uncertain request is preserved. Trial verification succeeded.");
-    else setPostRegistrationStatus("Not verified. "+String(result.error||"Provider result unresolved.")+" Do not click again.");
+      setPostAccessStatus("PASS: native Fitness workout saved and independently reopened for the dedicated test account. Both previous uncertain attempts remain preserved. Fitness save verification completed.");
+    else setPostAccessStatus("Not verified. "+String(result.error||"Provider result unresolved.")+" Do not click again.");
     const updated=await fetch("/api/isolated-introductory-trial/native-readback",{cache:"no-store"});
     if(updated.ok){const next=await updated.json();if(next.ok===true)setData(next);}
    }catch{
-    setPostRegistrationStatus("Result unavailable. The attempt may have run; do not click again.");
-   }finally{setPostRegistrationSaving(false);}
+    setPostAccessStatus("Result unavailable. The attempt may have run; do not click again.");
+   }finally{setPostAccessSaving(false);}
   }
   async function registerPickaxeTestIdentity(){
    if(registeringPickaxe)return;
@@ -95,24 +95,24 @@ export default function NativeReadbackPage(){
  useEffect(()=>{
   if(!isLoaded||!isSignedIn)return;
   let active=true;
-  fetch("/api/isolated-introductory-trial/native-fitness-post-registration",{cache:"no-store"})
+  fetch("/api/isolated-introductory-trial/native-fitness-post-access-group",{cache:"no-store"})
    .then(async response=>{const result=await response.json();if(!response.ok||result.ok!==true)throw Error(String(result.error||"Registration preflight unavailable"));return result;})
    .then(result=>{
     if(!active)return;
-    setPostRegistrationChecked(true);
-    setPostRegistrationReady(result.ready===true);
+    setPostAccessChecked(true);
+    setPostAccessReady(result.ready===true);
     if(result.newAttemptStatus){
-      setPostRegistrationAttempted(true);
-      setPostRegistrationStatus(result.newAttemptStatus==="completed"
-       ?"Previous post-registration attempt completed. Check saved Fitness plan before marking PASS."
-       :"Post-registration attempt is "+String(result.newAttemptStatus)+". Do not retry.");
+      setPostAccessAttempted(true);
+      setPostAccessStatus(result.newAttemptStatus==="completed"
+       ?"Post-fix attempt completed. Check saved Fitness plan before marking PASS."
+       :"Post-fix attempt is "+String(result.newAttemptStatus)+". Do not retry.");
     }else if(result.savedPlanFound){
-      setPostRegistrationStatus("A saved plan already exists. No new test will be started.");
+      setPostAccessStatus("A saved plan already exists. No new test will be started.");
     }else if(!result.ready){
-      setPostRegistrationStatus("Post-registration save is not safe to start. No AI message was used.");
+      setPostAccessStatus("Post-access-group save is not safe to start. No AI message was used.");
     }
    })
-   .catch(e=>{if(active){setPostRegistrationChecked(true);setPostRegistrationReady(false);setPostRegistrationStatus(e instanceof Error?e.message:"Preflight failed");}});
+   .catch(e=>{if(active){setPostAccessChecked(true);setPostAccessReady(false);setPostAccessStatus(e instanceof Error?e.message:"Preflight failed");}});
   return()=>{active=false;};
  },[isLoaded,isSignedIn]);
  useEffect(()=>{
@@ -186,14 +186,14 @@ export default function NativeReadbackPage(){
      </button>
      {fitnessStatus&&<p role="status" style={{color:"#4a2033",fontWeight:650}}>{fitnessStatus}</p>}
      <div style={{borderTop:"1px solid #d8d3de",paddingTop:16,marginTop:16}}>
-      <h3>Final post-registration Fitness save verification</h3>
-      <p>The original 404 request stays locked and its test-message reservation is preserved. This is a separate, one-time request after Pickaxe registration, using at most one additional TEST membership message. It saves a 15-minute workout and checks native readback. No new checkout or production changes.</p>
-      <button type="button" style={{...actionStyle,opacity:!postRegistrationReady||postRegistrationAttempted||postRegistrationSaving?0.6:1}}
-       disabled={!postRegistrationChecked||!postRegistrationReady||postRegistrationAttempted||postRegistrationSaving}
-       onClick={runPostRegistrationSave}>
-       {postRegistrationSaving?"Running save and readback…":postRegistrationAttempted?"Post-registration test already attempted":!postRegistrationChecked?"Checking Pickaxe registration and wallet…":"Run final Fitness save/readback test"}
+      <h3>Final Fitness verification after access fix</h3>
+      <p>Both earlier attempts (404 and 500) remain locked with their reservation records preserved. Pickaxe confirmed the HTTP 500 used no Pickaxe credits. The dedicated test user now has the correct Fitness access group. This is one new, distinct request using at most one TEST membership message to save and reopen a 15-minute workout. No new checkout or production changes.</p>
+      <button type="button" style={{...actionStyle,opacity:!postAccessReady||postAccessAttempted||postAccessSaving?0.6:1}}
+       disabled={!postAccessChecked||!postAccessReady||postAccessAttempted||postAccessSaving}
+       onClick={runPostAccessSave}>
+       {postAccessSaving?"Running save and readback…":postAccessAttempted?"Post-access-group test already attempted":!postAccessChecked?"Checking Pickaxe registration and wallet…":"Run one post-fix Fitness save/readback"}
       </button>
-      {postRegistrationStatus&&<p role="status" style={{color:"#4a2033",fontWeight:650}}>{postRegistrationStatus}</p>}
+      {postAccessStatus&&<p role="status" style={{color:"#4a2033",fontWeight:650}}>{postAccessStatus}</p>}
      </div>
     </section>
     <section style={sectionStyle} aria-label="Life Coach native goal verification">
