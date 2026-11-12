@@ -1,5 +1,5 @@
 /**
- * One-time POST-REGISTRATION TEST-only native Pickaxe Fitness workout SAVE/readback.
+ * One-time POST-ACCESS-GROUP TEST-only native Pickaxe Fitness workout SAVE/readback.
  * Requires the pre-existing converted dedicated tester, signed-in Clerk,
  * exact isolated Neon branch and verified Stripe TEST subscription.
  * A new fixed request ID is separate from the original 404 attempt, which stays uncertain. No duplicate provider calls.
@@ -15,9 +15,18 @@ import {readLegacyMemberPlan} from "@/lib/legacyWorkoutRead";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export const maxDuration=120;
-const REQUEST_KEY="native-fitness-post-registration-qa-20261110";
+const REQUEST_KEY="native-fitness-post-access-qa-20261112";
+const TEST_EMAIL="kyleunruh+trial251@gmail.com";
 const MESSAGE="Create and save one simple 15-minute bodyweight workout plan for today in My Workouts. I have no equipment. Include a realistic warm-up, easy exercises and rest periods. Please use the normal workout validation and save action; do not say it is saved unless the actual plan has been stored and reopened.";
 const send=(data:unknown,status=200)=>Response.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
+import {FITNESS_ACCESS_GROUP_ID} from "@/lib/pickaxeAccess";
+function hasRequiredGroup(value:unknown,depth=0):boolean {
+ if(depth>8)return false;
+ if(value===FITNESS_ACCESS_GROUP_ID)return true;
+ if(Array.isArray(value))return value.some(v=>hasRequiredGroup(v,depth+1));
+ if(!value||typeof value!=="object")return false;
+ return Object.values(value as Record<string,unknown>).some(v=>hasRequiredGroup(v,depth+1));
+}
 export async function POST(request:Request){
  if(!isolatedTrialPreviewEnabled())return send({ok:false,error:"Not available"},404);
  // Strictly same origin. A third-party site cannot cause a paid-test-model call.
@@ -30,7 +39,7 @@ export async function POST(request:Request){
    user.id!==String(process.env.INTRODUCTORY_TRIAL_DEDICATED_TEST_CLERK_ID||""))
   return send({ok:false,error:"Dedicated verified test account required"},403);
  const email=primary.emailAddress.trim().toLowerCase();
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+ if(email!==TEST_EMAIL||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
   return send({ok:false,error:"Test identity invalid"},403);
  const paid=await verifiedIsolatedPaidContinuation();
  if(!paid.ready||paid.clerkId!==user.id)
@@ -58,9 +67,12 @@ export async function POST(request:Request){
  try {
    const prior=await sql`SELECT status FROM public.shared_ai_usage_requests
      WHERE request_key='native-fitness-save-qa-20261107' AND coach='fitness' LIMIT 2`;
+   const second=await sql`SELECT status FROM public.shared_ai_usage_requests
+     WHERE request_key='native-fitness-post-registration-qa-20261110' AND coach='fitness' LIMIT 2`;
    const retry=await sql`SELECT status FROM public.shared_ai_usage_requests
      WHERE request_key=${REQUEST_KEY} AND coach='fitness' LIMIT 2`;
-   if(prior.length!==1||prior[0].status!=="uncertain"||retry.length!==0)
+   if(prior.length!==1||prior[0].status!=="uncertain"||
+      second.length!==1||second[0].status!=="uncertain"||retry.length!==0)
     return send({ok:false,error:"Fitness verification request state not safe; do not retry."},409);
    const response=await fetch("https://api.pickaxe.co/v1/studio/user/"+encodeURIComponent(email),{
     headers:{Authorization:`Bearer ${studioToken}`,Accept:"application/json"},
@@ -72,6 +84,8 @@ export async function POST(request:Request){
    const data=top.data&&typeof top.data==="object"&&!Array.isArray(top.data)?top.data as Record<string,unknown>:top;
    if(typeof data.email!=="string"||data.email.trim().toLowerCase()!==email)
     return send({ok:false,error:"Pickaxe identity mismatch; no AI request sent."},409);
+   if(!hasRequiredGroup(data))
+    return send({ok:false,error:"Fitness access group not yet verified; no AI request sent."},403);
  }catch{
    return send({ok:false,error:"Pickaxe and wallet preflight unavailable; no AI request sent."},503);
  }
@@ -93,7 +107,7 @@ export async function POST(request:Request){
  try{
   const nativeRequest=new Request(request.url,{
     method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({message:MESSAGE,conversationId:"fitness-chat-qa-post-registration-20261110"})
+    body:JSON.stringify({message:MESSAGE,conversationId:"fitness-chat-qa-post-access-20261112"})
   });
   const native=await executeIsolatedNativeFitnessSaveForTester(nativeRequest,user.id,email);
   providerStatus=native.status;
@@ -160,13 +174,16 @@ export async function GET(){
  user.id!==String(process.env.INTRODUCTORY_TRIAL_DEDICATED_TEST_CLERK_ID||""))
   return send({ok:false,error:"Dedicated test login required"},403);
  const email=primary.emailAddress.trim().toLowerCase();
+ if(email!==TEST_EMAIL)return send({ok:false,error:"Dedicated Fitness test email required"},403);
  const paid=await verifiedIsolatedPaidContinuation();
  if(!paid.ready||paid.clerkId!==user.id)return send({ok:false,error:"Test membership cannot be verified"},403);
  try{
   const sql=await introHistorySql();
   const rows=await sql`SELECT request_key,status FROM public.shared_ai_usage_requests
-   WHERE coach='fitness' AND request_key IN ('native-fitness-save-qa-20261107',${REQUEST_KEY}) LIMIT 3`;
+   WHERE coach='fitness' AND request_key IN
+   ('native-fitness-save-qa-20261107','native-fitness-post-registration-qa-20261110',${REQUEST_KEY}) LIMIT 4`;
   const first=rows.filter(r=>r.request_key==="native-fitness-save-qa-20261107");
+  const second=rows.filter(r=>r.request_key==="native-fitness-post-registration-qa-20261110");
   const newer=rows.filter(r=>r.request_key===REQUEST_KEY);
   const studioToken=String(process.env.PICKAXE_WORKSPACE_API_TOKEN||"").trim();
   if(!studioToken)return send({ok:false,error:"Pickaxe not configured"},503);
@@ -180,6 +197,8 @@ export async function GET(){
   const record=outer.data&&typeof outer.data==="object"&&!Array.isArray(outer.data)?outer.data as Record<string,unknown>:outer;
   if(typeof record.email!=="string"||record.email.trim().toLowerCase()!==email)
    return send({ok:false,error:"Pickaxe user mismatch"},409);
+  if(!hasRequiredGroup(record))
+   return send({ok:false,error:"Verified Fitness group assignment required; no AI request enabled"},403);
   const plan=await readLegacyMemberPlan(email,studioToken,{
    cacheReader:async owner=>{
     if(owner!==email)throw Error("Account mismatch");
@@ -187,11 +206,14 @@ export async function GET(){
     return cached[0]?.plan_json??null;
    }
   });
-  const previousUncertain=first.length===1&&first[0].status==="uncertain";
+  const previousUncertain=first.length===1&&first[0].status==="uncertain"&&
+   second.length===1&&second[0].status==="uncertain";
   const newAttempt=newer.length===1?String(newer[0].status):null;
   return send({ok:true,mode:"isolated-preview",readOnly:true,
    ready:previousUncertain&&!newAttempt&&!plan.plan,
-   registered:true,previousStatus:first.length===1?String(first[0].status):null,
+   registered:true,requiredFitnessGroupVerified:true,
+   previousStatus:first.length===1?String(first[0].status):null,
+   secondPreviousStatus:second.length===1?String(second[0].status):null,
    newAttemptStatus:newAttempt,savedPlanFound:!!plan.plan,
    previousReservationUntouched:true});
  }catch{
