@@ -49,7 +49,7 @@ export default function NativeReadbackPage(){
    setPostAccessAttempted(true);setPostAccessSaving(true);setPostAccessReady(false);
    setPostAccessStatus("Running one verified Fitness save/readback. Do not refresh or retry this request.");
    try{
-    const res=await fetch("/api/isolated-introductory-trial/native-fitness-post-access-group",{
+    const res=await fetch("/api/isolated-introductory-trial/native-fitness-post-registration",{
       method:"POST",headers:{"Content-Type":"application/json"},cache:"no-store"
     });
     const result=await res.json();
@@ -95,7 +95,7 @@ export default function NativeReadbackPage(){
  useEffect(()=>{
   if(!isLoaded||!isSignedIn)return;
   let active=true;
-  fetch("/api/isolated-introductory-trial/native-fitness-post-access-group",{cache:"no-store"})
+  fetch("/api/isolated-introductory-trial/native-fitness-post-registration",{cache:"no-store"})
    .then(async response=>{const result=await response.json();if(!response.ok||result.ok!==true)throw Error(String(result.error||"Registration preflight unavailable"));return result;})
    .then(result=>{
     if(!active)return;
