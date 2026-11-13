@@ -66,6 +66,9 @@ const upcomingCoaches = [
 export const dynamic = "force-dynamic";
 export default function HomePage() {
   const memberLoginUrl = "/fitness/login";
+  // This Fitness-only preview showcases the already-launched Life Coach without granting preview access.
+  const lifePreviewShowcase = process.env.VERCEL_ENV === "preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF === "feature/fitness-return-experience-20261108";
   const fourTierSignups = process.env.VERCEL_ENV==="production" && process.env.LIVE_NEW_TIER_SIGNUPS_ENABLED==="true";
 
   // Release Life Coach to existing members with the same subscription only
@@ -85,6 +88,7 @@ export default function HomePage() {
     openingReady &&
     process.env.LIFE_COACH_LIVE_ENABLED === "true" &&
     Boolean(process.env.PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN?.trim());
+  const lifeVisible = lifeAvailable || lifePreviewShowcase;
 
   return (
     <main className="site-shell">
@@ -94,7 +98,7 @@ export default function HomePage() {
         <p className="eyebrow">PERSONALIZED COACHING · ONE MEMBERSHIP</p>
         <h1>Make progress with a coach built for you. <span>All in one place.</span></h1>
         <p className="lede">
-          Build a workout plan, take control of your budget{lifeAvailable ? ", and work toward personal goals" : ""}. Pick the coach you need, and return to your saved work from one member dashboard.
+          Build a workout plan, take control of your budget{lifeVisible ? ", and work toward personal goals" : ""}. Pick the coach you need, and return to your saved work from one member dashboard.
         </p>
         <div className="cta-row">
           <Link href="/fitness/signup" className="primary-button">Get Started</Link>
@@ -161,7 +165,7 @@ export default function HomePage() {
             </div>
           </div>
         </article>
-        {lifeAvailable && (
+        {lifeVisible && (
           <article className="live-coach-card">
             <div className="live-coach-status-row">
               <span className="live-coach-badge">Available Now</span>
@@ -183,7 +187,7 @@ export default function HomePage() {
                 Get personalized guidance for daily routines, meaningful goals, and personal growth.
               </p>
               <div className="cta-row">
-                <Link href="/life" className="primary-button">Start Life Coach</Link>
+                {lifeAvailable ? <Link href="/life" className="primary-button">Start Life Coach</Link> : <a href="https://www.aicoachdir.com/fitness/login" className="primary-button">Open Life Coach on live site</a>}
               </div>
             </div>
           </article>
@@ -210,7 +214,7 @@ export default function HomePage() {
 
       <section className="coming-soon-section" aria-label="Upcoming AI coaches">
         <div className="coming-soon-grid">
-          {upcomingCoaches.filter((coach) => !lifeAvailable || coach.name !== "AI Coaching for Life").map((coach) => (
+          {upcomingCoaches.filter((coach) => !lifeVisible || coach.name !== "AI Coaching for Life").map((coach) => (
             <article key={coach.name} className="coming-soon-card">
               <div className="coming-soon-status-row">
                 <span className="coming-soon-badge">Coming Soon</span>
