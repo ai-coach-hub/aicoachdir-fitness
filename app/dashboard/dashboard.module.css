@@ -6,3 +6,11 @@
 @media(max-width:650px){.cardActions{flex-direction:column}.cardActions a{width:100%}}
 
 .usageBar{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px;padding:20px 26px;border:1px solid #35556d;border-radius:18px;background:#10243a;margin:0 0 30px}.usageBar strong{font-size:1.13rem;color:#d1ffad}.usageBar span{font-size:.9rem;color:#b9d1df;line-height:1.45}
+
+
+/* Fast resume links use the current dashboard palette and preserve the existing cards. */
+.continueActions{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
+.continueActions a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:11px 17px;border-radius:12px;border:1px solid #81d75b;background:#96f05d;color:#081a12;font-weight:800;text-decoration:none}
+.continueActions a+a{background:transparent;border-color:#53768a;color:#eaf4ff}
+.continueActions a:focus-visible{outline:3px solid #a2f96f;outline-offset:3px}
+@media(max-width:650px){.continueActions a{width:100%}}

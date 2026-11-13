@@ -60,6 +60,16 @@ test("Home shows Life Coach as included and available only with every production
  const preview=flatten(component("app/page.tsx",{...on,VERCEL_ENV:"preview"})());
  assert.ok(!preview.links.includes("/life"));
 });
+test("Fitness return preview showcases launched Life Coach without granting preview access",()=>{
+ const previewEnv={...on,VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feature/fitness-return-experience-20261108"};
+ const preview=flatten(component("app/page.tsx",previewEnv)());
+ assert.ok(preview.cards.some(x=>x.kind==="live-coach-card"&&x.text.includes("AI COACHING FOR LIFE")));
+ assert.ok(!preview.cards.some(x=>x.kind==="coming-soon-card"&&x.text.includes("AI Coaching for Life")));
+ assert.ok(preview.links.includes("https://www.aicoachdir.com/fitness/login"));
+ assert.ok(!preview.links.includes("/life"),"preview must not offer private Life access");
+ const otherPreview=flatten(component("app/page.tsx",{...previewEnv,VERCEL_GIT_COMMIT_REF:"feature/intro-15-messages-isolated-20261101"})());
+ assert.ok(otherPreview.cards.some(x=>x.kind==="coming-soon-card"&&x.text.includes("AI Coaching for Life")),"only Fitness review preview gets launch-state showcase");
+});
 test("production Life Coach access-denied copy is for members, not a private preview with a free test offer",async()=>{
  const production=flatten(await component("app/life/page.tsx",on)());
  const text=production.texts.join(" ");

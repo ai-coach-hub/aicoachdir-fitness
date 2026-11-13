@@ -8,7 +8,7 @@ export default async function LifePage({searchParams=Promise.resolve({})}:{searc
   const initialGoals=params.goals==="1";
   const id = await lifeTester();
   if (id) return <main className="site-shell" style={{padding:"32px 0"}}>
-    <Link href={process.env.VERCEL_ENV==="production" ? "/dashboard" : "/"} className="secondary-button" style={{display:"inline-flex",marginBottom:20}}>{process.env.VERCEL_ENV==="production" ? "Dashboard" : "AI Coach Directory"}</Link>
+    <nav aria-label="Member coach navigation" style={{display:"flex",flexWrap:"wrap",gap:12,marginBottom:20}}><Link href={process.env.VERCEL_ENV==="production" ? "/dashboard" : "/"} className="secondary-button">{process.env.VERCEL_ENV==="production" ? "Dashboard" : "AI Coach Directory"}</Link>{process.env.VERCEL_ENV==="production" ? <><Link href="/fitness/chat" className="secondary-button">Fitness Coach</Link><Link href="/budgeting/launch?destination=coach" className="secondary-button">Budgeting Coach</Link><Link href="/budgeting/launch?destination=tracker" className="secondary-button">My Budget</Link></> : null}</nav>
     <LifeChat privatePreview={process.env.VERCEL_ENV==="preview"} initialGoals={initialGoals}/>
   </main>;
   const user = await currentUser();

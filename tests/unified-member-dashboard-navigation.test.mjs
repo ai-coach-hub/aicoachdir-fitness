@@ -49,7 +49,7 @@ test("public homepage leads with one membership and clear signup versus member l
  assert.match(home,/<Link href="\/fitness\/signup" className="primary-button">Get Started<\/Link>/);
  assert.match(home,/<Link href=\{memberLoginUrl\} className="secondary-button">Member Login<\/Link>/);
  assert.match(home,/\$15\/month · One membership · 400 AI Coach messages\/month · Automatically renews until canceled/);
- assert.match(home,/lifeAvailable \? ", and work toward personal goals" : ""/);
+ assert.match(home,/lifeVisible \? ", and work toward personal goals" : ""/);
  const signup=read("app/fitness/signup/page.tsx");
  assert.match(signup,/Already a member\? Sign in\./);
  assert.match(signup,/Keep using your coaches and saved tools without signing up again/);

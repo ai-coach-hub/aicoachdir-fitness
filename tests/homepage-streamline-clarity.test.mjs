@@ -33,7 +33,7 @@ test("AI limitations appear only in the small footer and link to Terms", () => {
 
 test("Life Coach release gate and future previews remain dynamic", () => {
   assert.match(home, /export const dynamic = "force-dynamic"/);
-  assert.match(home, /lifeAvailable &&/);
+  assert.match(home, /lifeVisible &&/);
   assert.match(home, /coming-soon-grid/);
   assert.match(home, /coach\.name !== "AI Coaching for Life"/);
   assert.match(home, /Start Fitness Coach|Start Budgeting Coach/);
