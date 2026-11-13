@@ -32,6 +32,15 @@ test("member dashboard offers direct Fitness resume links without new access or 
  assert.match(fitnessStyle,/\.member-next-session/);
 });
 
+test("member quick access includes saved budget, both coaching paths, and only eligible Life access",()=>{
+ assert.match(dashboard,/aria-label="Quick access to your coaching"/);
+ assert.match(dashboard,/href="\/budgeting\/launch\?destination=tracker">My Budget/);
+ assert.match(dashboard,/href="\/budgeting\/launch\?destination=coach">Budgeting Coach/);
+ assert.match(dashboard,/lifeAvailable \? <Link href="\/life">Life Coach<\/Link> : null/);
+ assert.match(dashboard,/href="\/manage-subscription"/);
+ assert.doesNotMatch(dashboard,/href="\/life\?goals=1"/);
+ assert.doesNotMatch(dashboard,/grantFitnessAccess\(|saveFitnessMembership\(/);
+});
 test("Fitness scheduled-date guard accepts ISO day keys and rejects invalid dates",()=>{
  const guard = fitness.match(/!\s*(\/\^[^\n]+?\$\/)\.test\(date\)/);
  assert.ok(guard, "expected scheduled-date validation in the Fitness page");
