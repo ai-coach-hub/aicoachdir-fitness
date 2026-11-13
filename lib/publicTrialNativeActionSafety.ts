@@ -20,8 +20,10 @@ export function nativeTrialWriteRequested(coach:TrialCoach,raw:string):boolean{
    || /^(?:add|log|record|track|enter|subtract)\s+(?:an?\s+)?(?:\$\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s+(?:dollars?|usd))\b/.test(message)
    || /^(?:add|log|record|track|enter|delete|remove)\b.{0,75}\b(?:expenses?|transactions?|purchases?|income)\b/.test(message);
  }
- return /^(?:remember|save|store|track|record|set|update|change|delete|remove)\b.{0,80}\b(?:goals?|habits?|priorities|commitments?)\b/.test(message)
-  || /\bplease remember\b.{0,90}\b(?:goal|habit|priority)\b/.test(message);
+ return /^(?:remember|save|store|track|record|set|update|change|delete|remove)\b.{0,100}\b(?:goals?|habits?|priorities|commitments?|routines?)\b/.test(message)
+  || /\bplease remember\b.{0,100}\b(?:goal|habit|priority|routine|commitment)\b/.test(message)
+  || /^(?:add|put)\b.{0,70}\b(?:to|in|into)\s+(?:my\s+)?(?:goals?|habits?|routines?|saved\s+(?:goals?|habits?))\b/.test(message)
+  || /^(?:make a note of|keep track of|write down)\b.{0,100}\b(?:goals?|habits?|routines?|priorities|commitments?)\b/.test(message);
 }
 export function nativeTrialWriteExplanation(coach:TrialCoach):string{
  const item=coach==="fitness"?"saved workouts and workout tracking":
