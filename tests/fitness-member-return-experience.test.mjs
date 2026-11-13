@@ -6,6 +6,7 @@ const fitness = read("../app/fitness/chat/page.tsx");
 const dashboard = read("../app/dashboard/page.tsx");
 const fitnessStyle = read("../app/globals.css");
 const dashboardStyle = read("../app/dashboard/dashboard.module.css");
+const lifePage = read("../app/life/page.tsx");
 
 test("saved Fitness plan shows dated current-week completion progress without model calls",()=>{
  assert.match(fitness,/const scheduledSessions = useMemo/);
@@ -40,6 +41,17 @@ test("member quick access includes saved budget, both coaching paths, and only e
  assert.match(dashboard,/href="\/manage-subscription"/);
  assert.doesNotMatch(dashboard,/href="\/life\?goals=1"/);
  assert.doesNotMatch(dashboard,/grantFitnessAccess\(|saveFitnessMembership\(/);
+});
+test("Fitness and production Life coach pages link through existing authorized coach routes",()=>{
+ for(const url of ["/budgeting/launch?destination=coach","/budgeting/launch?destination=tracker"]){
+  assert.ok(fitness.includes(url),"Fitness cross-coach navigation missing "+url);
+  assert.ok(lifePage.includes(url),"Life cross-coach navigation missing "+url);
+ }
+ assert.match(fitness,/href="\/dashboard" className="secondary-button">Dashboard/);
+ assert.match(lifePage,/aria-label="Member coach navigation"/);
+ assert.match(lifePage,/process\.env\.VERCEL_ENV==="production" \? <>/);
+ assert.match(lifePage,/href="\/fitness\/chat"/);
+ assert.doesNotMatch(lifePage,/saveFitnessMembership\(|grantFitnessAccess\(/);
 });
 test("Fitness scheduled-date guard accepts ISO day keys and rejects invalid dates",()=>{
  const guard = fitness.match(/!\s*(\/\^[^\n]+?\$\/)\.test\(date\)/);
