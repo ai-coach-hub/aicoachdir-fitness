@@ -20,7 +20,7 @@ The separate live-site Life Coach launch is not part of the free-trial rollout. 
 - GitHub: hub PR #251 and Budgeting PR #18 both OPEN, DRAFT, unmerged.
 - Vercel: most recent hub trial preview deployment `dpl_7ZNskWY16iptLRWqPLtXCLCX2gzs` READY at hub PR #251 head `5fbf1107`; Budgeting `dpl_5aHxrqoX1iAbS6fmEryHXH3ikTc9` READY at PR #18 head `38b8ce3`. READY means a build exists, not that production readiness is certified.
 - Vercel environment variable names/scopes (no values decrypted): none of the five public release keys were listed on either project. This is a configuration inventory, not a live behavior test. Do not create/enable keys without explicit launch approval.
-- Neon: isolated branch `br-spring-cloud-aui2mogd` and primary branch `br-sparkling-glitter-aucpz59d` both listed as ready. This is **not** proof that trial migration tables exist on the primary branch. PR documentation previously reported production trial tables absent; verify schema read-only again immediately before migration approval.
+- Neon: isolated branch `br-spring-cloud-aui2mogd` and primary branch `br-sparkling-glitter-aucpz59d` both listed as ready. A **read-only** `information_schema.tables` query confirmed that production has **zero** `public.introductory_trial_%` tables, while isolated QA contains `introductory_trial_grants`, `introductory_trial_history`, and `introductory_trial_requests`. Production migration remains unapplied. Recheck the schema immediately before any separately authorized migration.
 - Stripe: connected Stripe account inventory was not accessible during this audit. No production billing/webhook configuration is certified here.
 
 ## Gates that remain blocked before a public rollout
