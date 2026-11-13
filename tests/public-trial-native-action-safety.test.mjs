@@ -24,6 +24,23 @@ test("declines Life goal persistence without implying goals were remembered",()=
  for(const text of ["Give me one simple goal for tomorrow","How do I stick to my habits?"])
   assert.equal(write("life",text),false,text);
 });
+test("unconnected Life memory variants do not silently imply saved changes or charge a message",()=>{
+ for(const text of [
+  "Please save my morning routine",
+  "Remember my daily routine",
+  "Add reading to my goals",
+  "Put stretching into my habits",
+  "Make a note of my goal to walk",
+  "Keep track of my weekly commitments",
+  "Write down my new routine"
+ ])assert.equal(write("life",text),true,text);
+ for(const text of [
+  "How can I build a morning routine?",
+  "Suggest a bedtime habit",
+  "What would make a good weekly goal?",
+  "Give me one simple goal for tomorrow"
+ ])assert.equal(write("life",text),false,text);
+});
 test("blocked native operations explain no action was saved and no usage consumed",()=>{
  for(const coach of ["fitness","budgeting","life"]){
   assert.match(explain(coach),/No changes were saved/);
