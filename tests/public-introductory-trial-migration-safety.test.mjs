@@ -32,3 +32,13 @@ test("operator-only uncertainty reconciliation never refunds a duplicate or coun
  assert.match(migration,/RETURN 'history_missing'/);
  assert.match(migration,/REVOKE ALL ON FUNCTION public\.intro_trial_reconcile/);
 });
+
+test("production schema preflight is SELECT-only and checks every migration object",()=>{
+ const preflight=readFileSync(new URL("../sql/public-introductory-trial-production-preflight-readonly.sql",import.meta.url),"utf8");
+ const statements=preflight.split("\n").filter(line=>!line.trim().startsWith("--")).join("\n");
+ assert.doesNotMatch(statements,/\b(?:INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|CALL|DO|EXECUTE)\b/i);
+ assert.match(statements,/current_setting\('neon\.branch_id', true\)/);
+ for(const name of ["introductory_trial_grants","introductory_trial_requests","introductory_trial_history","intro_trial_reserve","intro_trial_settle","intro_trial_reconcile"])
+   assert.ok(preflight.includes(name),"missing object "+name);
+ assert.match(preflight,/public\.fitness_memberships/);
+});
