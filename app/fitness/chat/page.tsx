@@ -841,6 +841,8 @@ export default function FitnessChatPage() {
         </div>
         <div className="member-hub-actions">
           <Link href="/dashboard" className="secondary-button">Dashboard</Link>
+          <Link href="/budgeting/launch?destination=coach" className="secondary-button">Budgeting Coach</Link>
+          <Link href="/budgeting/launch?destination=tracker" className="secondary-button">My Budget</Link>
           <Link href="/manage-subscription" className="member-billing-link">Manage Subscription</Link>
           <button
             type="button"
