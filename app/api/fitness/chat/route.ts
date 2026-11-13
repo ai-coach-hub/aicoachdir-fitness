@@ -2298,26 +2298,94 @@ export async function POST(request: Request) {
   return postFitnessWithoutPreviewMeter(request);
 }
 
-async function postFitnessWithoutPreviewMeter(request: Request) {
+/**
+ * Verified trial only: use the same member-scoped workout validation,
+ * persistence and readback as paid Fitness, without issuing paid access.
+ * Called internally AFTER the shared 15-message reservation. The ordinary
+ * Fitness HTTP route continues to require active paid/legacy membership.
+ */
+async function trialFitnessIdentity(clerkId:string,email:string,requestKey?:string){
+ const user=await currentUser();
+ const primary=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
+ if(!user||user.id!==clerkId||primary?.verification?.status!=="verified"||
+    primary.emailAddress.trim().toLowerCase()!==email)return false;
+ const {sharedUsageMemberKey}=await import("@/lib/sharedUsageMemberIdentity");
+ const key=sharedUsageMemberKey(email,String(process.env.BUDGET_MEMBERSHIP_HANDOFF_SECRET||""));
+ if(!key)return false;
+ const {productionTrialSql,productionTrialHistorySql}=await import("@/lib/publicIntroductoryTrialLedger");
+ const sql=requestKey?await productionTrialSql():await productionTrialHistorySql();
+ const grants=await sql`SELECT converted_at FROM public.introductory_trial_grants
+  WHERE clerk_user_id=${clerkId} AND member_key=${key} LIMIT 2`;
+ if(grants.length!==1)return false;
+ // Reads remain accessible after exhaustion and conversion. For provider
+ // generation, require the exact pre-reserved Fitness request rather than
+ // repeating admission AFTER reservation (which would reject message #15).
+ if(!requestKey)return true;
+ if(!/^[A-Za-z0-9_-]{16,100}$/.test(requestKey)||grants[0].converted_at!=null)return false;
+ const [requestRows,memberRows]=await Promise.all([
+  sql`SELECT 1 FROM public.introductory_trial_requests
+   WHERE clerk_user_id=${clerkId} AND request_key=${requestKey}
+   AND coach='fitness' AND status='reserved' LIMIT 2`,
+  sql`SELECT 1 FROM public.fitness_memberships WHERE email=${email} LIMIT 2`
+ ]);
+ return requestRows.length===1&&memberRows.length===0;
+}
+export async function executeVerifiedTrialFitnessTurn(request:Request,clerkId:string,email:string,requestKey:string){
+ try{
+  if(!await trialFitnessIdentity(clerkId,email,requestKey))
+   return Response.json({ok:false,error:"Trial Fitness reservation verification failed"},{status:403});
+  return await postFitnessWithoutPreviewMeter(request,{clerkId,email});
+ }catch{return Response.json({ok:false,error:"Trial Fitness verification unavailable"},{status:503});}
+}
+export async function readVerifiedTrialFitnessWorkouts(clerkId:string,email:string){
+ if(!await trialFitnessIdentity(clerkId,email))throw Error("Trial Fitness verification failed");
+ const studioToken=getStudioToken();
+ if(!studioToken)throw Error("Workout storage unavailable");
+ return readMemberWorkoutData(email,studioToken);
+}
+/**
+ * Dedicated preview-only native Fitness driver. This explicitly does not grant
+ * paid access: the calling route must first verify the converted synthetic
+ * TEST Stripe subscription and reserve one isolated TEST wallet message.
+ * Never reachable from an ordinary customer route.
+ */
+export async function executeIsolatedNativeFitnessSaveForTester(request:Request,clerkId:string,email:string){
+ const {isolatedTrialPreviewEnabled}=await import("@/lib/isolatedIntroductoryIdentity");
+ if(!isolatedTrialPreviewEnabled())return Response.json({ok:false,error:"Not available"},{status:404});
+ const user=await currentUser();
+ const primary=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
+ if(!user||!primary||primary.verification?.status!=="verified"||
+    user.id!==clerkId||user.id!==String(process.env.INTRODUCTORY_TRIAL_DEDICATED_TEST_CLERK_ID||"")||
+    primary.emailAddress.trim().toLowerCase()!==email)
+  return Response.json({ok:false,error:"Dedicated tester identity mismatch"},{status:403});
+ const {verifiedIsolatedPaidContinuation}=await import("@/lib/isolatedPaidContinuation");
+ const paid=await verifiedIsolatedPaidContinuation();
+ if(!paid.ready||paid.clerkId!==clerkId)
+  return Response.json({ok:false,error:"Isolated test subscription unavailable"},{status:403});
+ return postFitnessWithoutPreviewMeter(request,{clerkId,email});
+}
+
+async function postFitnessWithoutPreviewMeter(
+ request: Request,verifiedTrial?:{clerkId:string;email:string},
+) {
   const user = await currentUser();
   const memberEmail = primaryEmailForUser(user);
   if (!user || !memberEmail) {
     return Response.json({ ok: false, error: "Sign in is required." }, { status: 401 });
   }
-
-  try {
-    const active = await memberHasFitnessAccess(memberEmail, user.id);
-    if (!active) {
-      return Response.json(
-        { ok: false, error: "An active Fitness Coach membership is required." },
-        { status: 403 },
-      );
-    }
-  } catch {
-    return Response.json(
-      { ok: false, error: "Fitness membership verification is temporarily unavailable." },
-      { status: 503 },
-    );
+  const trialIdentityMatches=!!verifiedTrial&&
+   verifiedTrial.clerkId===user.id&&verifiedTrial.email===memberEmail&&
+   user.emailAddresses.some(e=>e.id===user.primaryEmailAddressId&&
+     e.verification?.status==="verified"&&e.emailAddress.trim().toLowerCase()===memberEmail);
+  if(verifiedTrial&&!trialIdentityMatches)
+   return Response.json({ok:false,error:"Trial workout ownership mismatch"},{status:403});
+  if(!trialIdentityMatches){
+   try{
+    const active=await memberHasFitnessAccess(memberEmail,user.id);
+    if(!active)return Response.json({ok:false,error:"An active Fitness Coach membership is required."},{status:403});
+   }catch{
+    return Response.json({ok:false,error:"Fitness membership verification is temporarily unavailable."},{status:503});
+   }
   }
 
   const studioToken = getStudioToken();
@@ -2655,6 +2723,10 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
   if (mustConfirmSavedPlanMutation) {
     const mutationCompletionAbort = new AbortController();
     let mutationDriverStatus = "pending";
+    // Only allowlisted diagnostic classifications are exposed to the isolated tester.
+    // No upstream text, prompts, credentials or member identifiers are recorded.
+    let mutationProviderDiagnostic = "not_received";
+    let mutationProviderHttpStatus: number | null = null;
 
     // Drive the coach through the completion endpoint that has historically
     // executed the workout Actions reliably, while independently watching the
@@ -2684,9 +2756,24 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
         });
 
         mutationDriverStatus = `http-${driverResponse.status}`;
+        mutationProviderHttpStatus = driverResponse.status;
         // Drain the response so the request completes cleanly. The member-facing
         // result still comes only from a validated Action FINAL_DELIVERY.
         const raw = await driverResponse.text().catch(() => "");
+        if (!driverResponse.ok) {
+          const errorText = raw.slice(0, 2048).toLowerCase();
+          mutationProviderDiagnostic = /deployment.{0,48}(not found|missing|invalid)|(?:not found|missing|invalid).{0,48}deployment/.test(errorText)
+            ? "deployment_not_found"
+            : /(?:unauthorized|forbidden|invalid.{0,24}(?:token|key)|(?:token|key).{0,24}invalid)/.test(errorText)
+            ? "authorization_rejected"
+            : /(?:route|endpoint|path).{0,48}(?:not found|missing|invalid)|(?:not found|missing).{0,48}(?:route|endpoint|path)/.test(errorText)
+            ? "completion_route_not_found"
+            : /(?:rate.limit|quota|limit.exceeded)/.test(errorText)
+            ? "usage_limited"
+            : /not found/.test(errorText)
+            ? "unspecified_not_found"
+            : "unclassified_http_failure";
+        }
         let completionText = "";
         try { completionText = extractResult(JSON.parse(raw)); } catch {}
         return { ok: driverResponse.ok, text: completionText };
@@ -2751,6 +2838,10 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
           conversationId,
           relaySource: "action-session-timeout",
           actionRunCount: relay.runCount,
+          ...(verifiedTrial ? { providerDiagnostic: {
+            httpStatus: mutationProviderHttpStatus,
+            classification: mutationProviderDiagnostic,
+          } } : {}),
         },
         { status: 504 },
       );
