@@ -2,6 +2,16 @@
 
 **Status: BLOCKED / NO RETRY.** Updated 2026-11-13 using the existing draft trial branch and read-only isolated Neon SQL. This is not a new Pickaxe test or a provider-side confirmation.
 
+## Pickaxe support response received November 13
+
+Pickaxe Support confirmed that **a request reached Pickaxe's servers** and the model generated a timezone clarification: "I need your timezone to correctly schedule this workout for today in My Workouts. What timezone are you in?" The workout-save Action returned **MISSING_TIMEZONE** because it had neither an explicit `timezone_name` argument nor a previously saved plan `userTimezone`. Support reported a cost of approximately **$0.0279 in Pickaxe credits**. Therefore the site's `not_received` / `modelRequestsSent: 0` diagnostics are **not reliable evidence that no provider work was performed**.
+
+The support message did **not** include a provider request ID or exact execution timestamp mapping this result to one of the three earlier isolated requests. Do not settle or release any specific uncertain reservation based on this message alone. A successful chat reply or timezone prompt is **not** proof of an Action save; independent saved-plan readback is still absent.
+
+On the *draft trial branch only*, a preparatory site fix now passes the browser's IANA timezone through Fitness chat and into explicit Save Workout Plan Action instructions (`timezone_name` and `userTimezone`). Existing-plan timezone takes precedence. If neither valid timezone exists, the native save exits before model generation. The public trial checks timezone before reserving an AI turn. These changes have **not** been validated by a paid Pickaxe Action and have **not** been released to production. All three historical one-time requests remain locked; do not retry them.
+
+Pickaxe also indicated that a long-running Action may benefit from asynchronous polling, but a separate architectural review is needed before changing timeout/retry behavior; never make an automatic second completion request on a timeout.
+
 ## Facts independently observed
 
 The three isolated `shared_ai_usage_requests` Fitness QA entries remain `uncertain`:
