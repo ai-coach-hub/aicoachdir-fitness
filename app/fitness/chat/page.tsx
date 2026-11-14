@@ -690,7 +690,8 @@ export default function FitnessChatPage() {
       const response = await fetch("/api/fitness/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, conversationId, pendingPlanRequest, requestKey }),
+        body: JSON.stringify({ message, conversationId, pendingPlanRequest, requestKey,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       });
 
       const data = (await response.json()) as ChatResult;
