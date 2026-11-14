@@ -2403,6 +2403,14 @@ async function postFitnessWithoutPreviewMeter(
     body = null;
   }
 
+  // Device timezone is supplied separately from chat text. Never use the
+  // Vercel server timezone to schedule a member's saved workout.
+  const requestedSaveTimezone = validWorkoutSaveTimezone(
+    body && typeof body === "object" && !Array.isArray(body)
+      ? (body as Record<string, unknown>).timeZone
+      : null,
+  );
+
   const action =
     body && typeof body === "object" && typeof (body as { action?: unknown }).action === "string"
       ? (body as { action: string }).action.trim()
@@ -2667,6 +2675,21 @@ async function postFitnessWithoutPreviewMeter(
     }
   }
 
+  // The Save Workout Plan Action requires timezone_name or a saved plan's
+  // userTimezone. Fail BEFORE provider generation if neither is available:
+  // a timezone clarification must not waste another paid model request.
+  const saveTimeZone = mustConfirmSavedPlanMutation
+    ? validWorkoutSaveTimezone(planBeforeMutation?.userTimezone) || requestedSaveTimezone
+    : null;
+  if (mustConfirmSavedPlanMutation && !saveTimeZone) {
+    return Response.json({
+      ok: false,
+      error: "Your timezone is needed to save this workout. Please enable your device timezone and try again.",
+      savedPlanVerified: false,
+      needsTimeZone: true,
+    }, { status: 400 });
+  }
+
   if (!standaloneNoSaveWorkout && !mustConfirmSavedPlanMutation && !completionHistoryQuestion) {
     let directPlanCheck = await checkFormalPlanForMember(memberEmail, studioToken);
     console.info("[fitness-chat-relay] direct-plan-check", directPlanCheck);
@@ -2700,7 +2723,7 @@ async function postFitnessWithoutPreviewMeter(
     });
   }
   const basePickaxeMessage = mustConfirmSavedPlanMutation
-    ? buildSavedMutationMessage(effectiveMessage, message, planBeforeMutation)
+    ? buildSavedMutationMessage(effectiveMessage, message, planBeforeMutation, saveTimeZone!)
     : buildPickaxeMessage(message);
   const pickaxeMessage = completionContext ? addCompletionContext(basePickaxeMessage, completionContext) : basePickaxeMessage;
   const qualityGuardApplied = pickaxeMessage !== message;
@@ -3281,15 +3304,21 @@ function continuePendingPlanRequest(message: string, pending: string) {
   return combined.length <= 12_000 ? combined : message;
 }
 
-function buildSavedMutationMessage(effective: string, latest: string, before: Record<string, unknown> | null) {
+function buildSavedMutationMessage(
+  effective: string,
+  latest: string,
+  before: Record<string, unknown> | null,
+  saveTimeZone: string,
+) {
   const base = buildPickaxeMessage(effective);
   const marker = "\nMEMBER MESSAGE:\n";
   const index = base.indexOf(marker);
   const instructions = index >= 0 ? base.slice(0, index) : base;
   const context: string[] = [];
   if (effective !== latest) context.push(`PRIOR UNFINISHED REQUEST (member context, not proof of a save): ${JSON.stringify(effective)}`);
+  context.push(`APPLICATION WORKOUT SAVE TIMEZONE: The member's existing-plan or device timezone is ${JSON.stringify(saveTimeZone)}. When invoking Save Workout Plan, explicitly pass the Action argument timezone_name=${JSON.stringify(saveTimeZone)}. Ensure the structured saved plan includes userTimezone=${JSON.stringify(saveTimeZone)}. Do not ask for timezone again. This instruction does not indicate that a save succeeded; require verified Action delivery and independent readback.`);
   if (/\bnext\s+(?:saved\s+)?week\b/i.test(effective)) {
-    const zone = String(before?.userTimezone || "UTC");
+    const zone = String(before?.userTimezone || saveTimeZone);
     const nextStart = addDays(sundayForDate(dateKeyInTimezone(zone)), 7);
     context.push(`APPLICATION SAVE CONTRACT: target ${nextStart} through ${addDays(nextStart, 6)} in ${zone}; _saveScope=next_week. Preserve the existing current week and completion history. Return a successful Save Workout Plan receipt for the complete structured plan. Do not claim saved from a read or from chat prose.`);
   }
@@ -3408,6 +3437,19 @@ function validCompletionDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+// Validate an IANA timezone rather than assuming UTC when a member has not
+// supplied a zone. This is used for workout SAVES, not existing completion logs.
+function validWorkoutSaveTimezone(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim() || value.length > 100) return null;
+  try {
+    const canonical = new Intl.DateTimeFormat("en-US", { timeZone: value.trim() })
+      .resolvedOptions().timeZone;
+    return canonical === "UTC" || canonical.includes("/") ? canonical : null;
+  } catch {
+    return null;
+  }
 }
 
 function verifiedCompletionTimezone(value: unknown) {
