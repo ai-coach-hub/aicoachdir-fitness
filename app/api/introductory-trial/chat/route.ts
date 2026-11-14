@@ -48,6 +48,18 @@ export async function POST(request:Request){
     typeof message!=="string"||!message.trim()||message.length>6000)
   return send({ok:false,error:"Invalid coaching request"},400);
  if(coach==="budgeting")return send({ok:false,error:"Use the saved Budgeting Coach and My Budget through /introductory-trial/budget?destination=coach. No trial message was used."},409);
+ // Reject a missing/invalid timezone before reserving a Fitness trial message.
+ // The native save action otherwise requests a timezone after a billable run.
+ let memberTimeZone:string|null=null;
+ if(coach==="fitness"){
+  if(typeof body.timeZone!=="string"||!body.timeZone.trim()||body.timeZone.length>100)
+   return send({ok:false,error:"Please enable your device timezone before saving a workout. No AI message was sent.",needsTimeZone:true},400);
+  try{
+   const zone=new Intl.DateTimeFormat("en-US",{timeZone:body.timeZone.trim()}).resolvedOptions().timeZone;
+   if(zone!=="UTC"&&!zone.includes("/"))throw Error("Invalid timezone");
+   memberTimeZone=zone;
+  }catch{return send({ok:false,error:"Your device timezone could not be verified. No AI message was sent.",needsTimeZone:true},400);}
+ }
  const user=await currentUser();
  const primary=user?.emailAddresses.find(e=>e.id===user.primaryEmailAddressId);
  if(!user||primary?.verification?.status!=="verified")
@@ -113,7 +125,7 @@ export async function POST(request:Request){
    // reserved above; normal paid POST still requires paid membership.
    const nativeRequest=new Request(request.url,{
     method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({message:message.trim(),
+    body:JSON.stringify({message:message.trim(),timeZone:memberTimeZone,
       conversationId:"fitness-chat-"+memberKey.slice(7,55)})
    });
    const native=await executeVerifiedTrialFitnessTurn(nativeRequest,user.id,email,key);
