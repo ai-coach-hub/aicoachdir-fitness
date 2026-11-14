@@ -75,7 +75,8 @@ export default function TrialChatClient(){
   try{
    const r=await fetch("/api/introductory-trial/chat",{
     method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({coach,message,requestKey:key}),cache:"no-store"
+    body:JSON.stringify({coach,message,requestKey:key,
+      timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone}),cache:"no-store"
    });
    const result=await r.json();
    if(!r.ok){
