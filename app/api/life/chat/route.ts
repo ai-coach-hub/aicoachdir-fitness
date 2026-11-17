@@ -1,4 +1,5 @@
 import { cleanLifeCoachText } from "@/lib/lifeCoachFormatting";
+import { logPreviewProviderObservation } from "@/lib/pickaxeCostTelemetry";
 import { urgentLifeCoachReply } from "@/lib/lifeCoachSafetyFallback";
 import { lifeMemoryReply, guardLifeMemoryDenial, isLifeRecallQuestion } from "@/lib/lifeCoachMemory";
 import { lifeTester } from "@/lib/lifeCoachAccess";
@@ -23,6 +24,7 @@ async function completeLifeCoachRequest(token:string,promptMessage:string,verifi
  });
  if(!completion.ok)throw Error("Provider did not complete");
  const payload=await completion.json();
+ logPreviewProviderObservation("life",payload);
  if(payload?.success===false)throw Error("Provider returned failure");
  const answer=resultText(payload);
  if(!answer)throw Error("Empty provider reply");

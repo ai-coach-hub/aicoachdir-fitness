@@ -1,3 +1,4 @@
+import { logPreviewProviderObservation } from "@/lib/pickaxeCostTelemetry";
 import { currentUser } from "@clerk/nextjs/server";
 import { createHmac } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
@@ -1906,6 +1907,7 @@ async function requestCoachQualityRewrite(args: {
       return "";
     }
 
+    logPreviewProviderObservation("fitness", payload);
     return extractResult(payload).trim();
   } catch {
     return "";
@@ -2688,7 +2690,11 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
         // result still comes only from a validated Action FINAL_DELIVERY.
         const raw = await driverResponse.text().catch(() => "");
         let completionText = "";
-        try { completionText = extractResult(JSON.parse(raw)); } catch {}
+        try {
+          const payload = JSON.parse(raw);
+          logPreviewProviderObservation("fitness", payload);
+          completionText = extractResult(payload);
+        } catch {}
         return { ok: driverResponse.ok, text: completionText };
       } catch (error) {
         if (mutationCompletionAbort.signal.aborted) {
@@ -2802,6 +2808,7 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
         payload = null;
       }
 
+      logPreviewProviderObservation("fitness", payload);
       if (!pickaxeResponse.ok) {
         return {
           kind: "error" as const,
