@@ -2745,7 +2745,7 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
       return Response.json(
         {
           ok: false,
-          error: "The Coach did not return a verified save for this request. No update was confirmed.",
+          error: "The save confirmation timed out. Your workout plan may still have been saved. Check My Workouts before sending another request.",
           savedPlanVerified: false,
           pendingPlanRequest: effectiveMessage,
           conversationId,

@@ -699,6 +699,17 @@ export default function FitnessChatPage() {
       if (typeof data.pendingPlanRequest === "string") setPendingPlanRequest(data.pendingPlanRequest);
 
       if (!response.ok || !data.ok || !data.response) {
+        if (response.status === 504 && data.relaySource === "action-session-timeout") {
+          // A timed-out Pickaxe confirmation is not proof of a failed save.
+          // Refresh the existing saved data without a second completion or mutation.
+          pendingChatRequest.current = null;
+          setPendingPlanRequest("");
+          setInput("");
+          setMessages((items) => items.slice(0, -1));
+          setStatus(data.error || "Save confirmation timed out. Check My Workouts before sending again.");
+          void loadPlan(true);
+          return;
+        }
         setUsageLimitReached(response.status === 429);
         setStatus(response.status === 429 ? "Your monthly AI coaching allowance has been reached. Your saved conversations and workouts are still here. You can review membership options or return when your next allowance is available." : data.error || "The Fitness Coach request did not complete.");
         setInput(message);
