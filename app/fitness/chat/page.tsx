@@ -79,7 +79,7 @@ async function pollResumableFitnessJob(requestKey: string): Promise<Response> {
   // Only GET; never submit a second paid generation or replay a save.
   for (let attempt = 0; attempt < 150; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 3500));
-    const response = await fetch(`/api/fitness/chat?job=${encodeURIComponent(requestKey)}`, {
+    const response = await fetch(`/api/fitness/chat/job?job=${encodeURIComponent(requestKey)}`, {
       method: "GET", cache: "no-store",
     });
     const job = await response.json() as FitnessJobStatus;
