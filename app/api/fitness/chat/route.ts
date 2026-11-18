@@ -1,16 +1,8 @@
 import { currentUser } from "@clerk/nextjs/server";
-import { after } from "next/server";
 import { createHmac } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { canonicalMemberEmail } from "@/lib/memberIdentity";
 import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
-import {
-  claimFitnessChatJob,
-  finishFitnessChatJob,
-  fitnessJobRequestHash,
-  getFitnessChatJob,
-  startFitnessChatJob,
-} from "@/lib/fitnessChatJobs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -2180,6 +2172,7 @@ export async function GET(request: Request) {
       return Response.json({ ok: false, error: "Resumable Fitness chat is not enabled." }, { status: 404 });
     }
     try {
+      const { getFitnessChatJob } = await import("@/lib/fitnessChatJobs");
       const job = await getFitnessChatJob(memberEmail, jobKey);
       if (!job) return Response.json({ ok: false, error: "Request not found." }, { status: 404 });
       return Response.json({
@@ -2321,6 +2314,11 @@ async function enqueueResumableFitnessRequest(request: Request, input: Record<st
       !/^[A-Za-z0-9_-]{16,100}$/.test(requestKey)) {
     return Response.json({ ok: false, error: "Valid message, conversation and request IDs required." }, { status: 400 });
   }
+  // Lazy-load only for explicitly enabled production mutations; legacy requests
+  // and the offline Fitness test harness keep their original dependencies.
+  const {
+    claimFitnessChatJob, finishFitnessChatJob, fitnessJobRequestHash, startFitnessChatJob,
+  } = await import("@/lib/fitnessChatJobs");
   const requestHash = fitnessJobRequestHash({ message, conversationId, pendingPlanRequest, timeZone });
   let claim: Awaited<ReturnType<typeof claimFitnessChatJob>>;
   try {
@@ -2334,6 +2332,7 @@ async function enqueueResumableFitnessRequest(request: Request, input: Record<st
   }
 
   if (claim.created) {
+    const { after } = await import("next/server");
     // This is a Vercel after() task, not a second browser fetch or a second AI call.
     // Durable claim prevents repeated submit requests from starting new paid generations.
     const workerUrl = request.url;
