@@ -2139,7 +2139,7 @@ async function readMemberWorkoutData(
   return { plan, historyEntries };
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   const user = await currentUser();
   const memberEmail = primaryEmailForUser(user);
   if (!user || !memberEmail) {
@@ -2159,29 +2159,6 @@ export async function GET(request: Request) {
       { ok: false, error: "Fitness membership verification is temporarily unavailable." },
       { status: 503 },
     );
-  }
-
-  // Read-only resume status. Authentication and membership checks above still apply.
-  const jobKey = new URL(request.url).searchParams.get("job");
-  if (jobKey !== null) {
-    if (!/^[A-Za-z0-9_-]{16,100}$/.test(jobKey)) {
-      return Response.json({ ok: false, error: "Invalid request ID." }, { status: 400 });
-    }
-    if (process.env.VERCEL_ENV !== "production" ||
-        process.env.FITNESS_RESUMABLE_CHAT_ENABLED !== "true") {
-      return Response.json({ ok: false, error: "Resumable Fitness chat is not enabled." }, { status: 404 });
-    }
-    try {
-      const { getFitnessChatJob } = await import("@/lib/fitnessChatJobs");
-      const job = await getFitnessChatJob(memberEmail, jobKey);
-      if (!job) return Response.json({ ok: false, error: "Request not found." }, { status: 404 });
-      return Response.json({
-        ok: true, jobState: job.state, conversationId: job.conversationId,
-        httpStatus: job.httpStatus, result: job.result,
-      }, { headers: { "Cache-Control": "private, no-store" } });
-    } catch {
-      return Response.json({ ok: false, error: "Request status unavailable. Do not resend yet." }, { status: 503 });
-    }
   }
 
   // Private preview may not read or mutate real Pickaxe workout data.
@@ -2851,11 +2828,14 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
       conversationId,
       studioToken,
       requestStartedAt,
-      AbortSignal.any([mutationSignal, mutationPollAbort.signal, AbortSignal.timeout(backgroundMutation ? 190_000 : 55_000)]),
+      AbortSignal.any([mutationSignal, mutationPollAbort.signal,
+        backgroundMutation ? AbortSignal.timeout(190_000) : AbortSignal.timeout(55_000)]),
       [SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID],
       priorActionRunIds,
     );
-    const settled = await settleWorkoutSaveRace({ pendingRelay, driver: mutationDriverPromise, lateRelayWindowMs: backgroundMutation ? 35_000 : 4_000 });
+    const settled = backgroundMutation
+      ? await settleWorkoutSaveRace({ pendingRelay, driver: mutationDriverPromise, lateRelayWindowMs: 35_000 })
+      : await settleWorkoutSaveRace({ pendingRelay, driver: mutationDriverPromise });
     if (settled.relay) relay = settled.relay;
     const clarification = settled.clarification;
     mutationPollAbort.abort();
