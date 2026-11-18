@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const source = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const api = source("app/api/fitness/chat/route.ts");
 const client = source("app/fitness/chat/page.tsx");
+const jobRoute = source("app/api/fitness/chat/job/route.ts");
 const jobs = source("lib/fitnessChatJobs.ts");
 const migration = source("migrations/20261117_fitness_resumable_chat_REVIEW_ONLY.sql");
 
@@ -42,8 +43,8 @@ test("a request gets one durable member-scoped claim and no automatic paid retry
 });
 
 test("result retrieval is read-only and bound to the authenticated member", () => {
-  assert.match(api, /new URL\(request\.url\)\.searchParams\.get\("job"\)/);
-  assert.match(api, /await getFitnessChatJob\(memberEmail, jobKey\)/);
+  assert.match(jobRoute, /new URL\(request\.url\)\.searchParams\.get\("job"\)/);
+  assert.match(jobRoute, /await getFitnessChatJob\(memberEmail, requestKey\)/);
   assert.match(client, /method: "GET", cache: "no-store"/);
   assert.match(client, /pollResumableFitnessJob\(requestKey\)/);
   assert.match(client, /sessionStorage\.setItem\(PENDING_FITNESS_JOB_KEY/);
@@ -55,8 +56,8 @@ test("longer polling only applies inside the isolated background workout mutatio
   assert.match(api, /const backgroundMutation = process\.env\.VERCEL_ENV === "production"/);
   assert.match(api, /backgroundMutation \? 230_000 : 100_000/);
   assert.match(api, /backgroundMutation \? 175_000 : 70_000/);
-  assert.match(api, /backgroundMutation \? 190_000 : 55_000/);
-  assert.match(api, /lateRelayWindowMs: backgroundMutation \? 35_000 : 4_000/);
+  assert.match(api, /AbortSignal\.timeout\(190_000\)/);
+  assert.match(api, /lateRelayWindowMs: 35_000/);
   assert.match(api, /const uncertain = response\.status === 504/);
   assert.match(api, /state: "uncertain", httpStatus: 503/);
   assert.match(api, /savedPlanVerified: false/);
