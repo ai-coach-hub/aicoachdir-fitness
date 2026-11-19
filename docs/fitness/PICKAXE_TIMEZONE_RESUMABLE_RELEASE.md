@@ -1,6 +1,6 @@
 # Fitness Coach: Pickaxe MISSING_TIMEZONE and slow-save repair (2026-11-17)
 
-Status: CODE STAGED ON REVIEW BRANCH ONLY. No new Pickaxe test, production migration, feature-flag change, or release has been performed.
+Status: CODE STAGED ON REVIEW BRANCH ONLY. Owner updated and closed the live Pickaxe agent builder on Nov 19, but the Save Action was not changed and no paid verification run occurred. Production database migration, feature-flag activation, or website release have NOT been performed.
 
 ## Confirmed diagnosis
 
@@ -19,7 +19,7 @@ Pickaxe support identified session `fitness-chat-qa-post-access-20261112`: the S
 
 The owner supplied the 1,460-line original **Save Workout Plan to My Workouts v2** Python action (`ai-coach-action-reliability-v9`). It already normalizes and preserves userTimezone, propagates it to staged future plans, and performs exact save and display-memory readback. The action **does not contain MISSING_TIMEZONE**, and Pickaxe support confirmed the November 12 QA run stopped before that Action ran. **Do not rebuild, replace or republish the Python save Action to solve that pre-action error.**
 
-The repository's **checked-in upstream coach prompt** in `scripts/sync-pickaxe-compact-coach.mjs` expressly instructed the coach to ask the member for a timezone when no saved plan provides one. This is consistent with the support report. PR #256 changes only the source on this draft branch: accept a valid site-provided IANA timezone before asking; when no plan exists, a valid request timezone is sufficient. The live Pickaxe prompt has **not** been verified or synchronized. Do not run the sync script until the published prompt is inspected and the exact minimal change approved.
+The repository's **checked-in upstream coach prompt** in `scripts/sync-pickaxe-compact-coach.mjs` expressly instructed the coach to ask the member for a timezone when no saved plan provides one. This is consistent with the support report. PR #256 changes only the source on this draft branch: accept a valid site-provided IANA timezone before asking; when no plan exists, a valid request timezone is sufficient. The owner pasted the complete preserved prompt with the corrected calendar paragraph directly in the Pickaxe builder and clicked Update and close. Its agent overview shows Updated Nov 19; this confirms a saved agent edit, not an end-to-end save test. Do not run the sync script: it would overwrite the preserved competitor-comparison section.
 
 The site's new structured workout/save prompts explain that a browser timezone may be used and that UTC is a fallback scheduling convention, not a verified geographic location. The save prompt always carries this instruction, including for mutation phrasings that do not trigger the structured-workout validation copy.
 
@@ -28,11 +28,11 @@ The existing Python action's 60-second timeout is per outbound request; the prev
 ## Production release gate
 
 1. Review the branch and confirm the correct Vercel Fitness project and intended deployment environment.
-2. Review and apply `migrations/20261117_fitness_resumable_chat_REVIEW_ONLY.sql` to the verified **production Fitness** Neon branch (not preview). The code refuses the wrong branch.
-3. Verify Vercel Fluid Compute and the plan's 300-second function runtime with after() before production activation. Review worker crash/uncertain handling and retention.
-4. Inspect the currently published upstream Pickaxe coach prompt and confirm it will accept the site's provided valid timezone without asking again. The Python Save Action source is already reviewed; do not rebuild it.
+2. Obtain explicit production migration approval after verifying branch and backup, then apply `migrations/20261117_fitness_resumable_chat_REVIEW_ONLY.sql` to verified production Fitness Neon only. Migration includes created_at retention index. No table is installed as of last read-only query.
+3. Owner confirmed Fluid Compute enabled. The website route declares maxDuration=300. Confirm production plan's runtime entitlement and Next after() before enablement; preserve never-replay behavior for worker failures.
+4. Owner published corrected Pickaxe calendar instructions Nov 19 by Update and close; screenshot shows updated date. Preserve prompt and Python Save Action. Do not re-run model just to verify editor state.
 5. Confirm green CI on the latest branch commit and preview build. Earlier 684-test success was for an older commit; no paid Pickaxe request is needed for this check.
-6. Only after deliberate approval, deploy the reviewed commit and set `FITNESS_RESUMABLE_CHAT_ENABLED=true` on production. If this flag is absent or false, existing Fitness behavior remains, except that a verified timezone is forwarded with requests.
+6. Before activation, configure a cryptographically random CRON_SECRET (>=24 characters) as a Vercel production environment secret; verify daily scheduled route /api/internal/fitness-chat-retention is installed and rejects unauthorized traffic. Approve deployment separately from setting FITNESS_RESUMABLE_CHAT_ENABLED=true. The feature remains off by default.
 7. Only after approved release, consider at most one isolated paid end-to-end verification if necessary. Before that, treat production save behavior as unverified.
 
 ## Failure and cost safeguards
@@ -42,4 +42,5 @@ The existing Python action's 60-second timeout is per outbound request; the prev
 - A crashed worker is reported as uncertain after eight minutes and is not restarted automatically.
 - A successful response requires the existing Pickaxe Save Workout Plan Action receipt and read-back consistency.
 - An uncertain result tells members to check My Workouts/history before making another request. Quota settling remains in the existing Fitness pipeline.
-- Treat stored job output as private member data; plan and implement reviewed short retention before enabling. The initial schema intentionally does not auto-delete in-flight requests.
+- A daily Vercel Cron Job at 04:00 UTC calls authenticated GET /api/internal/fitness-chat-retention using CRON_SECRET. The route requires the production environment, enabled feature, valid bearer secret, and hard-coded production Neon branch ID; it deletes only fitness_chat_jobs rows created over seven days ago, with a 5,000-row per-run limit. It never touches workout plans/history/membership tables and never invokes Pickaxe. Keep the CRON_SECRET secret; missing/short secret rejects all requests. Monitor deletion counts/backlog and 503 responses; effective deletion is within seven days plus cron interval when healthy and below the daily batch limit.
+- Deleting old request keys means the same key will no longer deduplicate after seven days; browser resume after retention expiry must say result is unavailable and NEVER automatically resubmit. Retention is not yet active until database migration, production deployment and secret/feature approval.
