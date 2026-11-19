@@ -1134,7 +1134,7 @@ export default function FitnessChatPage() {
                 <ChatAttachmentPicker key={attachmentPickerRevision} disabled={running} onPendingChange={setAttachmentPending}
                   onTextAttachment={setAttachmentText}
                   onPhotoAttachment={(photo) => { setAttachmentPhoto(photo); setUploadedPhotoId(null); }}
-                  photoSendingEnabled={process.env.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED === "true"} />
+                  photoSendingEnabled={typeof process !== "undefined" && process.env.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED === "true"} />
                 {status ? <span className="member-status">{status}</span> : null}
               </div>
             </form>
