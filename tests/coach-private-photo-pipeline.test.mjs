@@ -64,3 +64,16 @@ test("photos and documents are not sent as arbitrary client-supplied external UR
   assert.match(storage, /createHmac\("sha256"/);
   assert.doesNotMatch(route, /request\.json\(\).*url|public_read/);
 });
+
+test("owner can browse recent photos without weakening member photo authorization", () => {
+  const page = source("app/fitness/attachment-history/page.tsx");
+  assert.match(route, /ownerView && !isOwner/);
+  assert.match(route, /ownerView && !memberEmail/);
+  assert.match(route, /WHERE member_email = \$\{memberEmail\} AND attachment_id = \$\{id\}::uuid/);
+  assert.match(route, /ownerView \? \{ memberEmail: row\.member_email \|\| memberEmail \} : \{\}/);
+  assert.match(page, /Optional: filter by member email/);
+  assert.match(page, /open\(item\.id, item\.memberEmail\)/);
+  assert.match(page, /remove\(item\.id, item\.memberEmail\)/);
+  assert.match(fitness, /href="\/fitness\/attachment-history"/);
+  assert.match(life, /href="\/fitness\/attachment-history"/);
+});
