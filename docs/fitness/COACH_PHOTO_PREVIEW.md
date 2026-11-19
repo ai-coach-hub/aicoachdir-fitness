@@ -1,8 +1,12 @@
 # Coach file attachments — isolated preview (Nov 19, 2026)
 
-Status: browser-only UI preview; **NO photo or document is uploaded to our servers or Pickaxe**; no AI credits or production code change. The user's goal is to let members attach photos **or other files** to get feedback from their existing AI coaches while keeping costs down and protecting privacy.
+**Current status: TESTING ONLY, NOT CUSTOMER READY.** Fitness and Life now have a preview-gated private photo upload route, temporary image URLs, a member-accessible attachment history with deletion, and explicit per-file consent. Small TXT/CSV excerpts can be sent inside normal coach messages. PDFs, DOCX and XLSX still cannot be interpreted or sent. Owner access is not configured, Pickaxe photo/image dashboard visibility is unverified, scheduled deletion is absent, and no end-to-end paid model verification has occurred. Do not merge, promote, or advertise as ready. The newer sections below supersede the original preview-only descriptions.
 
-## Implemented (Fitness first)
+## Historical phase 1: browser-only preview (superseded)
+
+Initially this was a browser-only UI preview; no photo or document was uploaded in that earlier phase. The user wants members to attach photos **or other files** to get feedback from their existing AI coaches without unnecessary expenses.
+
+## Initially implemented (Fitness first)
 
 - Dedicated `/fitness/photo-preview` page, linked as **File attachment preview** from Fitness chat on this feature branch only. The path is retained for compatibility; it now supports general files.
 - Accept one file: JPEG/PNG/WebP, PDF, DOCX, XLSX, CSV or TXT, up to 8 MB. Reject unsupported extensions and conflicting declared MIME types; for documents only metadata is shown (name/size/type), not contents. Future upload backend must validate actual document bytes server-side.
@@ -12,7 +16,7 @@ Status: browser-only UI preview; **NO photo or document is uploaded to our serve
 - Send button explicitly **disabled** until secure transport AND document extraction/format-specific processing exist; clear notice says no file upload or Pickaxe interaction.
 - Offline tests assert no network APIs or save calls in this preview, image constraints, and explicit preview navigation.
 
-## Actual file-to-coach flow (NOT implemented; must remain disabled)
+## Original implementation plan (historical; newer preview code described below)
 
 Pickaxe Completions API `POST https://api.pickaxe.co/v1/completions` documents optional `imageUrls: string[]` consisting of HTTPS URLs that end in .png/.jpg/.jpeg/.webp/.gif, for supported multimodal models; that is an **image** route, not evidence of native PDF, Word or Excel processing. It does NOT document uploading raw bytes or browser blob/data URLs. See https://pickaxe.co/v1/documentation/completions. Pickaxe Claude 4.5 Haiku has advertised image input support, but actual behavior of the site's existing deployed Coach and Action sequence has not been verified without paid requests.
 
