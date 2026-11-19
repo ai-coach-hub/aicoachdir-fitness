@@ -2,6 +2,7 @@ import { cleanLifeCoachText } from "@/lib/lifeCoachFormatting";
 import { urgentLifeCoachReply } from "@/lib/lifeCoachSafetyFallback";
 import { lifeMemoryReply, guardLifeMemoryDenial, isLifeRecallQuestion } from "@/lib/lifeCoachMemory";
 import { lifeTester } from "@/lib/lifeCoachAccess";
+import { authorizeAttachedPhoto, attachmentsEnabled } from "@/lib/coachAttachmentStorage";
 import { listLifeThreads,readLifeThread,recallLifeContext,recallLifeStatements,saveLifeTurn,listLifeGoals } from "@/lib/lifeCoachStore";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -14,11 +15,11 @@ function resultText(value: unknown): string {
  const nested=record.data;
  return nested&&typeof nested==="object"?resultText(nested):"";
 }
-async function completeLifeCoachRequest(token:string,promptMessage:string,verifiedEmail:string,id:string){
+async function completeLifeCoachRequest(token:string,promptMessage:string,verifiedEmail:string,id:string,photoUrl:string|null){
  const completion=await fetch("https://api.pickaxe.co/v1/completions",{
   method:"POST",
   headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json",Accept:"application/json"},
-  body:JSON.stringify({message:promptMessage,userId:verifiedEmail,conversationId:id,stream:false}),
+  body:JSON.stringify({message:promptMessage,userId:verifiedEmail,conversationId:id,stream:false,...(photoUrl?{imageUrls:[photoUrl]}:{})}),
   cache:"no-store",signal:AbortSignal.timeout(110000)
  });
  if(!completion.ok)throw Error("Provider did not complete");
@@ -83,6 +84,12 @@ export async function POST(request:Request) {
  const id=supplied||newConversationId||`life-coach-${crypto.randomUUID()}`;
  if(!/^life-coach-[a-zA-Z0-9_-]{8,90}$/.test(id)||!message||message.length>6000)
   return json({ok:false,error:"Invalid conversation or message."},400);
+ const attachmentId=typeof body.attachmentId==="string"?body.attachmentId:"";
+ if(attachmentId && !attachmentsEnabled())return json({ok:false,error:"Photo attachments are not enabled."},404);
+ const photoUrl=attachmentId
+  ? await authorizeAttachedPhoto({id:attachmentId,email,coach:"life",conversationId:id}).catch(()=>null)
+  : null;
+ if(attachmentId && !photoUrl)return json({ok:false,error:"Photo is not authorized for this conversation."},403);
 
  let prior="";
  let sameThreadUserEntries: {text:string;date:string}[]=[];
@@ -203,7 +210,7 @@ export async function POST(request:Request) {
       ?settleLifeLaunch(email,requestKey,outcome)
       :settleSharedUsage(email,"life",requestKey,outcome)
    },async()=>{
-    const rawAnswer=await completeLifeCoachRequest(token,promptMessage,email,id);
+    const rawAnswer=await completeLifeCoachRequest(token,promptMessage,email,id,photoUrl);
     const answer=cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories));
     await saveLifeTurn(member,id,message,answer);
     return {kind:"generated" as const,value:{ok:true,response:answer,conversationId:id,source:"coach"}};
@@ -240,7 +247,7 @@ export async function POST(request:Request) {
       reserve:()=>reservePreviewAiUse(usage),
       settle:outcome=>settlePreviewAiUse(usage,outcome)
     },async()=>{
-      const rawAnswer=await completeLifeCoachRequest(token,promptMessage,email,id);
+      const rawAnswer=await completeLifeCoachRequest(token,promptMessage,email,id,photoUrl);
       const answer=cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories));
       await saveLifeTurn(member,id,message,answer);
       return {kind:"generated" as const,value:{ok:true,response:answer,conversationId:id,source:"coach"}};
