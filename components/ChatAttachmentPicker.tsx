@@ -43,6 +43,7 @@ export default function ChatAttachmentPicker({
   const [file, setFile] = useState<SelectedFile | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [consented, setConsented] = useState(false);
   const previewRef = useRef<string | null>(null);
   const generation = useRef(0);
 
@@ -56,6 +57,7 @@ export default function ChatAttachmentPicker({
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     previewRef.current = null;
     setFile(null);
+    setConsented(false);
     onTextAttachment?.(null);
     onPhotoAttachment?.(null);
     setError("");
@@ -75,6 +77,7 @@ export default function ChatAttachmentPicker({
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     previewRef.current = null;
     setFile(null);
+    setConsented(false);
     onTextAttachment?.(null);
     onPhotoAttachment?.(null);
     try {
@@ -100,7 +103,7 @@ export default function ChatAttachmentPicker({
           if (generation.current === requestId) {
             onTextAttachment?.(text);
             setFile({ name: text.name, kind: "document", size: selected.size, readyForChat: true });
-            onPendingChange(false);
+            // Keep Send disabled until the member explicitly approves sharing.
           }
           return;
         }
@@ -143,7 +146,7 @@ export default function ChatAttachmentPicker({
           readyForChat: photoSendingEnabled });
         if (photoSendingEnabled) {
           onPhotoAttachment?.({ name: selected.name.slice(0, 120), jpeg });
-          onPendingChange(false);
+          // Keep Send disabled until the member explicitly approves sharing.
         }
       } finally {
         bitmap.close();
@@ -193,6 +196,17 @@ export default function ChatAttachmentPicker({
           <span className={styles.note}>{file.readyForChat
             ? file.kind === "photo" ? "Ready: photo will be uploaded privately when you press Send." : "Ready: text will be included when you press Send. It will be visible in conversation history."
             : "Preview only. Sending this file type is not enabled."}</span>
+          {file.readyForChat ? (
+            <label className={styles.consent}>
+              <input type="checkbox" checked={consented} onChange={event => {
+                setConsented(event.target.checked);
+                onPendingChange(!event.target.checked);
+              }} />
+              I agree to share this attachment with the AI coach. Its contents may appear in the
+              conversation and be accessible to the service provider and authorized site owner.
+              Photos are stored privately for up to seven days in this preview.
+            </label>
+          ) : null}
         </div>
       ) : null}
     </div>
