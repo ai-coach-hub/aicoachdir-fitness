@@ -49,6 +49,7 @@ function hub(fetchImpl) {
       if (name === '@clerk/nextjs') return { useClerk: () => ({ signOut: async () => {} }) };
       if (name === '@/components/WorkoutHistoryList') return { __esModule: true, default: 'workout-history' };
       if (name === '@/components/ChatAttachmentPicker') return { __esModule: true, default: 'attachment-picker' };
+      if (name === '@/components/ChatPhotoAttachment') return { __esModule: true, default: 'photo-view' };
       if (name === '@/lib/clientFetchRetry') return { withSingleNetworkRetry: (operation) => operation(), withTransientAuthRetry: (operation) => operation() };
       throw new Error('Unexpected import: ' + name);
     },
