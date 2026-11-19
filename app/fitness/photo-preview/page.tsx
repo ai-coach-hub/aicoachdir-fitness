@@ -53,7 +53,7 @@ function safeDocumentType(file: File): string | null {
 
 async function prepareAttachment(file: File): Promise<PreparedAttachment> {
   if (ACCEPTED_TYPES.includes(file.type)) {
-    const prepared = await prepareAttachment(file);
+    const prepared = await preparePhoto(file);
     return { kind: "image", ...prepared };
   }
   const type = safeDocumentType(file);
