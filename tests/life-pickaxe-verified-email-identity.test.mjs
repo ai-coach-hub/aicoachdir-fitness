@@ -7,9 +7,9 @@ import {readFileSync} from "node:fs";
 const route=readFileSync(new URL("../app/api/life/chat/route.ts",import.meta.url),"utf8");
 
 test("Life Coach Pickaxe completion uses verified member email, not Clerk user ID",()=>{
- assert.match(route,/async function completeLifeCoachRequest\(token:string,promptMessage:string,verifiedEmail:string,id:string\)/);
+ assert.match(route,/async function completeLifeCoachRequest\(token:string,promptMessage:string,verifiedEmail:string,id:string,photoUrl:string\\|null\\)/);
  assert.match(route,/userId:verifiedEmail/);
- assert.match(route,/completeLifeCoachRequest\(token,promptMessage,email,id\)/);
+ assert.match(route,/completeLifeCoachRequest\(token,promptMessage,email,id,photoUrl\)/);
  assert.doesNotMatch(route,/userId:member[,}]/);
 });
 
