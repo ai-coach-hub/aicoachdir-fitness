@@ -12,6 +12,5 @@
 .note{font-size:.78rem;color:#675573;line-height:1.35}
 .error{font-size:.85rem;color:#a32646}
 
-.consent{flex-basis:100%;display:flex;align-items:flex-start;gap:9px;padding:8px 0 2px;font-size:.78rem;line-height:1.5;color:#4b3c5a;cursor:pointer}
-.consent input{margin-top:3px;accent-color:#8455a6;flex:0 0 auto}
-.consent:focus-within{outline:2px solid #aa78d3;outline-offset:2px;border-radius:4px}
+
+.privacyNote{flex-basis:100%;display:block;padding:6px 0 2px;font-size:.78rem;line-height:1.5;color:#4b3c5a}
