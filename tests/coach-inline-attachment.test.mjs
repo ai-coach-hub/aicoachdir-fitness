@@ -45,7 +45,7 @@ test("attachment selection is local until Send, without a second consent checkbo
   assert.doesNotMatch(attachment, /type="checkbox"|setConsented|styles\.consent/);
   assert.match(attachment, /Pressing Send shares this attachment with the AI coach/);
   assert.match(attachment, /accessible to the service provider and authorized site owner/);
-  assert.match(attachment, /Photos are stored for up to seven days in this preview/);
+  assert.match(attachment, /Photo access expires after seven days/);
   assert.match(attachment, /Selecting the file is local-only/);
   assert.match(attachment, /Selecting the photo is local-only/);
   assert.match(attachment, /onPendingChange\(false\)/);
