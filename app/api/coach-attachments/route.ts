@@ -2,7 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
 import {
   attachmentDatabase, attachmentsEnabled, createPhotoKey, MAX_PREPARED_PHOTO_BYTES,
-  photoId, removeImage, storeImage,
+  photoId, removeImage, storeImage, purgeExpiredPhotos,
 } from "@/lib/coachAttachmentStorage";
 
 export const runtime = "nodejs";
@@ -147,6 +147,8 @@ export async function POST(request: Request) {
   let sql: Awaited<ReturnType<typeof attachmentDatabase>>;
   try { sql = await attachmentDatabase(); }
   catch { return result({ ok: false, error: "Attachment storage unavailable." }, 503); }
+  // Opportunistic bounded housekeeping; failures do not erase live references.
+  await purgeExpiredPhotos().catch(() => 0);
   // Prevent accidental unbounded uploads from abusive or buggy clients.
   const count = await sql`
     SELECT count(*)::int AS total FROM public.coach_chat_attachments
