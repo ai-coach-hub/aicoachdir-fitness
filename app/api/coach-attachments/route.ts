@@ -15,6 +15,59 @@ function result(data: unknown, status: number) {
 
 // No credentials or member photos are available to the browser until the
 // explicit preview-only rollout flag and private Neon storage are configured.
+export async function GET(request: Request) {
+  if (!attachmentsEnabled()) return result({ ok: false, error: "Private attachments are not enabled." }, 404);
+  const member = await currentUser();
+  const primary = member?.emailAddresses.find(e => e.id === member.primaryEmailAddressId);
+  if (!member || !primary || primary.verification?.status !== "verified")
+    return result({ ok: false, error: "Sign in with a verified email." }, 401);
+  const email = primary.emailAddress.trim().toLowerCase();
+  const authorizedOwners = (process.env.COACH_ATTACHMENT_OWNER_EMAILS || "")
+    .split(",").map(value => value.trim().toLowerCase()).filter(Boolean);
+  const isOwner = authorizedOwners.includes(email);
+  const query = new URL(request.url).searchParams;
+  const ownerView = query.get("scope") === "owner";
+  if (ownerView && !isOwner)
+    return result({ ok: false, error: "Owner access required." }, 403);
+  if (!ownerView) {
+    const memberAccess = await memberHasFitnessAccess(email, member.id).catch(() => false);
+    if (!memberAccess) return result({ ok: false, error: "Membership required." }, 403);
+  }
+  let sql: Awaited<ReturnType<typeof attachmentDatabase>>;
+  try { sql = await attachmentDatabase(); }
+  catch { return result({ ok: false, error: "Storage database unavailable." }, 503); }
+  const memberEmail = ownerView ? (query.get("member") || "").trim().toLowerCase() : email;
+  if (!memberEmail || memberEmail.length > 250 || !/^\S+@\S+\.\S+$/.test(memberEmail))
+    return result({ ok: false, error: "Valid member identifier required." }, 400);
+  const id = query.get("id") || "";
+  if (id && !/^[a-f0-9-]{36}$/.test(id))
+    return result({ ok: false, error: "Invalid attachment identifier." }, 400);
+  const rows = id
+    ? await sql`
+        SELECT attachment_id, filename, byte_size, coach, conversation_id, created_at, expires_at, object_key
+        FROM public.coach_chat_attachments
+        WHERE member_email = ${memberEmail} AND attachment_id = ${id}::uuid AND expires_at > now()
+        LIMIT 1
+      `
+    : await sql`
+        SELECT attachment_id, filename, byte_size, coach, conversation_id, created_at, expires_at
+        FROM public.coach_chat_attachments
+        WHERE member_email = ${memberEmail} AND expires_at > now()
+        ORDER BY created_at DESC LIMIT 40
+      `;
+  if (id && !rows.length) return result({ ok: false, error: "Attachment not found." }, 404);
+  if (id) {
+    const { signedPhotoUrl } = await import("@/lib/coachAttachmentStorage");
+    const photoUrl = signedPhotoUrl(String(rows[0].object_key));
+    return result({ ok: true, photoUrl, expiresInSeconds: 120 }, 200);
+  }
+  return result({ ok: true, items: rows.map(row => ({
+    id: row.attachment_id, name: row.filename, bytes: row.byte_size,
+    coach: row.coach, conversationId: row.conversation_id,
+    createdAt: row.created_at, expiresAt: row.expires_at,
+  })) }, 200);
+}
+
 export async function POST(request: Request) {
   if (!attachmentsEnabled()) return result({ ok: false, error: "Private attachments are not enabled." }, 404);
   if (request.headers.get("origin") !== new URL(request.url).origin)
