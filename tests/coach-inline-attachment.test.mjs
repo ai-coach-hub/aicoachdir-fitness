@@ -1,0 +1,38 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const source = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
+const attachment = source("components/ChatAttachmentPicker.tsx");
+const fitness = source("app/fitness/chat/page.tsx");
+const life = source("app/life/LifeChat.tsx");
+
+test("Add file appears directly alongside Send under Fitness and Life threads", () => {
+  assert.match(fitness, /<form className="member-chat-form" onSubmit=\{send\}>/);
+  assert.match(fitness, /<ChatAttachmentPicker disabled=\{running\} onPendingChange=\{setAttachmentPending\}/);
+  assert.doesNotMatch(fitness, /File attachment preview \(no upload\)/);
+  assert.match(life, /<form onSubmit=\{send\} className=\{styles\.compose\}>/);
+  assert.match(life, /<ChatAttachmentPicker disabled=\{busy\|\|openingThread\} onPendingChange=\{setAttachmentPending\}/);
+  assert.match(attachment, /Add file/);
+});
+
+test("selected file never silently becomes text or a charged Pickaxe request", () => {
+  assert.match(fitness, /if \(!message \|\| running \|\| attachmentPending\) return/);
+  assert.match(fitness, /disabled=\{running \|\| attachmentPending \|\| !input\.trim\(\)\}/);
+  assert.match(life, /if\(!message\|\|busy\|\|openingThread\|\|attachmentPending\)return/);
+  assert.match(life, /disabled=\{busy\|\|openingThread\|\|attachmentPending\|\|!input\.trim\(\)\}/);
+  assert.match(attachment, /onPendingChange\(true\)/);
+  assert.match(attachment, /onPendingChange\(false\)/);
+  assert.match(attachment, /Preview only\. File sending is not enabled\./);
+  assert.doesNotMatch(attachment, /fetch\(|XMLHttpRequest|sendBeacon|sessionStorage|localStorage/);
+});
+
+test("inline file selection is constrained and photo preview strips location metadata", () => {
+  assert.match(attachment, /MAX_BYTES = 8 \* 1024 \* 1024/);
+  assert.match(attachment, /new Set\(\["jpg", "jpeg", "png", "webp", "pdf", "docx", "xlsx", "csv", "txt"\]\)/);
+  assert.match(attachment, /createImageBitmap\(selected\)/);
+  assert.match(attachment, /canvas\.toBlob\(resolve, "image\/jpeg", 0\.78\)/);
+  assert.match(attachment, /URL\.revokeObjectURL/);
+  assert.match(attachment, /type="file"/);
+  assert.match(attachment, /type="button"/);
+});
