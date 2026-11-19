@@ -146,4 +146,31 @@ export async function authorizeAttachedPhoto(args: { id: string; email: string; 
   if (!rows.length) return null;
   return signedPhotoUrl(String(rows[0].object_key));
 }
+// Cleanup is deliberately bounded and fail-closed: only delete rows AFTER
+// confirming the private storage object is deleted. Called by new uploads.
+// A separate scheduled maintenance path is required for strict time guarantees.
+export async function purgeExpiredPhotos(limit = 20) {
+  const sql = await attachmentDatabase();
+  const expired = await sql`
+    SELECT attachment_id, object_key FROM public.coach_chat_attachments
+    WHERE expires_at <= now()
+    ORDER BY expires_at ASC LIMIT ${Math.min(Math.max(limit, 1), 30)}
+  `;
+  let deleted = 0;
+  for (const row of expired) {
+    try {
+      await removeImage(String(row.object_key));
+      await sql`
+        DELETE FROM public.coach_chat_attachments
+        WHERE attachment_id = ${String(row.attachment_id)}::uuid AND expires_at <= now()
+      `;
+      deleted++;
+    } catch {
+      // Continue with other independent objects; never claim deletion of bytes
+      // if storage failed. Do not log a member filename or object key.
+    }
+  }
+  return deleted;
+}
+
 export function MAX_PREPARED_PHOTO_BYTES() { return MAX_IMAGE_BYTES; }
