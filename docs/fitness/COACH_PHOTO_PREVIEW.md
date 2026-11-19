@@ -1,6 +1,6 @@
 # Coach file attachments — isolated preview (Nov 19, 2026)
 
-**Current status: TESTING ONLY, NOT CUSTOMER READY.** Fitness and Life now have a preview-gated private photo upload route, temporary image URLs, a member-accessible attachment history with deletion, and explicit per-file consent. Small TXT/CSV excerpts can be sent inside normal coach messages. PDFs, DOCX and XLSX still cannot be interpreted or sent. Owner access is not configured, Pickaxe photo/image dashboard visibility is unverified, scheduled deletion is absent, and no end-to-end paid model verification has occurred. Do not merge, promote, or advertise as ready. The newer sections below supersede the original preview-only descriptions.
+**Current status: TESTING ONLY, NOT CUSTOMER READY.** Fitness and Life now have a preview-gated private photo upload route, temporary image URLs, a member-accessible attachment history with deletion, and a plain-language privacy notice beside the attachment. Pressing Send deliberately shares it with the coach, without an extra agreement checkbox. Small TXT/CSV excerpts can be sent inside normal coach messages. PDFs, DOCX and XLSX still cannot be interpreted or sent. Owner access is not configured, Pickaxe photo/image dashboard visibility is unverified, scheduled deletion is absent, and no end-to-end paid model verification has occurred. Do not merge, promote, or advertise as ready. The newer sections below supersede the original preview-only descriptions.
 
 ## Historical phase 1: browser-only preview (superseded)
 
@@ -59,3 +59,9 @@ This is a **staged technical preview, not a customer launch**.
 - Expired private photo objects are opportunistically purged in bounded batches when new uploads occur, and individuals can be deleted explicitly. **A scheduled retention worker is not yet configured**; do not promise guaranteed deletion exactly at seven days. Expiry prevents API access but does not by itself remove the private object bytes.
 - The Fitness and Life image flow has passed automated regression checks and TypeScript compilation, but **NO authenticated real photo-to-Pickaxe completion, storage transfer or Pickaxe owner-dashboard attachment visibility has been independently verified**. Photo inputs have model-dependent costs even within the 400-message allowance. Do not merge/launch, contact customers with a ready claim, or trigger paid tests until these complete.
 - Current preview commit `bc68d753fa888bddccf4c16294fd051ede518fea` — Vercel deployment `dpl_86E1hLuMstji3YdzyH3B4vukhPBn`, state READY, 696/696 offline regression tests passed. GitHub draft PR #257 remains unmerged and production unchanged.
+
+## Nov 19: streamlined attachment sharing
+
+- Following a successful member-reported iPhone photo test, removed the extra per-attachment agreement checkbox from Fitness and Life. A concise privacy disclosure remains next to ready attachments; selecting a file stays local until the member deliberately taps Send.
+- Ready TXT/CSV and prepared photo selections enable Send immediately; preview-only unsupported document formats do not enable attachment sending.
+- This is an interface simplification only. Storage access, expiration, Pickaxe relay, owner authorization boundaries, and production rollout controls are unchanged. Owner-dashboard photo visibility is still unverified; this is not a production release.
