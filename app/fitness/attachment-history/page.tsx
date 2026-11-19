@@ -12,6 +12,7 @@ type Attachment = {
   conversationId: string;
   createdAt: string;
   expiresAt: string;
+  memberEmail?: string;
 };
 
 export default function PrivateAttachmentHistory() {
@@ -22,11 +23,12 @@ export default function PrivateAttachmentHistory() {
   const [error, setError] = useState("");
   const [activeImage, setActiveImage] = useState<{ id: string; url: string } | null>(null);
 
-  const path = (attachmentId?: string) => {
+  const path = (attachmentId?: string, attachedMember?: string) => {
     const p = new URLSearchParams();
     if (ownerMode) {
       p.set("scope", "owner");
-      p.set("member", member.trim().toLowerCase());
+      const selectedMember = (attachedMember || member).trim().toLowerCase();
+      if (selectedMember) p.set("member", selectedMember);
     }
     if (attachmentId) p.set("id", attachmentId);
     return "/api/coach-attachments?" + p;
@@ -47,11 +49,11 @@ export default function PrivateAttachmentHistory() {
     } finally { setBusy(false); }
   }
 
-  async function open(id: string) {
+  async function open(id: string, attachedMember?: string) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(path(id), { cache: "no-store" });
+      const response = await fetch(path(id, attachedMember), { cache: "no-store" });
       const json = await response.json();
       if (!response.ok || !json.ok || !json.photoUrl)
         throw new Error(json.error || "Private photo unavailable.");
@@ -60,7 +62,7 @@ export default function PrivateAttachmentHistory() {
     finally { setBusy(false); }
   }
 
-  async function remove(id: string) {
+  async function remove(id: string, attachedMember?: string) {
     if (!window.confirm("Permanently delete this stored photo?")) return;
     setBusy(true);
     setError("");
@@ -68,7 +70,7 @@ export default function PrivateAttachmentHistory() {
       const response = await fetch("/api/coach-attachments", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...(ownerMode ? { member: member.trim().toLowerCase() } : {}) }),
+        body: JSON.stringify({ id, ...(ownerMode ? { member: (attachedMember || member).trim().toLowerCase() } : {}) }),
         cache: "no-store",
       });
       const json = await response.json();
@@ -89,16 +91,16 @@ export default function PrivateAttachmentHistory() {
           setOwnerMode(e.target.checked);
           setItems([]); setActiveImage(null); setError("");
         }} />
-        Owner view (requires server-approved owner access)
+        Owner view (requires server-approved owner access; shows 40 recent photos)
       </label>
       {ownerMode ? (
         <label className={styles.control}>Member email
           <input type="email" autoComplete="off" value={member}
-            onChange={e => setMember(e.target.value)} placeholder="Member's verified email" />
+            onChange={e => setMember(e.target.value)} placeholder="Optional: filter by member email" />
         </label>
       ) : null}
       <button type="button" className={styles.button} onClick={() => void load()}
-        disabled={busy || (ownerMode && !member.trim())}>Show attachments</button>
+        disabled={busy}>Show attachments</button>
       {busy ? <p role="status">Working…</p> : null}
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
       <div className={styles.items}>
@@ -106,9 +108,10 @@ export default function PrivateAttachmentHistory() {
           <article className={styles.item} key={item.id}>
             <div><strong>{item.name}</strong><div className={styles.detail}>
               {item.coach} · {Math.ceil(item.bytes / 1024)} KB · {new Date(item.createdAt).toLocaleDateString()}
+              {ownerMode && item.memberEmail ? " · " + item.memberEmail : ""}
             </div></div>
-            <button type="button" disabled={busy} onClick={() => void open(item.id)}>View</button>
-            <button type="button" disabled={busy} onClick={() => void remove(item.id)}>Delete</button>
+            <button type="button" disabled={busy} onClick={() => void open(item.id, item.memberEmail)}>View</button>
+            <button type="button" disabled={busy} onClick={() => void remove(item.id, item.memberEmail)}>Delete</button>
           </article>
         ))}
         {!busy && !error && items.length === 0 ? <p>No stored photos loaded.</p> : null}
