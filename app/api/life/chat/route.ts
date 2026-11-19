@@ -2,7 +2,6 @@ import { cleanLifeCoachText } from "@/lib/lifeCoachFormatting";
 import { urgentLifeCoachReply } from "@/lib/lifeCoachSafetyFallback";
 import { lifeMemoryReply, guardLifeMemoryDenial, isLifeRecallQuestion } from "@/lib/lifeCoachMemory";
 import { lifeTester } from "@/lib/lifeCoachAccess";
-import { authorizeAttachedPhoto, attachmentsEnabled } from "@/lib/coachAttachmentStorage";
 import { listLifeThreads,readLifeThread,recallLifeContext,recallLifeStatements,saveLifeTurn,listLifeGoals } from "@/lib/lifeCoachStore";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -85,9 +84,10 @@ export async function POST(request:Request) {
  if(!/^life-coach-[a-zA-Z0-9_-]{8,90}$/.test(id)||!message||message.length>6000)
   return json({ok:false,error:"Invalid conversation or message."},400);
  const attachmentId=typeof body.attachmentId==="string"?body.attachmentId:"";
- if(attachmentId && !attachmentsEnabled())return json({ok:false,error:"Photo attachments are not enabled."},404);
+ const attachmentUtils=attachmentId?await import("@/lib/coachAttachmentStorage"):null;
+ if(attachmentId && !attachmentUtils?.attachmentsEnabled())return json({ok:false,error:"Photo attachments are not enabled."},404);
  const photoUrl=attachmentId
-  ? await authorizeAttachedPhoto({id:attachmentId,email,coach:"life",conversationId:id}).catch(()=>null)
+  ? await attachmentUtils!.authorizeAttachedPhoto({id:attachmentId,email,coach:"life",conversationId:id}).catch(()=>null)
   : null;
  if(attachmentId && !photoUrl)return json({ok:false,error:"Photo is not authorized for this conversation."},403);
 
