@@ -29,3 +29,13 @@ A privacy-safe end-to-end integration still needs:
 - Live `aicoachdir.com` remains unchanged; existing Fitness repair PR #256 is separate and unmerged.
 - This feature is preview-only and requires no new monthly subscription.
 - Do not merge to production until a secure upload backend and actual image delivery are implemented and independently verified.
+
+
+## Progress after inline preview approval — short text/CSV bridge (Nov 19)
+
+The inline **Add file** control in Fitness and Life Coach now supports local extraction of small **TXT and CSV** documents. The browser reads up to 16 KB of plain text and rejects files containing more than 3,500 characters, NUL/control bytes, or unsupported MIME/extension combinations. The excerpt is not uploaded when a file is chosen; it is included in the normal existing member message **only when the member explicitly presses Send** with their question. The source is wrapped as quoted untrusted member-provided data, not tool commands. Existing Pickaxe message IDs, usage meters and save-verification paths remain in use; no separate inference call is added. Following success, the attachment chip is cleared; on error it stays for safe deliberate retry.
+
+- **Owner visibility:** text and CSV content should be visible in the Pickaxe conversation text because they are sent as part of the message, but that must still be checked in the owner's dashboard. The original file itself is *not* archived or uploaded by Pickaxe via this route.
+- **Privacy:** the chip discloses that sent text will appear in conversation history. The site processes a copy of the excerpt in the ordinary chat POST after a deliberate Send. Avoid medical records, account numbers and private identifiers.
+- **Photo, PDF, DOCX and XLSX:** these can be selected and previewed but cannot yet be sent. No secure private object store, per-member retention/deletion facility or approved attachment parser has been provisioned. A private Blob store is possible but **no new paid resource** has been authorized; imageUrls requires HTTPS images ending in a supported extension. Do not use global Studio knowledge-base uploads for member-owned private attachments because of possible cross-user knowledge contamination.
+- **Production:** do not merge this draft PR yet. The full attachment feature is not complete. No paid Pickaxe end-to-end test or production deployment was made.
