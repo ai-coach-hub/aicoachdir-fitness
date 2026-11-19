@@ -41,10 +41,14 @@ test("inline file selection is constrained and photo preview strips location met
   assert.match(attachment, /type="button"/);
 });
 
-test("attachment consent gates Send and discloses AI provider and owner access", () => {
-  assert.match(attachment, /const \[consented, setConsented\] = useState\(false\)/);
-  assert.match(attachment, /I agree to share this attachment with the AI coach/);
+test("attachment selection is local until Send, without a second consent checkbox", () => {
+  assert.doesNotMatch(attachment, /type="checkbox"|setConsented|styles\.consent/);
+  assert.match(attachment, /Pressing Send shares this attachment with the AI coach/);
   assert.match(attachment, /accessible to the service provider and authorized site owner/);
-  assert.match(attachment, /onPendingChange\(!event\.target\.checked\)/);
-  assert.match(attachment, /Keep Send disabled until the member explicitly approves sharing/);
+  assert.match(attachment, /Photos are stored for up to seven days in this preview/);
+  assert.match(attachment, /Selecting the file is local-only/);
+  assert.match(attachment, /Selecting the photo is local-only/);
+  assert.match(attachment, /onPendingChange\(false\)/);
+  assert.match(fitness, /onSubmit=\{send\}/);
+  assert.match(life, /onSubmit=\{send\}/);
 });
