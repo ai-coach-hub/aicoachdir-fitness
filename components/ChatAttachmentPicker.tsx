@@ -11,6 +11,7 @@ const ACCEPT = ".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx,.csv,.txt";
 type SelectedFile = { name: string; kind: "photo" | "document"; size: number; preview?: string; readyForChat?: boolean };
 
 export type TextAttachment = { name: string; content: string };
+export type PhotoAttachment = { name: string; jpeg: Blob };
 
 // The file body is only read for small plain text or CSV files. Other formats
 // remain preview-only until secure processing and model delivery are available.
@@ -29,10 +30,14 @@ export default function ChatAttachmentPicker({
   disabled = false,
   onPendingChange,
   onTextAttachment,
+  onPhotoAttachment,
+  photoSendingEnabled = false,
 }: {
   disabled?: boolean;
   onPendingChange: (pending: boolean) => void;
   onTextAttachment?: (attachment: TextAttachment | null) => void;
+  onPhotoAttachment?: (attachment: PhotoAttachment | null) => void;
+  photoSendingEnabled?: boolean;
 }) {
   const picker = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<SelectedFile | null>(null);
@@ -52,6 +57,7 @@ export default function ChatAttachmentPicker({
     previewRef.current = null;
     setFile(null);
     onTextAttachment?.(null);
+    onPhotoAttachment?.(null);
     setError("");
     setBusy(false);
     if (picker.current) picker.current.value = "";
@@ -70,6 +76,7 @@ export default function ChatAttachmentPicker({
     previewRef.current = null;
     setFile(null);
     onTextAttachment?.(null);
+    onPhotoAttachment?.(null);
     try {
       const ext = selected.name.split(".").pop()?.toLowerCase() || "";
       if (!ALLOWED_EXTENSION.has(ext) || !selected.size || selected.size > MAX_BYTES)
@@ -132,7 +139,12 @@ export default function ChatAttachmentPicker({
           return;
         }
         previewRef.current = url;
-        setFile({ name: selected.name.slice(0, 120), kind: "photo", size: jpeg.size, preview: url });
+        setFile({ name: selected.name.slice(0, 120), kind: "photo", size: jpeg.size, preview: url,
+          readyForChat: photoSendingEnabled });
+        if (photoSendingEnabled) {
+          onPhotoAttachment?.({ name: selected.name.slice(0, 120), jpeg });
+          onPendingChange(false);
+        }
       } finally {
         bitmap.close();
       }
@@ -140,6 +152,7 @@ export default function ChatAttachmentPicker({
       if (generation.current === requestId) {
         setError(failure instanceof Error ? failure.message : "Unable to preview this file.");
         onTextAttachment?.(null);
+        onPhotoAttachment?.(null);
         onPendingChange(false);
       }
     } finally {
@@ -178,7 +191,7 @@ export default function ChatAttachmentPicker({
           <span className={styles.size}>{Math.ceil(file.size / 1024)} KB</span>
           <button type="button" onClick={remove} className={styles.remove} aria-label="Remove attached file">Remove</button>
           <span className={styles.note}>{file.readyForChat
-            ? "Ready: text will be included when you press Send. It will be visible in conversation history."
+            ? file.kind === "photo" ? "Ready: photo will be uploaded privately when you press Send." : "Ready: text will be included when you press Send. It will be visible in conversation history."
             : "Preview only. Sending this file type is not enabled."}</span>
         </div>
       ) : null}
