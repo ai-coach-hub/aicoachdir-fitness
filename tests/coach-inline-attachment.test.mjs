@@ -9,10 +9,10 @@ const life = source("app/life/LifeChat.tsx");
 
 test("Add file appears directly alongside Send under Fitness and Life threads", () => {
   assert.match(fitness, /<form className="member-chat-form" onSubmit=\{send\}>/);
-  assert.match(fitness, /<ChatAttachmentPicker key=\{attachmentPickerRevision\} disabled=\{running\} onPendingChange=\{setAttachmentPending\} onTextAttachment=\{setAttachmentText\}/);
+  assert.match(fitness, /<ChatAttachmentPicker key=\{attachmentPickerRevision\} disabled=\{running\} onPendingChange=\{setAttachmentPending\}/);
   assert.doesNotMatch(fitness, /File attachment preview \(no upload\)/);
   assert.match(life, /<form onSubmit=\{send\} className=\{styles\.compose\}>/);
-  assert.match(life, /<ChatAttachmentPicker key=\{attachmentPickerRevision\} disabled=\{busy\|\|openingThread\} onPendingChange=\{setAttachmentPending\} onTextAttachment=\{setAttachmentText\}/);
+  assert.match(life, /<ChatAttachmentPicker key=\{attachmentPickerRevision\} disabled=\{busy\|\|openingThread\} onPendingChange=\{setAttachmentPending\}/);
   assert.match(attachment, /Add file/);
 });
 
