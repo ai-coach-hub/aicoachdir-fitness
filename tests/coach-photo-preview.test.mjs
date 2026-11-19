@@ -14,7 +14,7 @@ test("file attachment preview is isolated and never uploads documents or images"
   assert.match(preview, /const FILE_ACCEPT = "\.jpg,\.jpeg,\.png,\.webp,\.pdf,\.txt,\.csv,\.docx,\.xlsx"/);
   assert.match(preview, /aria-label="Prepare a coaching attachment"/);
   assert.match(preview, /disabled title="Secure attachment delivery to the coach is not yet connected"/);
-  assert.match(chat, /href="\/fitness\/photo-preview"/);
+  assert.match(chat, /<ChatAttachmentPicker disabled=\{running\} onPendingChange=\{setAttachmentPending\}/);
   assert.match(preview, /URL\.revokeObjectURL/);
   assert.doesNotMatch(preview, /fetch\(|sendBeacon|XMLHttpRequest|\.submit\(|<form/);
   assert.doesNotMatch(preview, /PickaxeConfig|https:\/\/api\.pickaxe/);
