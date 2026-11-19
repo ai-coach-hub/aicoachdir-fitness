@@ -1141,6 +1141,9 @@ export default function FitnessChatPage() {
                   onTextAttachment={setAttachmentText}
                   onPhotoAttachment={(photo) => { setAttachmentPhoto(photo); setUploadedPhotoId(null); }}
                   photoSendingEnabled={typeof process !== "undefined" && process.env.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED === "true"} />
+                {process.env.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED === "true" ? (
+                  <Link href="/fitness/attachment-history" className="text-button">My attached photos</Link>
+                ) : null}
                 {status ? <span className="member-status">{status}</span> : null}
               </div>
             </form>
