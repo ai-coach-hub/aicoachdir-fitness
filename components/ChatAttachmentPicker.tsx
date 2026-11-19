@@ -194,7 +194,7 @@ export default function ChatAttachmentPicker({
           <button type="button" onClick={remove} className={styles.remove} aria-label="Remove attached file">Remove</button>
           <span className={styles.note}>{file.readyForChat
             ? file.kind === "photo"
-              ? "Ready to send privately. Photos are stored for up to seven days in this preview."
+              ? "Ready to send privately. Photo access expires after seven days; you can delete it sooner in My attached photos."
               : "Ready to send. File text will appear in the conversation."
             : "Preview only. Sending this file type is not enabled."}</span>
           {file.readyForChat ? (
