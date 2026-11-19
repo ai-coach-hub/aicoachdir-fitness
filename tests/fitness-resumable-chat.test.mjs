@@ -13,7 +13,10 @@ test("timezones are validated server-side and sent into saved-plan coaching", ()
   assert.match(api, /function validIanaTimezone\(value: unknown\)/);
   assert.match(api, /new Intl.DateTimeFormat\("en-US", \{ timeZone: value\.trim\(\) \}\)/);
   assert.match(api, /const effectiveTimeZone = suppliedTimeZone \|\| validIanaTimezone\(planBeforeMutation\?\.userTimezone\) \|\| "UTC"/);
-  assert.match(api, /userTimezone in all plan and Save Workout Plan action inputs/);
+  assert.match(api, /not necessarily a verified geographic location/);
+  assert.match(api, /Do not block the workout or return MISSING_TIMEZONE/);
+  assert.match(api, /APPLICATION SAVE TIMEZONE: Use/);
+  assert.match(api, /not proof of the member's physical location/);
   assert.match(api, /buildSavedMutationMessage\(effectiveMessage, message, planBeforeMutation, effectiveTimeZone\)/);
   assert.match(client, /timeZone: Intl.DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone/);
 });
@@ -37,6 +40,8 @@ test("a request gets one durable member-scoped claim and no automatic paid retry
   assert.match(jobs, /AND state='queued'/);
   assert.match(api, /if \(claim\.created\) \{/);
   assert.match(api, /after\(async \(\) => \{/);
+  assert.ok(api.indexOf('const { after } = await import("next/server")') <
+    api.indexOf('claim = await claimFitnessChatJob('), "scheduler must load before durable job claim");
   assert.match(api, /if \(!\(await startFitnessChatJob\(memberEmail, requestKey\)\)\) return/);
   assert.match(api, /await runFitnessChatRequest\(workerRequest\)/);
   assert.doesNotMatch(jobs, /setInterval|fetch\(/);
