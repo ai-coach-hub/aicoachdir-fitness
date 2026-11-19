@@ -61,7 +61,7 @@ async function prepareAttachment(file: File): Promise<PreparedAttachment> {
   if (file.size === 0 || file.size > MAX_DOCUMENT_BYTES) {
     throw new Error("Choose a document smaller than 8 MB.");
   }
-  // No FileReader, object URL, rendering, parsing or upload of document bytes.
+  // Document contents are never read, rendered, parsed or uploaded.
   return { kind: "document", originalName: file.name.slice(0, 120), bytes: file.size, label: DOCUMENT_TYPES[type] };
 }
 
