@@ -153,7 +153,7 @@ export default function FitnessPhotoPreview() {
     setProcessing(true);
     setError("");
     try {
-      const prepared = await preparePhoto(file);
+      const prepared = await prepareAttachment(file);
       if (task !== activeTask.current) {
         if (prepared.kind === "image") URL.revokeObjectURL(prepared.objectUrl);
         return;
