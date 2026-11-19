@@ -9,6 +9,8 @@ const jobRoute = source("app/api/fitness/chat/job/route.ts");
 const checkedInCoachPrompt = source("scripts/sync-pickaxe-compact-coach.mjs");
 const jobs = source("lib/fitnessChatJobs.ts");
 const migration = source("migrations/20261117_fitness_resumable_chat_REVIEW_ONLY.sql");
+const cleanup = source("app/api/internal/fitness-chat-retention/route.ts");
+const vercelConfig = JSON.parse(source("vercel.json"));
 
 test("timezones are validated server-side and sent into saved-plan coaching", () => {
   assert.match(api, /function validIanaTimezone\(value: unknown\)/);
@@ -75,4 +77,25 @@ test("checked-in coach prompt accepts site timezone before asking for clarificat
   assert.match(checkedInCoachPrompt, /Do not respond with MISSING_TIMEZONE/);
   assert.match(checkedInCoachPrompt, /do not present UTC as verified geographic location/);
   assert.doesNotMatch(checkedInCoachPrompt, /If still unavailable, ask for timezone once/);
+});
+
+test("expired private Fitness jobs are removed by a credentialed, bounded daily cron", () => {
+  assert.deepEqual(vercelConfig.crons, [{
+    path: "/api/internal/fitness-chat-retention",
+    schedule: "0 4 * * *",
+  }]);
+  assert.match(cleanup, /process\.env\.CRON_SECRET/);
+  assert.match(cleanup, /configuredSecret\.length < 24/);
+  assert.match(cleanup, /timingSafeEqual\(expected, supplied\)/);
+  assert.match(cleanup, /process\.env\.VERCEL_ENV !== "production"/);
+  assert.match(cleanup, /process\.env\.FITNESS_RESUMABLE_CHAT_ENABLED !== "true"/);
+  assert.match(cleanup, /current_setting\('neon\.branch_id', true\)/);
+  assert.match(cleanup, /PRODUCTION_NEON_BRANCH_ID/);
+  assert.match(cleanup, /FROM public\.fitness_chat_jobs/);
+  assert.match(cleanup, /created_at < NOW\(\) - INTERVAL '7 days'/);
+  assert.match(cleanup, /LIMIT 5000/);
+  assert.match(cleanup, /DELETE FROM public\.fitness_chat_jobs/);
+  assert.doesNotMatch(cleanup, /studio\/memory|\/v1\/completions|fetch\(/);
+  assert.match(migration, /fitness_chat_jobs_created_idx/);
+  assert.doesNotMatch(cleanup, /fitness_workout_history|fitness_memberships/i);
 });
