@@ -8,14 +8,31 @@ const ALLOWED_EXTENSION = new Set(["jpg", "jpeg", "png", "webp", "pdf", "docx", 
 const MAX_BYTES = 8 * 1024 * 1024;
 const ACCEPT = ".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx,.csv,.txt";
 
-type SelectedFile = { name: string; kind: "photo" | "document"; size: number; preview?: string };
+type SelectedFile = { name: string; kind: "photo" | "document"; size: number; preview?: string; readyForChat?: boolean };
+
+export type TextAttachment = { name: string; content: string };
+
+// The file body is only read for small plain text or CSV files. Other formats
+// remain preview-only until secure processing and model delivery are available.
+const MAX_TEXT_BYTES = 16 * 1024;
+const MAX_TEXT_CHARS = 3500;
+function extractLocalTextAttachment(file: File, text: string): TextAttachment {
+  if (!text.trim() || text.includes("\u0000") || /[\u0001-\u0008\u000b\u000c\u000e-\u001f]/.test(text))
+    throw new Error("This file is empty or does not contain readable text.");
+  if (text.length > MAX_TEXT_CHARS)
+    throw new Error("This text or CSV file is too long. Choose one with at most 3,500 characters.");
+  return { name: file.name.slice(0, 120), content: text };
+}
+
 
 export default function ChatAttachmentPicker({
   disabled = false,
   onPendingChange,
+  onTextAttachment,
 }: {
   disabled?: boolean;
   onPendingChange: (pending: boolean) => void;
+  onTextAttachment?: (attachment: TextAttachment | null) => void;
 }) {
   const picker = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<SelectedFile | null>(null);
@@ -34,6 +51,7 @@ export default function ChatAttachmentPicker({
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     previewRef.current = null;
     setFile(null);
+    onTextAttachment?.(null);
     setError("");
     setBusy(false);
     if (picker.current) picker.current.value = "";
@@ -51,6 +69,7 @@ export default function ChatAttachmentPicker({
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     previewRef.current = null;
     setFile(null);
+    onTextAttachment?.(null);
     try {
       const ext = selected.name.split(".").pop()?.toLowerCase() || "";
       if (!ALLOWED_EXTENSION.has(ext) || !selected.size || selected.size > MAX_BYTES)
@@ -68,8 +87,22 @@ export default function ChatAttachmentPicker({
         };
         if (selected.type && selected.type !== formats[ext])
           throw new Error("The document type does not match its extension.");
-        if (generation.current === requestId)
+        if ((ext === "txt" || ext === "csv") && selected.size <= MAX_TEXT_BYTES) {
+          // Local File.text() reads only this file, never persists it or uploads it.
+          const text = extractLocalTextAttachment(selected, await selected.text());
+          if (generation.current === requestId) {
+            onTextAttachment?.(text);
+            setFile({ name: text.name, kind: "document", size: selected.size, readyForChat: true });
+            onPendingChange(false);
+          }
+          return;
+        }
+        if (generation.current === requestId) {
           setFile({ name: selected.name.slice(0, 120), kind: "document", size: selected.size });
+          setError(ext === "txt" || ext === "csv"
+            ? "Text and CSV files must be 16 KB or smaller before sending."
+            : "This file type can be previewed, but sending isn't enabled yet.");
+        }
         return;
       }
       let bitmap: ImageBitmap;
@@ -106,6 +139,7 @@ export default function ChatAttachmentPicker({
     } catch (failure) {
       if (generation.current === requestId) {
         setError(failure instanceof Error ? failure.message : "Unable to preview this file.");
+        onTextAttachment?.(null);
         onPendingChange(false);
       }
     } finally {
@@ -143,7 +177,9 @@ export default function ChatAttachmentPicker({
           <span className={styles.fileName} title={file.name}>{file.name}</span>
           <span className={styles.size}>{Math.ceil(file.size / 1024)} KB</span>
           <button type="button" onClick={remove} className={styles.remove} aria-label="Remove attached file">Remove</button>
-          <span className={styles.note}>Preview only. File sending is not enabled.</span>
+          <span className={styles.note}>{file.readyForChat
+            ? "Ready: text will be included when you press Send. It will be visible in conversation history."
+            : "Preview only. Sending this file type is not enabled."}</span>
         </div>
       ) : null}
     </div>
