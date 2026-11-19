@@ -6,7 +6,7 @@ import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const PICKAXE_COMPLETIONS_URL = "https://api.pickaxe.co/v1/completions";
 const PICKAXE_STUDIO_BASE_URL = "https://api.pickaxe.co/v1";
@@ -472,6 +472,16 @@ function parsePlanFromSavedRun(run: SavedPlanRun) {
   return plan && typeof plan === "object" && !Array.isArray(plan)
     ? plan as Record<string, unknown>
     : null;
+}
+
+function validIanaTimezone(value: unknown) {
+  if (typeof value !== "string" || !value.trim() || value.length > 80) return "";
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value.trim() }).format(new Date());
+    return value.trim();
+  } catch {
+    return "";
+  }
 }
 
 function dateKeyInTimezone(timeZone: string) {
@@ -1714,12 +1724,13 @@ function buildCoachQualityMessage(message: string) {
   ].join("\n");
 }
 
-function buildStructuredWorkoutEfficiencyMessage(message: string) {
+function buildStructuredWorkoutEfficiencyMessage(message: string, timeZone = "UTC") {
   if (!requiresValidatedWorkoutDelivery(message)) return message;
 
   return [
     "APPLICATION FIRST-PASS WORKOUT VALIDATION RULES - apply silently.",
     "Preserve the member's exact request, schedule commitments, restrictions, requested duration, and requested calendar week.",
+    `Application timezone for workout scheduling: ${timeZone}. This is a valid IANA time zone chosen from the member browser, saved plan, or UTC fallback; it is NOT necessarily a verified geographic location. Pass it as userTimezone on plan/save action inputs and derive the requested week dates with it. Do not block the workout or return MISSING_TIMEZONE merely because no previously saved plan has a timezone.`,
     "When the member asks for a workout plan tied to this week, next week, or named weekdays, treat it as a plan to save in My Workouts unless they explicitly say not to save it. Preserve the current saved week when the request is for next week, and stage the requested plan as the next saved week with the correct dates.",
     "If a location's exact equipment is unknown but the member explicitly asks you to do your best, use a conservative common baseline (for example dumbbells plus floor space in a basic hotel gym), include simple substitutions, and complete/save the plan instead of blocking on another equipment question.",
     "Before feasibility validation, build one complete candidate using only confirmed equipment/setup or the conservative baseline the member explicitly authorized, with realistic exercise plus rest time.",
@@ -1753,13 +1764,13 @@ function buildStandaloneWorkoutPreviewMessage(message: string) {
   ].join("\n");
 }
 
-function buildPickaxeMessage(message: string) {
+function buildPickaxeMessage(message: string, timeZone = "UTC") {
   if (isStandaloneNoSaveWorkout(message)) {
     return buildStandaloneWorkoutPreviewMessage(message);
   }
 
   if (requiresValidatedWorkoutDelivery(message)) {
-    return buildStructuredWorkoutEfficiencyMessage(message);
+    return buildStructuredWorkoutEfficiencyMessage(message, timeZone);
   }
 
   return buildCoachQualityMessage(message);
@@ -2256,7 +2267,112 @@ async function settleWorkoutSaveRace<R extends { finalDelivery?: string }>(optio
   return { relay: lateRelay, clarification: clarificationFromDriver(first.result) };
 }
 
+async function enqueueResumableFitnessRequest(request: Request, input: Record<string, unknown>) {
+  const user = await currentUser();
+  const memberEmail = primaryEmailForUser(user);
+  if (!user || !memberEmail) {
+    return Response.json({ ok: false, error: "Sign in is required." }, { status: 401 });
+  }
+  try {
+    if (!(await memberHasFitnessAccess(memberEmail, user.id))) {
+      return Response.json({ ok: false, error: "Active Fitness membership is required." }, { status: 403 });
+    }
+  } catch {
+    return Response.json({ ok: false, error: "Fitness membership verification unavailable." }, { status: 503 });
+  }
+
+  const message = typeof input.message === "string" ? input.message.trim() : "";
+  const requestKey = typeof input.requestKey === "string" ? input.requestKey.trim() : "";
+  const conversationId = typeof input.conversationId === "string" ? input.conversationId.trim() : "";
+  const pendingPlanRequest = typeof input.pendingPlanRequest === "string" ? input.pendingPlanRequest.trim() : "";
+  const timeZone = validIanaTimezone(input.timeZone);
+  if (!message || message.length > 12_000 || pendingPlanRequest.length > 12_000 ||
+      !/^fitness-chat-[A-Za-z0-9_-]{8,120}$/.test(conversationId) ||
+      !/^[A-Za-z0-9_-]{16,100}$/.test(requestKey)) {
+    return Response.json({ ok: false, error: "Valid message, conversation and request IDs required." }, { status: 400 });
+  }
+  // Load the after() scheduler BEFORE writing a durable claim so an unsupported
+  // runtime cannot leave a queued job that will never start.
+  const { after } = await import("next/server");
+  // Lazy-load only for explicitly enabled production mutations; legacy requests
+  // and the offline Fitness test harness keep their original dependencies.
+  const {
+    claimFitnessChatJob, finishFitnessChatJob, fitnessJobRequestHash, startFitnessChatJob,
+  } = await import("@/lib/fitnessChatJobs");
+  const requestHash = fitnessJobRequestHash({ message, conversationId, pendingPlanRequest, timeZone });
+  let claim: Awaited<ReturnType<typeof claimFitnessChatJob>>;
+  try {
+    claim = await claimFitnessChatJob({ email: memberEmail, requestKey, conversationId, requestHash });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("already used")) {
+      return Response.json({ ok: false, error: "This request ID belongs to another message. Do not automatically retry." }, { status: 409 });
+    }
+    // A schema/branch failure must happen before any Pickaxe completion starts.
+    return Response.json({ ok: false, error: "Resumable chat storage is not ready. No AI request was started." }, { status: 503 });
+  }
+
+  if (claim.created) {
+    // This is a Vercel after() task, not a second browser fetch or a second AI call.
+    // Durable claim prevents repeated submit requests from starting new paid generations.
+    const workerUrl = request.url;
+    const workerHeaders = new Headers(request.headers);
+    const workerBody = JSON.stringify(input);
+    after(async () => {
+      try {
+        if (!(await startFitnessChatJob(memberEmail, requestKey))) return;
+        const workerRequest = new Request(workerUrl, {
+          method: "POST", headers: workerHeaders, body: workerBody,
+        });
+        const response = await runFitnessChatRequest(workerRequest);
+        const resultValue: unknown = await response.json().catch(() => null);
+        const result = resultValue && typeof resultValue === "object" && !Array.isArray(resultValue)
+          ? resultValue as Record<string, unknown>
+          : { ok: false, error: "Fitness Coach returned an unreadable result." };
+        const uncertain = response.status === 504 || result.relaySource === "action-session-timeout";
+        await finishFitnessChatJob({
+          email: memberEmail, requestKey,
+          state: uncertain ? "uncertain" : response.ok ? "complete" : "error",
+          httpStatus: response.status,
+          result,
+        });
+      } catch {
+        // The provider may have acted before a connection failed. Never replay a mutation.
+        try {
+          await finishFitnessChatJob({
+            email: memberEmail, requestKey, state: "uncertain", httpStatus: 503,
+            result: {
+              ok: false, conversationId, savedPlanVerified: false,
+              error: "This workout request could not be confirmed. Check My Workouts and previous chats before trying again.",
+            },
+          });
+        } catch { /* A stale job will report uncertain via read-only status polling. */ }
+      }
+    });
+  }
+
+  return Response.json({
+    ok: true, jobState: claim.job.state, requestKey, conversationId,
+  }, { status: 202, headers: { "Cache-Control": "private, no-store" } });
+}
+
 export async function POST(request: Request) {
+  if (process.env.VERCEL_ENV === "production" &&
+      process.env.FITNESS_RESUMABLE_CHAT_ENABLED === "true") {
+    const input: unknown = await request.clone().json().catch(() => null);
+    if (input && typeof input === "object" && !Array.isArray(input)) {
+      const body = input as Record<string, unknown>;
+      const message = typeof body.message === "string" ? body.message.trim() : "";
+      const pending = typeof body.pendingPlanRequest === "string" ? body.pendingPlanRequest : "";
+      if (body.action == null && message &&
+          requiresConfirmedSavedPlanMutation(continuePendingPlanRequest(message, pending))) {
+        return enqueueResumableFitnessRequest(request, body);
+      }
+    }
+  }
+  return runFitnessChatRequest(request);
+}
+
+async function runFitnessChatRequest(request: Request) {
   // Only an explicitly authorized shared-wallet release may call the real
   // provider through the quota reservation boundary. Default remains OFF.
   // Keep this entrypoint independent of dynamically imported meter internals
@@ -2583,7 +2699,9 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
     /\b(?:workouts?|sessions?|training|exercises?)\b[^.!?\n]{0,100}\b(?:recent|past|previous|logged|finished|completed|completion|progress)\b/i.test(message);
   const completionContextPromise = !mustConfirmSavedPlanMutation && !standaloneNoSaveWorkout && needsCompletionContext
     ? readCoachCompletionContext(memberEmail, studioToken) : Promise.resolve(null);
-  const mutationSignal = AbortSignal.timeout(100_000);
+  const backgroundMutation = process.env.VERCEL_ENV === "production" &&
+    process.env.FITNESS_RESUMABLE_CHAT_ENABLED === "true" && mustConfirmSavedPlanMutation;
+  const mutationSignal = AbortSignal.timeout(backgroundMutation ? 230_000 : 100_000);
   let planBeforeMutation: Record<string, unknown> | null = null;
   let priorActionRunIds = new Set<string>();
   if (mustConfirmSavedPlanMutation) {
@@ -2631,9 +2749,12 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
       relaySource: "workout-history-unavailable",
     });
   }
+  const suppliedTimeZone = body && typeof body === "object" && !Array.isArray(body)
+    ? validIanaTimezone((body as { timeZone?: unknown }).timeZone) : "";
+  const effectiveTimeZone = suppliedTimeZone || validIanaTimezone(planBeforeMutation?.userTimezone) || "UTC";
   const basePickaxeMessage = mustConfirmSavedPlanMutation
-    ? buildSavedMutationMessage(effectiveMessage, message, planBeforeMutation)
-    : buildPickaxeMessage(message);
+    ? buildSavedMutationMessage(effectiveMessage, message, planBeforeMutation, effectiveTimeZone)
+    : buildPickaxeMessage(message, effectiveTimeZone);
   const pickaxeMessage = completionContext ? addCompletionContext(basePickaxeMessage, completionContext) : basePickaxeMessage;
   const qualityGuardApplied = pickaxeMessage !== message;
   const mustUseValidatedDelivery = requiresValidatedWorkoutDelivery(message);
@@ -2679,7 +2800,7 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
           signal: AbortSignal.any([
             mutationCompletionAbort.signal,
             mutationSignal,
-            AbortSignal.timeout(70_000),
+            AbortSignal.timeout(backgroundMutation ? 175_000 : 70_000),
           ]),
         });
 
@@ -2709,11 +2830,14 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
       conversationId,
       studioToken,
       requestStartedAt,
-      AbortSignal.any([mutationSignal, mutationPollAbort.signal, AbortSignal.timeout(55_000)]),
+      AbortSignal.any([mutationSignal, mutationPollAbort.signal,
+        backgroundMutation ? AbortSignal.timeout(190_000) : AbortSignal.timeout(55_000)]),
       [SAVE_WORKOUT_PLAN_ACTION_ID, GET_WORKOUT_PLAN_ACTION_ID],
       priorActionRunIds,
     );
-    const settled = await settleWorkoutSaveRace({ pendingRelay, driver: mutationDriverPromise });
+    const settled = backgroundMutation
+      ? await settleWorkoutSaveRace({ pendingRelay, driver: mutationDriverPromise, lateRelayWindowMs: 35_000 })
+      : await settleWorkoutSaveRace({ pendingRelay, driver: mutationDriverPromise });
     if (settled.relay) relay = settled.relay;
     const clarification = settled.clarification;
     mutationPollAbort.abort();
@@ -3190,15 +3314,17 @@ function continuePendingPlanRequest(message: string, pending: string) {
   return combined.length <= 12_000 ? combined : message;
 }
 
-function buildSavedMutationMessage(effective: string, latest: string, before: Record<string, unknown> | null) {
-  const base = buildPickaxeMessage(effective);
+function buildSavedMutationMessage(effective: string, latest: string, before: Record<string, unknown> | null, timeZone = "UTC") {
+  const base = buildPickaxeMessage(effective, timeZone);
   const marker = "\nMEMBER MESSAGE:\n";
   const index = base.indexOf(marker);
   const instructions = index >= 0 ? base.slice(0, index) : base;
-  const context: string[] = [];
+  const context: string[] = [
+    `APPLICATION SAVE TIMEZONE: Use ${timeZone} as userTimezone for the complete plan and every Save Workout Plan action input. This value is an IANA timezone passed by the site or its UTC fallback, not proof of the member's physical location. Do not halt with MISSING_TIMEZONE when no previously saved plan can be retrieved.`,
+  ];
   if (effective !== latest) context.push(`PRIOR UNFINISHED REQUEST (member context, not proof of a save): ${JSON.stringify(effective)}`);
   if (/\bnext\s+(?:saved\s+)?week\b/i.test(effective)) {
-    const zone = String(before?.userTimezone || "UTC");
+    const zone = validIanaTimezone(before?.userTimezone) || timeZone;
     const nextStart = addDays(sundayForDate(dateKeyInTimezone(zone)), 7);
     context.push(`APPLICATION SAVE CONTRACT: target ${nextStart} through ${addDays(nextStart, 6)} in ${zone}; _saveScope=next_week. Preserve the existing current week and completion history. Return a successful Save Workout Plan receipt for the complete structured plan. Do not claim saved from a read or from chat prose.`);
   }

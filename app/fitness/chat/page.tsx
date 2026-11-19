@@ -65,6 +65,39 @@ const COACH_INTROS = [
 ] as const;
 
 const COACH_INTRO_STORAGE_KEY = "fitness-coach-last-intro-v1";
+const PENDING_FITNESS_JOB_KEY = "fitness-coach-pending-job-v1";
+
+type FitnessJobStatus = {
+  ok?: boolean;
+  jobState?: "queued" | "running" | "complete" | "error" | "uncertain";
+  httpStatus?: number | null;
+  result?: ChatResult | null;
+  error?: string;
+};
+
+async function pollResumableFitnessJob(requestKey: string): Promise<Response> {
+  // Only GET; never submit a second paid generation or replay a save.
+  for (let attempt = 0; attempt < 150; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 3500));
+    const response = await fetch(`/api/fitness/chat/job?job=${encodeURIComponent(requestKey)}`, {
+      method: "GET", cache: "no-store",
+    });
+    const job = await response.json() as FitnessJobStatus;
+    if (!response.ok || !job.ok) {
+      throw new Error(job.error || "Could not read the pending request. Do not resubmit it.");
+    }
+    if (job.jobState === "queued" || job.jobState === "running") continue;
+    const result = job.result || {
+      ok: false, error: "The Coach result could not be verified. Check My Workouts before sending again.",
+    };
+    const status = typeof job.httpStatus === "number" &&
+      job.httpStatus >= 200 && job.httpStatus <= 599 ? job.httpStatus : 503;
+    return new Response(JSON.stringify(result), {
+      status, headers: { "Content-Type": "application/json" },
+    });
+  }
+  throw new Error("The Coach is still processing or status is unavailable. Return here to check without resubmitting.");
+}
 
 function cleanCoachText(value: string) {
   return value
@@ -403,6 +436,51 @@ export default function FitnessChatPage() {
   useEffect(() => { void refreshPreviewAllowance(); }, []);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const planRequestVersion = useRef(0);
+  useEffect(() => {
+    // Recover a pending result after refresh without another Pickaxe completion.
+    let stored: { requestKey?: string; conversationId?: string } | null = null;
+    try {
+      stored = JSON.parse(sessionStorage.getItem(PENDING_FITNESS_JOB_KEY) || "null");
+    } catch { stored = null; }
+    if (!stored || !/^[A-Za-z0-9_-]{16,100}$/.test(stored.requestKey || "") ||
+        !canResumeThread(stored.conversationId || "")) return;
+    const requestKey = stored.requestKey!;
+    setConversationId(stored.conversationId!);
+    setTab("coach");
+    setRunning(true);
+    setStatus("Checking your earlier Coach request. It will not be sent again.");
+    void (async () => {
+      try {
+        const response = await pollResumableFitnessJob(requestKey);
+        const data = await response.json() as ChatResult;
+        try { sessionStorage.removeItem(PENDING_FITNESS_JOB_KEY); } catch {}
+        if (data.conversationId) setConversationId(data.conversationId);
+        if (response.ok && data.ok && data.response) {
+          setMessages((items) => [...items, { role: "assistant", text: cleanCoachText(data.response!) }]);
+          setStatus(data.savedPlanVerified ? "Saved and verified in My Workouts." : "");
+          if (data.savedPlanVerified && data.plan) {
+            ++planRequestVersion.current;
+            setPlan(data.plan);
+            setPlanLoading(false);
+            setPlanError("");
+          } else {
+            void loadPlan(true);
+          }
+          if (typeof data.pendingPlanRequest === "string") setPendingPlanRequest(data.pendingPlanRequest);
+        } else {
+          setStatus(data.error || "The Coach could not confirm the earlier request. Check My Workouts.");
+          void loadPlan(true);
+        }
+      } catch {
+        // Keep the ID for a read-only status check after a future reload.
+        setStatus("Could not check the earlier Coach request. Reopen this page to resume; do not send it again.");
+      } finally {
+        setRunning(false);
+      }
+    })();
+    // Resumption runs once per page mount; it is not another model invocation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function loadPlan(background = false) {
     const requestVersion = ++planRequestVersion.current;
@@ -687,13 +765,26 @@ export default function FitnessChatPage() {
     setUsageLimitReached(false);
 
     try {
-      const response = await fetch("/api/fitness/chat", {
+      let response = await fetch("/api/fitness/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, conversationId, pendingPlanRequest, requestKey }),
+        body: JSON.stringify({
+          message, conversationId, pendingPlanRequest, requestKey,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+        }),
       });
 
-      const data = (await response.json()) as ChatResult;
+      let data = (await response.json()) as ChatResult & FitnessJobStatus;
+      if (response.status === 202 && data.ok && data.jobState) {
+        try {
+          // Only a request ID is stored, never the member's private message.
+          sessionStorage.setItem(PENDING_FITNESS_JOB_KEY, JSON.stringify({ requestKey, conversationId }));
+        } catch {}
+        setStatus("Your Coach is working. You can return to this page to retrieve the result.");
+        response = await pollResumableFitnessJob(requestKey);
+        data = (await response.json()) as ChatResult;
+        try { sessionStorage.removeItem(PENDING_FITNESS_JOB_KEY); } catch {}
+      }
       if (previewAllowance?.active) void refreshPreviewAllowance();
       if (data.conversationId) setConversationId(data.conversationId);
       if (typeof data.pendingPlanRequest === "string") setPendingPlanRequest(data.pendingPlanRequest);
