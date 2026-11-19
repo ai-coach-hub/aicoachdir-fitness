@@ -213,7 +213,7 @@ export default function LifeChat({privatePreview=false,initialGoals=false}:{priv
      <ChatAttachmentPicker key={attachmentPickerRevision} disabled={busy||openingThread} onPendingChange={setAttachmentPending} onTextAttachment={setAttachmentText}
       onPhotoAttachment={(photo)=>{setAttachmentPhoto(photo);setUploadedPhotoId(null);}}
       photoSendingEnabled={typeof process!=="undefined" && process.env.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED==="true"}/>
-     {process.env.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED==="true" && (
+     {typeof process !== "undefined" && process.env.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED==="true" && (
       <a href="/fitness/attachment-history" style={{color:"#d1b2ed",fontSize:"0.85rem",alignSelf:"center"}}>My attached photos</a>
      )}
     </div>
