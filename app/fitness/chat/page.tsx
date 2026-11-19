@@ -1101,7 +1101,7 @@ export default function FitnessChatPage() {
                 <button type="submit" className="primary-button" disabled={running || !input.trim()}>
                   {running ? "Working..." : "Send"}
                 </button>
-                <Link href="/fitness/photo-preview" className="text-button">Photo feedback preview (no upload)</Link>
+                <Link href="/fitness/photo-preview" className="text-button">File attachment preview (no upload)</Link>
                 {status ? <span className="member-status">{status}</span> : null}
               </div>
             </form>
