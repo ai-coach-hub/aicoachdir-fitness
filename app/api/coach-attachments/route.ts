@@ -68,6 +68,51 @@ export async function GET(request: Request) {
   })) }, 200);
 }
 
+export async function DELETE(request: Request) {
+  if (!attachmentsEnabled()) return result({ ok: false, error: "Private attachments are not enabled." }, 404);
+  if (request.headers.get("origin") !== new URL(request.url).origin)
+    return result({ ok: false, error: "Invalid request origin." }, 403);
+  const member = await currentUser();
+  const primary = member?.emailAddresses.find(e => e.id === member.primaryEmailAddressId);
+  if (!member || !primary || primary.verification?.status !== "verified")
+    return result({ ok: false, error: "Verified sign in required." }, 401);
+  const email = primary.emailAddress.trim().toLowerCase();
+  const owners = (process.env.COACH_ATTACHMENT_OWNER_EMAILS || "")
+    .split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+  let payload: Record<string, unknown>;
+  try { payload = await request.json(); }
+  catch { return result({ ok: false, error: "Invalid deletion request." }, 400); }
+  const id = typeof payload.id === "string" ? payload.id : "";
+  const ownerTarget = typeof payload.member === "string" ? payload.member.trim().toLowerCase() : "";
+  if (!/^[a-f0-9-]{36}$/.test(id) || (ownerTarget && !owners.includes(email)))
+    return result({ ok: false, error: "Deletion not authorized." }, 403);
+  const target = ownerTarget || email;
+  if (!ownerTarget) {
+    const access = await memberHasFitnessAccess(email, member.id).catch(() => false);
+    if (!access) return result({ ok: false, error: "Membership required." }, 403);
+  }
+  const sql = await attachmentDatabase().catch(() => null);
+  if (!sql) return result({ ok: false, error: "Storage unavailable." }, 503);
+  const rows = await sql`
+    SELECT object_key FROM public.coach_chat_attachments
+    WHERE attachment_id = ${id}::uuid AND member_email = ${target}
+    LIMIT 1
+  `;
+  if (!rows.length) return result({ ok: true, deleted: false }, 200);
+  // Deleting private object bytes first means a failed database delete never
+  // leaves a valid image; a later retry is safe because S3 deletion is idempotent.
+  try {
+    await removeImage(String(rows[0].object_key));
+    await sql`
+      DELETE FROM public.coach_chat_attachments
+      WHERE attachment_id = ${id}::uuid AND member_email = ${target}
+    `;
+    return result({ ok: true, deleted: true }, 200);
+  } catch {
+    return result({ ok: false, error: "Deletion could not be verified. Retry safely." }, 503);
+  }
+}
+
 export async function POST(request: Request) {
   if (!attachmentsEnabled()) return result({ ok: false, error: "Private attachments are not enabled." }, 404);
   if (request.headers.get("origin") !== new URL(request.url).origin)
