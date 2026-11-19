@@ -110,7 +110,7 @@ test("memory replies happen before any Pickaxe request, with source tag",()=>{
  const reply=route.indexOf('source:"saved-private-history"',direct);
  const token=route.indexOf("process.env.PICKAXE_LIFE_COACH_DEPLOYMENT_TOKEN");
  const provider=route.indexOf('await fetch("https://api.pickaxe.co');
- const generationCall=route.indexOf("completeLifeCoachRequest(token,promptMessage,email,id)",reply);
+ const generationCall=route.indexOf("completeLifeCoachRequest(token,promptMessage,email,id,photoUrl)",reply);
  assert.ok(provider>0 && direct>0 && reply>direct && token>reply && generationCall>token);
  assert.ok(route.includes("guardLifeMemoryDenial(rawAnswer,message,memories)"));
  assert.ok(route.includes("const promptMessage=prior||recalled ?"));
@@ -209,7 +209,7 @@ test("API cleans new model replies and UI cleans old replies, without altering u
  const ui=load("app/life/LifeChat.tsx");
  assert.ok(api.includes("cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories))"));
  assert.ok(ui.includes("cleanLifeCoachText(text)"));
- assert.ok(ui.includes('m.role==="assistant"?<CoachResponse text={m.text}/>:m.text'));
+ assert.ok(ui.includes('m.role==="assistant"?<CoachResponse text={m.text}/>:<ChatPhotoAttachment text={m.text}/>'));
  assert.ok(api.includes("await saveLifeTurn(member,id,message,answer)"));
  assert.ok(api.includes('value:{ok:true,response:answer,conversationId:id'));
  assert.ok(api.includes("Private usage test enrollment is required."));
