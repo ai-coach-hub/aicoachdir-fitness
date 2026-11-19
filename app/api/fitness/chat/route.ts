@@ -3,7 +3,6 @@ import { createHmac } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { canonicalMemberEmail } from "@/lib/memberIdentity";
 import { memberHasFitnessAccess } from "@/lib/fitnessMembershipDb";
-import { authorizeAttachedPhoto, attachmentsEnabled } from "@/lib/coachAttachmentStorage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -2690,11 +2689,12 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
     ? pendingInput.trim() : "";
   const attachmentId = body && typeof body === "object" && typeof (body as { attachmentId?: unknown }).attachmentId === "string"
     ? (body as { attachmentId: string }).attachmentId : "";
-  if (attachmentId && !attachmentsEnabled()) {
+  const attachmentUtils = attachmentId ? await import("@/lib/coachAttachmentStorage") : null;
+  if (attachmentId && !attachmentUtils?.attachmentsEnabled()) {
     return Response.json({ ok: false, error: "Photo attachments are not enabled." }, { status: 404 });
   }
   const photoUrl = attachmentId
-    ? await authorizeAttachedPhoto({ id: attachmentId, email: memberEmail, coach: "fitness", conversationId }).catch(() => null)
+    ? await attachmentUtils!.authorizeAttachedPhoto({ id: attachmentId, email: memberEmail, coach: "fitness", conversationId }).catch(() => null)
     : null;
   if (attachmentId && !photoUrl) {
     return Response.json({ ok: false, error: "This photo is not available for this member or conversation." }, { status: 403 });
