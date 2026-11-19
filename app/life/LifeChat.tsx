@@ -207,7 +207,7 @@ export default function LifeChat({privatePreview=false,initialGoals=false}:{priv
      <button disabled={busy||openingThread||attachmentPending||!input.trim()} type="submit" className="primary-button">Send</button>
      <ChatAttachmentPicker key={attachmentPickerRevision} disabled={busy||openingThread} onPendingChange={setAttachmentPending} onTextAttachment={setAttachmentText}
       onPhotoAttachment={(photo)=>{setAttachmentPhoto(photo);setUploadedPhotoId(null);}}
-      photoSendingEnabled={process.env.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED==="true"}/>
+      photoSendingEnabled={typeof process!=="undefined" && process.env.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED==="true"}/>
     </div>
    </form>
   </div>
