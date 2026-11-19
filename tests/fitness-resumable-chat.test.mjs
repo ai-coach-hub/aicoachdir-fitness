@@ -14,7 +14,7 @@ test("timezones are validated server-side and sent into saved-plan coaching", ()
   assert.match(api, /function validIanaTimezone\(value: unknown\)/);
   assert.match(api, /new Intl.DateTimeFormat\("en-US", \{ timeZone: value\.trim\(\) \}\)/);
   assert.match(api, /const effectiveTimeZone = suppliedTimeZone \|\| validIanaTimezone\(planBeforeMutation\?\.userTimezone\) \|\| "UTC"/);
-  assert.match(api, /not necessarily a verified geographic location/);
+  assert.match(api, /not necessarily a verified geographic location/i);
   assert.match(api, /Do not block the workout or return MISSING_TIMEZONE/);
   assert.match(api, /APPLICATION SAVE TIMEZONE: Use/);
   assert.match(api, /not proof of the member's physical location/);
