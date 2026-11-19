@@ -9,21 +9,21 @@ const life = source("app/life/LifeChat.tsx");
 
 test("Add file appears directly alongside Send under Fitness and Life threads", () => {
   assert.match(fitness, /<form className="member-chat-form" onSubmit=\{send\}>/);
-  assert.match(fitness, /<ChatAttachmentPicker disabled=\{running\} onPendingChange=\{setAttachmentPending\}/);
+  assert.match(fitness, /<ChatAttachmentPicker key=\\{attachmentPickerRevision\\} disabled=\\{running\\} onPendingChange=\\{setAttachmentPending\\} onTextAttachment=\\{setAttachmentText\\}/);
   assert.doesNotMatch(fitness, /File attachment preview \(no upload\)/);
   assert.match(life, /<form onSubmit=\{send\} className=\{styles\.compose\}>/);
-  assert.match(life, /<ChatAttachmentPicker disabled=\{busy\|\|openingThread\} onPendingChange=\{setAttachmentPending\}/);
+  assert.match(life, /<ChatAttachmentPicker key=\\{attachmentPickerRevision\\} disabled=\\{busy\\|\\|openingThread\\} onPendingChange=\\{setAttachmentPending\\} onTextAttachment=\\{setAttachmentText\\}/);
   assert.match(attachment, /Add file/);
 });
 
-test("selected file never silently becomes text or a charged Pickaxe request", () => {
+test("plain text and CSV send through existing Pickaxe conversation; unsupported formats remain blocked", () => {
   assert.match(fitness, /if \(!message \|\| running \|\| attachmentPending\) return/);
   assert.match(fitness, /disabled=\{running \|\| attachmentPending \|\| !input\.trim\(\)\}/);
-  assert.match(life, /if\(!message\|\|busy\|\|openingThread\|\|attachmentPending\)return/);
+  assert.match(life, /if\(!typedMessage\|\|busy\|\|openingThread\|\|attachmentPending\)return/);
   assert.match(life, /disabled=\{busy\|\|openingThread\|\|attachmentPending\|\|!input\.trim\(\)\}/);
   assert.match(attachment, /onPendingChange\(true\)/);
   assert.match(attachment, /onPendingChange\(false\)/);
-  assert.match(attachment, /Preview only\. File sending is not enabled\./);
+  assert.match(attachment, /Preview only\. Sending this file type is not enabled\./);\n  assert.match(attachment, /selected\.text\(\)/);\n  assert.match(attachment, /onTextAttachment\?\.\(text\)/);\n  assert.match(fitness, /message: deliveredMessage, conversationId/);\n  assert.match(life, /Member-attached file/);
   assert.doesNotMatch(attachment, /fetch\(|XMLHttpRequest|sendBeacon|sessionStorage|localStorage/);
 });
 
