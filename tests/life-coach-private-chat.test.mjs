@@ -209,7 +209,7 @@ test("API cleans new model replies and UI cleans old replies, without altering u
  const ui=load("app/life/LifeChat.tsx");
  assert.ok(api.includes("cleanLifeCoachText(guardLifeMemoryDenial(rawAnswer,message,memories))"));
  assert.ok(ui.includes("cleanLifeCoachText(text)"));
- assert.ok(ui.includes('m.role==="assistant"?<CoachResponse text={m.text}/>:m.text'));
+ assert.ok(ui.includes('m.role==="assistant"?<CoachResponse text={m.text}/>:<ChatPhotoAttachment text={m.text}/>'));
  assert.ok(api.includes("await saveLifeTurn(member,id,message,answer)"));
  assert.ok(api.includes('value:{ok:true,response:answer,conversationId:id'));
  assert.ok(api.includes("Private usage test enrollment is required."));
