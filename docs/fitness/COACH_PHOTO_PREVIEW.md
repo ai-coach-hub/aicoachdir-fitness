@@ -65,3 +65,24 @@ This is a **staged technical preview, not a customer launch**.
 - Following a successful member-reported iPhone photo test, removed the extra per-attachment agreement checkbox from Fitness and Life. A concise privacy disclosure remains next to ready attachments; selecting a file stays local until the member deliberately taps Send.
 - Ready TXT/CSV and prepared photo selections enable Send immediately; preview-only unsupported document formats do not enable attachment sending.
 - This is an interface simplification only. Storage access, expiration, Pickaxe relay, owner authorization boundaries, and production rollout controls are unchanged. Owner-dashboard photo visibility is still unverified; this is not a production release.
+
+## Release audit after first successful iPhone photo upload
+
+Verified the isolated Neon preview branch has **one** photo metadata row from the member-led iPhone test, and that the previous build/automated tests passed. No member photo contents were inspected. This verifies upload persistence but does **not** independently establish image understanding or owner-side Pickaxe visibility.
+
+New in this preview branch:
+- Direct, preview-flagged `My attached photos` links in both coach composers.
+- Explicitly allowlisted owner can list the latest 40 active attachments across members without knowing each email; member email remains omitted from ordinary member API responses. Opening/deleting any photo still requires its exact member identifier and owner authorization.
+- Clarified the privacy note: access **expires** after seven days, but scheduled physical deletion is not yet configured or guaranteed.
+
+**Do not merge these 96 post-main commits en bloc.** Draft PR #257 is built on separate, unmerged draft Fitness repair PR #256. Its full diff includes unrelated workout and API changes. A controlled photo-only release must be rebased/extracted from main, tested independently and reviewed against the live deployed revision before any production merge.
+
+Customer-release blockers (do not mark ready):
+1. Production/private Neon bucket, production member-scoped database schema, storage credentials, env flag and cost/retention review are absent. Preview credentials expire and are intentionally branch-scoped.
+2. `COACH_ATTACHMENT_OWNER_EMAILS` allowlist is not configured; Pickaxe owner dashboard's API-upload visibility is unconfirmed. The separate website owner history is ready for configuration, but that is not the same as Pickaxe history.
+3. A real Life Coach attachment test is not verified on this preview branch; Life's current preview tester gate is scoped to a different branch.
+4. PDF, DOCX, XLSX processing and the hosted Budgeting Coach attachment UI are not implemented.
+5. A reliable scheduled deletion mechanism is not configured. No claim of automatic hard deletion at seven days.
+6. Photo-specific model usage/cost and the single completed iPhone test have not been checked in the Pickaxe owner dashboard.
+
+**Suggested controlled release:** photos-only Fitness beta after production store setup, owner allowlist and retention plan, a separately reviewed minimal PR, and owner-visible conversation verification. Keep unsupported file types visibly disabled until reliable extraction is complete.
