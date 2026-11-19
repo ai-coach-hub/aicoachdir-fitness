@@ -151,6 +151,7 @@ function renderPage(savedPlan=plan,active=null){
   if(n==='next/link')return{__esModule:true,default:'a'};if(n==='@clerk/nextjs')return{useClerk:()=>({signOut(){}})};
   if(n==='@/components/WorkoutHistoryList')return{__esModule:true,default:historyModule.exports.default};
   if(n==='@/components/ChatAttachmentPicker')return{__esModule:true,default:'attachment-picker'};
+  if(n==='@/components/ChatPhotoAttachment')return{__esModule:true,default:'photo-view'};
   if(n==='@/lib/clientFetchRetry')return{withSingleNetworkRetry:operation=>operation(),withTransientAuthRetry:operation=>operation()};throw new Error(n);
  }});
  return{tree:m.exports.default(),setters};
