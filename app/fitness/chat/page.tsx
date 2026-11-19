@@ -392,7 +392,6 @@ export default function FitnessChatPage() {
   const pendingChatRequest = useRef<{message:string;conversationId:string;requestKey:string}|null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [attachmentPending, setAttachmentPending] = useState(false);
   const [running, setRunning] = useState(false);
   const [pendingPlanRequest, setPendingPlanRequest] = useState("");
   const [status, setStatus] = useState("");
@@ -416,6 +415,7 @@ export default function FitnessChatPage() {
   const [completionNotice, setCompletionNotice] = useState("");
   const [previewAllowance, setPreviewAllowance] = useState<{ active: boolean; remaining: number; limit: number } | null>(null);
   const [enrollingPreview, setEnrollingPreview] = useState(false);
+  const [attachmentPending, setAttachmentPending] = useState(false);
   async function refreshPreviewAllowance() {
     try {
       const response = await fetch("/api/life/usage-test", { cache: "no-store" });
