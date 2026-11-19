@@ -1,6 +1,7 @@
 "use client";
 import {FormEvent,useEffect,useRef,useState} from "react";
 import styles from "./LifeChat.module.css";
+import ChatAttachmentPicker from "@/components/ChatAttachmentPicker";
 import { cleanLifeCoachText, isLifeCoachSectionHeading } from "@/lib/lifeCoachFormatting";
 type Msg={role:"user"|"assistant";text:string};
 type Thread={id:string;title:string;updatedAt:string};
@@ -24,6 +25,7 @@ export default function LifeChat({privatePreview=false,initialGoals=false}:{priv
  const [id,setId]=useState("");
  const [messages,setMessages]=useState<Msg[]>([]);
  const [input,setInput]=useState("");
+ const [attachmentPending,setAttachmentPending]=useState(false);
  const [busy,setBusy]=useState(false);
  const [openingThread,setOpeningThread]=useState(false);
  const [showGoals,setShowGoals]=useState(false);
@@ -96,7 +98,7 @@ export default function LifeChat({privatePreview=false,initialGoals=false}:{priv
   finally{setOpeningThread(false);}
  };
  async function send(e:FormEvent){
-  e.preventDefault();const message=input.trim();if(!message||busy||openingThread)return;
+  e.preventDefault();const message=input.trim();if(!message||busy||openingThread||attachmentPending)return;
   const previous=pendingRequest.current;
   const retry=previous?.message===message && previous?.conversationId===id;
   const requestKey=retry ? previous!.key : `life-${crypto.randomUUID()}`;
@@ -177,7 +179,10 @@ export default function LifeChat({privatePreview=false,initialGoals=false}:{priv
    {usageLimitReached&&<p><a href="/manage-subscription" className="primary-button">Review Membership Options</a></p>}
    <form onSubmit={send} className={styles.compose}>
     <input aria-label="Message Life Coach" placeholder="Tell me what you'd like to work on…" value={input} onChange={e=>setInput(e.target.value)} maxLength={6000}/>
-    <button disabled={busy||openingThread||!input.trim()} type="submit" className="primary-button">Send</button>
+    <div className={styles.composeActions}>
+     <button disabled={busy||openingThread||attachmentPending||!input.trim()} type="submit" className="primary-button">Send</button>
+     <ChatAttachmentPicker disabled={busy||openingThread} onPendingChange={setAttachmentPending}/>
+    </div>
    </form>
   </div>
  </section>;
