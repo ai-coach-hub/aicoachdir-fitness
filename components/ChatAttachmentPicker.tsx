@@ -43,7 +43,6 @@ export default function ChatAttachmentPicker({
   const [file, setFile] = useState<SelectedFile | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [consented, setConsented] = useState(false);
   const previewRef = useRef<string | null>(null);
   const generation = useRef(0);
 
@@ -57,7 +56,6 @@ export default function ChatAttachmentPicker({
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     previewRef.current = null;
     setFile(null);
-    setConsented(false);
     onTextAttachment?.(null);
     onPhotoAttachment?.(null);
     setError("");
@@ -77,7 +75,6 @@ export default function ChatAttachmentPicker({
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     previewRef.current = null;
     setFile(null);
-    setConsented(false);
     onTextAttachment?.(null);
     onPhotoAttachment?.(null);
     try {
@@ -103,7 +100,8 @@ export default function ChatAttachmentPicker({
           if (generation.current === requestId) {
             onTextAttachment?.(text);
             setFile({ name: text.name, kind: "document", size: selected.size, readyForChat: true });
-            // Keep Send disabled until the member explicitly approves sharing.
+            // Selecting the file is local-only. Pressing Send shares its text.
+            onPendingChange(false);
           }
           return;
         }
@@ -146,7 +144,8 @@ export default function ChatAttachmentPicker({
           readyForChat: photoSendingEnabled });
         if (photoSendingEnabled) {
           onPhotoAttachment?.({ name: selected.name.slice(0, 120), jpeg });
-          // Keep Send disabled until the member explicitly approves sharing.
+          // Selecting the photo is local-only. Pressing Send uploads it privately.
+          onPendingChange(false);
         }
       } finally {
         bitmap.close();
@@ -194,18 +193,15 @@ export default function ChatAttachmentPicker({
           <span className={styles.size}>{Math.ceil(file.size / 1024)} KB</span>
           <button type="button" onClick={remove} className={styles.remove} aria-label="Remove attached file">Remove</button>
           <span className={styles.note}>{file.readyForChat
-            ? file.kind === "photo" ? "Ready: photo will be uploaded privately when you press Send." : "Ready: text will be included when you press Send. It will be visible in conversation history."
+            ? file.kind === "photo"
+              ? "Ready to send privately. Photos are stored for up to seven days in this preview."
+              : "Ready to send. File text will appear in the conversation."
             : "Preview only. Sending this file type is not enabled."}</span>
           {file.readyForChat ? (
-            <label className={styles.consent}>
-              <input type="checkbox" checked={consented} onChange={event => {
-                setConsented(event.target.checked);
-                onPendingChange(!event.target.checked);
-              }} />
-              I agree to share this attachment with the AI coach. Its contents may appear in the
-              conversation and be accessible to the service provider and authorized site owner.
-              Photos are stored privately for up to seven days in this preview.
-            </label>
+            <span className={styles.privacyNote}>
+              Pressing Send shares this attachment with the AI coach. Its contents may be
+              accessible to the service provider and authorized site owner.
+            </span>
           ) : null}
         </div>
       ) : null}
