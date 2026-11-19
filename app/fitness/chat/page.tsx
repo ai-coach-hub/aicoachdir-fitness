@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
 import WorkoutHistoryList from "@/components/WorkoutHistoryList";
+import ChatAttachmentPicker from "@/components/ChatAttachmentPicker";
 import { withSingleNetworkRetry, withTransientAuthRetry } from "@/lib/clientFetchRetry";
 
 type Message = { role: "user" | "assistant"; text: string };
@@ -391,6 +392,7 @@ export default function FitnessChatPage() {
   const pendingChatRequest = useRef<{message:string;conversationId:string;requestKey:string}|null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [attachmentPending, setAttachmentPending] = useState(false);
   const [running, setRunning] = useState(false);
   const [pendingPlanRequest, setPendingPlanRequest] = useState("");
   const [status, setStatus] = useState("");
@@ -752,7 +754,7 @@ export default function FitnessChatPage() {
   async function send(event: FormEvent) {
     event.preventDefault();
     const message = input.trim();
-    if (!message || running) return;
+    if (!message || running || attachmentPending) return;
 
     const previous=pendingChatRequest.current;
     const requestKey=previous?.message===message&&previous.conversationId===conversationId
@@ -1098,10 +1100,10 @@ export default function FitnessChatPage() {
                 placeholder="Message your coach..."
               />
               <div>
-                <button type="submit" className="primary-button" disabled={running || !input.trim()}>
+                <button type="submit" className="primary-button" disabled={running || attachmentPending || !input.trim()}>
                   {running ? "Working..." : "Send"}
                 </button>
-                <Link href="/fitness/photo-preview" className="text-button">File attachment preview (no upload)</Link>
+                <ChatAttachmentPicker disabled={running} onPendingChange={setAttachmentPending} />
                 {status ? <span className="member-status">{status}</span> : null}
               </div>
             </form>
