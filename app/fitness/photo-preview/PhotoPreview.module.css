@@ -162,3 +162,21 @@
 .details p + p {
   margin-top: 10px;
 }
+
+.documentPanel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 20px;
+  color: #40334b;
+  min-height: 125px;
+}
+.documentIcon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+.documentPanel p {
+  color: #685c72;
+  margin: 7px 0 0;
+  font-size: .88rem;
+}
