@@ -17,8 +17,14 @@ CREATE TABLE IF NOT EXISTS public.fitness_chat_jobs (
 );
 CREATE INDEX IF NOT EXISTS fitness_chat_jobs_member_created_idx
   ON public.fitness_chat_jobs (member_email, created_at DESC);
+CREATE INDEX IF NOT EXISTS fitness_chat_jobs_created_idx
+  ON public.fitness_chat_jobs (created_at);
 COMMIT;
--- Data is member-scoped. Schedule a reviewed retention policy before enablement:
--- results may contain private coaching details. A 7-day retention policy is suggested.
--- Do not delete an unfinished job automatically; read-only status reporting marks
--- stale requests uncertain without ever replaying a paid Pickaxe mutation.
+-- Private coaching responses are retained for at most seven days plus the
+-- daily 04:00 UTC cron interval when authorized and functioning.
+-- GET /api/internal/fitness-chat-retention runs in production only with CRON_SECRET
+-- and the exact Neon branch ID. It deletes at most 5000 jobs per run; monitor
+-- the deleted count and backlog before production enablement.
+-- Do not remove or modify the authoritative workout plans, history or memberships.
+-- Jobs older than 8 minutes are reported uncertain; never automatically replay
+-- a Pickaxe completion when a caller disconnects or result cannot be confirmed.
