@@ -37,11 +37,15 @@ export async function GET(request: Request) {
   try { sql = await attachmentDatabase(); }
   catch { return result({ ok: false, error: "Storage database unavailable." }, 503); }
   const memberEmail = ownerView ? (query.get("member") || "").trim().toLowerCase() : email;
-  if (!memberEmail || memberEmail.length > 250 || !/^\S+@\S+\.\S+$/.test(memberEmail))
+  // Members can list their own files. Verified, explicitly allowlisted
+  // owners can also list recent files across members without guessing an email.
+  // Opening or deleting one still resolves its exact member owner.
+  if ((!ownerView || memberEmail || query.has("member")) &&
+      (!memberEmail || memberEmail.length > 250 || !/^\S+@\S+\.\S+$/.test(memberEmail)))
     return result({ ok: false, error: "Valid member identifier required." }, 400);
   const id = query.get("id") || "";
-  if (id && !/^[a-f0-9-]{36}$/.test(id))
-    return result({ ok: false, error: "Invalid attachment identifier." }, 400);
+  if (id && (!/^[a-f0-9-]{36}$/.test(id) || !memberEmail))
+    return result({ ok: false, error: "Attachment and member identifiers required." }, 400);
   const rows = id
     ? await sql`
         SELECT attachment_id, filename, byte_size, coach, conversation_id, created_at, expires_at, object_key
@@ -49,12 +53,19 @@ export async function GET(request: Request) {
         WHERE member_email = ${memberEmail} AND attachment_id = ${id}::uuid AND expires_at > now()
         LIMIT 1
       `
-    : await sql`
-        SELECT attachment_id, filename, byte_size, coach, conversation_id, created_at, expires_at
-        FROM public.coach_chat_attachments
-        WHERE member_email = ${memberEmail} AND expires_at > now()
-        ORDER BY created_at DESC LIMIT 40
-      `;
+    : ownerView && !memberEmail
+      ? await sql`
+          SELECT attachment_id, member_email, filename, byte_size, coach, conversation_id, created_at, expires_at
+          FROM public.coach_chat_attachments
+          WHERE expires_at > now()
+          ORDER BY created_at DESC LIMIT 40
+        `
+      : await sql`
+          SELECT attachment_id, filename, byte_size, coach, conversation_id, created_at, expires_at
+          FROM public.coach_chat_attachments
+          WHERE member_email = ${memberEmail} AND expires_at > now()
+          ORDER BY created_at DESC LIMIT 40
+        `;
   if (id && !rows.length) return result({ ok: false, error: "Attachment not found." }, 404);
   if (id) {
     const { signedPhotoUrl } = await import("@/lib/coachAttachmentStorage");
@@ -64,6 +75,7 @@ export async function GET(request: Request) {
   return result({ ok: true, items: rows.map(row => ({
     id: row.attachment_id, name: row.filename, bytes: row.byte_size,
     coach: row.coach, conversationId: row.conversation_id,
+    ...(ownerView ? { memberEmail: row.member_email || memberEmail } : {}),
     createdAt: row.created_at, expiresAt: row.expires_at,
   })) }, 200);
 }
