@@ -1730,7 +1730,7 @@ function buildStructuredWorkoutEfficiencyMessage(message: string, timeZone = "UT
   return [
     "APPLICATION FIRST-PASS WORKOUT VALIDATION RULES - apply silently.",
     "Preserve the member's exact request, schedule commitments, restrictions, requested duration, and requested calendar week.",
-    `Verified member IANA timezone: ${timeZone}. Use exactly this timezone for userTimezone in all plan and Save Workout Plan action inputs; derive this/next-week dates in this timezone. It comes from the browser, existing saved plan, or UTC as a final fallback. Do not ask for timezone or return MISSING_TIMEZONE when this value is provided.`,
+    `Application timezone for workout scheduling: ${timeZone}. This is a valid IANA time zone chosen from the member browser, saved plan, or UTC fallback; it is NOT necessarily a verified geographic location. Pass it as userTimezone on plan/save action inputs and derive the requested week dates with it. Do not block the workout or return MISSING_TIMEZONE merely because no previously saved plan has a timezone.`,
     "When the member asks for a workout plan tied to this week, next week, or named weekdays, treat it as a plan to save in My Workouts unless they explicitly say not to save it. Preserve the current saved week when the request is for next week, and stage the requested plan as the next saved week with the correct dates.",
     "If a location's exact equipment is unknown but the member explicitly asks you to do your best, use a conservative common baseline (for example dumbbells plus floor space in a basic hotel gym), include simple substitutions, and complete/save the plan instead of blocking on another equipment question.",
     "Before feasibility validation, build one complete candidate using only confirmed equipment/setup or the conservative baseline the member explicitly authorized, with realistic exercise plus rest time.",
@@ -2291,6 +2291,9 @@ async function enqueueResumableFitnessRequest(request: Request, input: Record<st
       !/^[A-Za-z0-9_-]{16,100}$/.test(requestKey)) {
     return Response.json({ ok: false, error: "Valid message, conversation and request IDs required." }, { status: 400 });
   }
+  // Load the after() scheduler BEFORE writing a durable claim so an unsupported
+  // runtime cannot leave a queued job that will never start.
+  const { after } = await import("next/server");
   // Lazy-load only for explicitly enabled production mutations; legacy requests
   // and the offline Fitness test harness keep their original dependencies.
   const {
@@ -2309,7 +2312,6 @@ async function enqueueResumableFitnessRequest(request: Request, input: Record<st
   }
 
   if (claim.created) {
-    const { after } = await import("next/server");
     // This is a Vercel after() task, not a second browser fetch or a second AI call.
     // Durable claim prevents repeated submit requests from starting new paid generations.
     const workerUrl = request.url;
@@ -3317,7 +3319,9 @@ function buildSavedMutationMessage(effective: string, latest: string, before: Re
   const marker = "\nMEMBER MESSAGE:\n";
   const index = base.indexOf(marker);
   const instructions = index >= 0 ? base.slice(0, index) : base;
-  const context: string[] = [];
+  const context: string[] = [
+    `APPLICATION SAVE TIMEZONE: Use ${timeZone} as userTimezone for the complete plan and every Save Workout Plan action input. This value is an IANA timezone passed by the site or its UTC fallback, not proof of the member's physical location. Do not halt with MISSING_TIMEZONE when no previously saved plan can be retrieved.`,
+  ];
   if (effective !== latest) context.push(`PRIOR UNFINISHED REQUEST (member context, not proof of a save): ${JSON.stringify(effective)}`);
   if (/\bnext\s+(?:saved\s+)?week\b/i.test(effective)) {
     const zone = validIanaTimezone(before?.userTimezone) || timeZone;
