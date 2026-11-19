@@ -6,6 +6,7 @@ const source = (path) => readFileSync(new URL("../" + path, import.meta.url), "u
 const api = source("app/api/fitness/chat/route.ts");
 const client = source("app/fitness/chat/page.tsx");
 const jobRoute = source("app/api/fitness/chat/job/route.ts");
+const checkedInCoachPrompt = source("scripts/sync-pickaxe-compact-coach.mjs");
 const jobs = source("lib/fitnessChatJobs.ts");
 const migration = source("migrations/20261117_fitness_resumable_chat_REVIEW_ONLY.sql");
 
@@ -66,4 +67,12 @@ test("longer polling only applies inside the isolated background workout mutatio
   assert.match(api, /const uncertain = response\.status === 504/);
   assert.match(api, /state: "uncertain", httpStatus: 503/);
   assert.match(api, /savedPlanVerified: false/);
+});
+
+test("checked-in coach prompt accepts site timezone before asking for clarification", () => {
+  assert.match(checkedInCoachPrompt, /valid IANA timezone explicitly supplied by the website/);
+  assert.match(checkedInCoachPrompt, /The current request's valid timezone is sufficient to proceed/);
+  assert.match(checkedInCoachPrompt, /Do not respond with MISSING_TIMEZONE/);
+  assert.match(checkedInCoachPrompt, /do not present UTC as verified geographic location/);
+  assert.doesNotMatch(checkedInCoachPrompt, /If still unavailable, ask for timezone once/);
 });
