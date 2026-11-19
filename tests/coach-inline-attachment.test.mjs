@@ -40,3 +40,11 @@ test("inline file selection is constrained and photo preview strips location met
   assert.match(attachment, /type="file"/);
   assert.match(attachment, /type="button"/);
 });
+
+test("attachment consent gates Send and discloses AI provider and owner access", () => {
+  assert.match(attachment, /const \[consented, setConsented\] = useState\(false\)/);
+  assert.match(attachment, /I agree to share this attachment with the AI coach/);
+  assert.match(attachment, /accessible to the service provider and authorized site owner/);
+  assert.match(attachment, /onPendingChange\(!event\.target\.checked\)/);
+  assert.match(attachment, /Keep Send disabled until the member explicitly approves sharing/);
+});
