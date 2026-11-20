@@ -16,7 +16,8 @@ function config() {
   const accessKey = process.env.COACH_ATTACHMENT_S3_KEY_ID || "";
   const secret = process.env.COACH_ATTACHMENT_S3_SECRET || "";
   const region = process.env.COACH_ATTACHMENT_S3_REGION || "us-east-1";
-  const dbUrl = process.env.COACH_ATTACHMENT_DATABASE_URL || "";
+  // Reuse the existing production membership database; verify its Neon branch before access.
+  const dbUrl = process.env.STORAGE_URL || process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
   if (!endpoint.startsWith("https://br-sparkling-glitter-aucpz59d.storage.") ||
     !accessKey || !secret || !dbUrl) throw new Error("Private attachment storage is not configured");
   return { endpoint: endpoint.replace(/\/$/, ""), accessKey, secret, region, dbUrl };
