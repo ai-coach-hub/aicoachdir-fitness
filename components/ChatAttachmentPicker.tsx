@@ -3,10 +3,12 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import styles from "./ChatAttachmentPicker.module.css";
 
-const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const ALLOWED_EXTENSION = new Set(["jpg", "jpeg", "png", "webp", "pdf", "docx", "xlsx", "csv", "txt"]);
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"];
+const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "heic", "heif"];
+const MAX_PHOTO_BYTES = 25 * 1024 * 1024;
+const ALLOWED_EXTENSION = new Set([...IMAGE_EXTENSIONS, "pdf", "docx", "xlsx", "csv", "txt"]);
 const MAX_BYTES = 8 * 1024 * 1024;
-const ACCEPT = ".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx,.csv,.txt";
+const ACCEPT = "image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.pdf,.docx,.xlsx,.csv,.txt";
 
 type SelectedFile = { name: string; kind: "photo" | "document"; size: number; preview?: string; readyForChat?: boolean };
 
@@ -79,11 +81,11 @@ export default function ChatAttachmentPicker({
     onPhotoAttachment?.(null);
     try {
       const ext = selected.name.split(".").pop()?.toLowerCase() || "";
-      if (!ALLOWED_EXTENSION.has(ext) || !selected.size || selected.size > MAX_BYTES)
-        throw new Error("Choose a JPG, PNG, WebP, PDF, Word, Excel, CSV, or TXT file under 8 MB.");
-      const isImage = IMAGE_TYPES.includes(selected.type);
-      if (["jpg", "jpeg", "png", "webp"].includes(ext) !== isImage)
-        throw new Error("The selected file format does not match its extension.");
+      const isImage = IMAGE_EXTENSIONS.includes(ext) && (!selected.type || IMAGE_TYPES.includes(selected.type));
+      if (!ALLOWED_EXTENSION.has(ext) || !selected.size || selected.size > (isImage ? MAX_PHOTO_BYTES : MAX_BYTES))
+        throw new Error("Unable to attach this file.");
+      if (IMAGE_EXTENSIONS.includes(ext) !== isImage)
+        throw new Error("Unable to open this photo.");
       if (!isImage) {
         const formats: Record<string, string> = {
           pdf: "application/pdf",
@@ -113,27 +115,38 @@ export default function ChatAttachmentPicker({
         }
         return;
       }
-      let bitmap: ImageBitmap;
+      // iOS Photos may supply HEIC/HEIF, or a large original that is safe to
+      // shrink locally. Decode with Image as a Safari fallback when
+      // createImageBitmap does not support the selected format.
+      let bitmap: ImageBitmap | null = null;
+      let fallbackImage: HTMLImageElement | null = null;
+      let fallbackUrl: string | null = null;
       try {
-        bitmap = await createImageBitmap(selected);
-      } catch {
-        throw new Error("This image could not be opened.");
-      }
-      try {
-        if (!bitmap.width || !bitmap.height || bitmap.width > 7000 || bitmap.height > 7000)
-          throw new Error("Image dimensions are outside the supported range.");
+        if (typeof createImageBitmap === "function") {
+          try { bitmap = await createImageBitmap(selected); } catch { /* Safari may need HTMLImageElement */ }
+        }
+        if (!bitmap) {
+          fallbackUrl = URL.createObjectURL(selected);
+          fallbackImage = new Image();
+          fallbackImage.src = fallbackUrl;
+          await fallbackImage.decode();
+        }
+        const width = bitmap?.width ?? fallbackImage?.naturalWidth ?? 0;
+        const height = bitmap?.height ?? fallbackImage?.naturalHeight ?? 0;
+        if (!width || !height || width > 12000 || height > 12000)
+          throw new Error("Unable to open this photo.");
         const canvas = document.createElement("canvas");
-        const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        const scale = Math.min(1, 1600 / Math.max(width, height));
+        canvas.width = Math.max(1, Math.round(width * scale));
+        canvas.height = Math.max(1, Math.round(height * scale));
         const context = canvas.getContext("2d");
-        if (!context) throw new Error("Unable to preview this image.");
+        if (!context) throw new Error("Unable to prepare this photo.");
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        context.drawImage(bitmap ?? fallbackImage!, 0, 0, canvas.width, canvas.height);
         // Re-encoding removes EXIF and GPS; no original bytes leave the browser.
         const jpeg = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.78));
-        if (!jpeg || jpeg.size > 2 * 1024 * 1024) throw new Error("Unable to prepare an image under 2 MB.");
+        if (!jpeg || jpeg.size > 2 * 1024 * 1024) throw new Error("Unable to prepare this photo.");
         const url = URL.createObjectURL(jpeg);
         if (generation.current !== requestId) {
           URL.revokeObjectURL(url);
@@ -148,11 +161,12 @@ export default function ChatAttachmentPicker({
           onPendingChange(false);
         }
       } finally {
-        bitmap.close();
+        bitmap?.close();
+        if (fallbackUrl) URL.revokeObjectURL(fallbackUrl);
       }
     } catch (failure) {
       if (generation.current === requestId) {
-        setError(failure instanceof Error ? failure.message : "Unable to preview this file.");
+        setError(failure instanceof Error && /^Unable to/.test(failure.message) ? failure.message : "Unable to attach this file.");
         onTextAttachment?.(null);
         onPhotoAttachment?.(null);
         onPendingChange(false);
