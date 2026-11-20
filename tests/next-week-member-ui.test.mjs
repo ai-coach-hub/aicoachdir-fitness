@@ -38,6 +38,7 @@ function hub(fetchImpl) {
   const module = { exports: {} };
   vm.runInNewContext(compiled.outputText, {
     module, exports: module.exports, console, crypto, Date, Intl, Uint32Array,
+    process: {env:{NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED:'false'}},
     Request, Response, Headers, URL, fetch: fetchImpl,
     window: { ...eventTarget, crypto, localStorage: { getItem: () => null, setItem: () => {} } },
     document: { ...eventTarget, visibilityState: 'visible' },
