@@ -8,6 +8,7 @@ const relay=source("app/api/fitness/chat/route.ts");
 const ui=source("app/fitness/chat/page.tsx");
 const picker=source("components/ChatAttachmentPicker.tsx");
 const retention=source("app/api/internal/coach-attachment-retention/route.ts");
+const availability=source("app/api/coach-attachments/availability/route.ts");
 const config=JSON.parse(source("vercel.json"));
 
 test("private photo feature only on production with production branch and bucket",()=>{
@@ -51,4 +52,13 @@ test("retention scheduled safely and excludes unrelated fitness jobs",()=>{
  assert.match(retention,/attachmentsEnabled\(\)/);
  assert.match(retention,/purgeExpiredPhotos\(30\)/);
  assert.match(store,/await removeImage\(String\(row\.object_key\)\)/);
+});
+
+test("photo availability uses the live server and never an old embedded public build flag",()=>{
+ assert.match(availability,/attachmentsEnabled\(\)/);
+ assert.match(availability,/Cache-Control": "private, no-store"/);
+ assert.match(ui,/fetch\("\/api\/coach-attachments\/availability", \{ cache: "no-store" \}\)/);
+ assert.match(ui,/photoSendingEnabled=\{photoSendingEnabled\}/);
+ assert.match(ui,/disabled=\{running \|\| !photoAvailabilityChecked\}/);
+ assert.doesNotMatch(ui,/process\.env\.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED/);
 });
