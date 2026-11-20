@@ -10,7 +10,7 @@
 .size{font-size:.8rem;color:#685574}
 .remove{border:0;background:transparent;color:#68478a;text-decoration:underline;font:inherit;font-weight:700;cursor:pointer}
 .note{font-size:.78rem;color:#675573;line-height:1.35}
-.error{font-size:.85rem;color:#a32646}
+.error{font-size:.76rem;color:#a32646;max-width:100%;overflow-wrap:anywhere;line-height:1.3}
 
 
 .privacyNote{flex-basis:100%;display:block;padding:6px 0 2px;font-size:.78rem;line-height:1.5;color:#4b3c5a}
