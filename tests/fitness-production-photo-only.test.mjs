@@ -64,3 +64,16 @@ test("photo availability uses the live server and never an old embedded public b
 });
 
 test("selected file chip keeps thumbnail, filename, size and remove without extra paragraphs",()=>{ assert.match(picker,/styles.thumbnail/); assert.match(picker,/styles.fileName/); assert.match(picker,/styles.size/); assert.match(picker,/styles.remove/); assert.doesNotMatch(picker,/styles.privacyNote/); });
+
+test("iPhone HEIC and HEIF photos are resized privately and errors remain short",()=>{
+ assert.match(picker,/image\/heic/);
+ assert.match(picker,/image\/heif/);
+ assert.match(picker,/\.heic,\.heif/);
+ assert.match(picker,/MAX_PHOTO_BYTES = 25 \* 1024 \* 1024/);
+ assert.match(picker,/new Image\(\)/);
+ assert.match(picker,/fallbackImage\.decode\(\)/);
+ assert.match(picker,/URL\.revokeObjectURL\(fallbackUrl\)/);
+ assert.match(picker,/canvas\.toBlob\(resolve, "image\/jpeg", 0\.78\)/);
+ assert.match(picker,/Unable to attach this file\./);
+ assert.doesNotMatch(picker,/Choose a JPG, PNG, WebP, PDF, Word, Excel, CSV, or TXT file under 8 MB/);
+});
