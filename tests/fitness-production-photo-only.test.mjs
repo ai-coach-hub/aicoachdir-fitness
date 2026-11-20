@@ -42,7 +42,7 @@ test("photo goes only into existing non-mutating completion with private authori
  assert.match(ui,/member-photo\.jpg/);
  assert.match(ui,/\/api\/coach-attachments/);
  assert.match(ui,/My attached photos/);
- assert.match(picker,/Pressing Send shares this attachment with the AI coach/);
+ assert.doesNotMatch(picker,/Ready to send privately|Pressing Send shares this attachment with the AI coach|Photo access expires after seven days/);
  assert.doesNotMatch(ui,/imageUrls:|signedPhotoUrl\(/);
 });
 test("retention scheduled safely and excludes unrelated fitness jobs",()=>{
@@ -62,3 +62,5 @@ test("photo availability uses the live server and never an old embedded public b
  assert.match(ui,/disabled=\{running \|\| !photoAvailabilityChecked\}/);
  assert.doesNotMatch(ui,/process\.env\.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED/);
 });
+
+test("selected file chip keeps thumbnail, filename, size and remove without extra paragraphs",()=>{ assert.match(picker,/styles.thumbnail/); assert.match(picker,/styles.fileName/); assert.match(picker,/styles.size/); assert.match(picker,/styles.remove/); assert.doesNotMatch(picker,/styles.privacyNote/); });

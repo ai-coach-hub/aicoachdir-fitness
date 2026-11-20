@@ -192,17 +192,7 @@ export default function ChatAttachmentPicker({
           <span className={styles.fileName} title={file.name}>{file.name}</span>
           <span className={styles.size}>{Math.ceil(file.size / 1024)} KB</span>
           <button type="button" onClick={remove} className={styles.remove} aria-label="Remove attached file">Remove</button>
-          <span className={styles.note}>{file.readyForChat
-            ? file.kind === "photo"
-              ? "Ready to send privately. Photo access expires after seven days; you can delete it sooner in My attached photos."
-              : "Ready to send. File text will appear in the conversation."
-            : "Preview only. Sending this file type is not enabled."}</span>
-          {file.readyForChat ? (
-            <span className={styles.privacyNote}>
-              Pressing Send shares this attachment with the AI coach. Its contents may be
-              accessible to the service provider and authorized site owner.
-            </span>
-          ) : null}
+
         </div>
       ) : null}
     </div>
