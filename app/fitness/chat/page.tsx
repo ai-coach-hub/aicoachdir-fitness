@@ -384,6 +384,21 @@ export default function FitnessChatPage() {
   const [previewAllowance, setPreviewAllowance] = useState<{ active: boolean; remaining: number; limit: number } | null>(null);
   const [enrollingPreview, setEnrollingPreview] = useState(false);
   const [attachmentPending, setAttachmentPending] = useState(false);
+  const [photoSendingEnabled, setPhotoSendingEnabled] = useState(false);
+  const [photoAvailabilityChecked, setPhotoAvailabilityChecked] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/coach-attachments/availability", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return false;
+        const result = (await response.json()) as { enabled?: unknown };
+        return result.enabled === true;
+      })
+      .then((enabled) => { if (active) setPhotoSendingEnabled(enabled); })
+      .catch(() => { if (active) setPhotoSendingEnabled(false); })
+      .finally(() => { if (active) setPhotoAvailabilityChecked(true); });
+    return () => { active = false; };
+  }, []);
   const [attachmentText, setAttachmentText] = useState<TextAttachment | null>(null);
   const [attachmentPhoto, setAttachmentPhoto] = useState<PhotoAttachment | null>(null);
   const [uploadedPhotoId, setUploadedPhotoId] = useState<string | null>(null);
@@ -1045,13 +1060,14 @@ export default function FitnessChatPage() {
                 <button type="submit" className="primary-button" disabled={running || attachmentPending || !input.trim()}>
                   {running ? "Working..." : "Send"}
                 </button>
-                <ChatAttachmentPicker key={attachmentPickerRevision} disabled={running}
+                <ChatAttachmentPicker key={attachmentPickerRevision} disabled={running || !photoAvailabilityChecked}
                   onPendingChange={setAttachmentPending} onTextAttachment={setAttachmentText}
                   onPhotoAttachment={(photo)=>{setAttachmentPhoto(photo);setUploadedPhotoId(null);}}
-                  photoSendingEnabled={process.env.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED === "true"} />
-                {process.env.NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED === "true" ? (
+                  photoSendingEnabled={photoSendingEnabled} />
+                {photoSendingEnabled ? (
                   <Link href="/fitness/attachment-history" className="text-button">My attached photos</Link>
                 ) : null}
+                {!photoAvailabilityChecked ? <span className="member-status">Checking secure file uploads…</span> : null}
                 {status ? <span className="member-status">{status}</span> : null}
               </div>
             </form>
