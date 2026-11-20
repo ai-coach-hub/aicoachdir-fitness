@@ -2571,9 +2571,21 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
     ? (body as { pendingPlanRequest?: unknown }).pendingPlanRequest : null;
   const pendingPlanRequest = typeof pendingInput === "string" && pendingInput.length <= 12_000
     ? pendingInput.trim() : "";
+  const attachmentId = body && typeof body === "object" && typeof (body as {attachmentId?:unknown}).attachmentId === "string"
+    ? (body as {attachmentId:string}).attachmentId : "";
+  const attachmentUtils = attachmentId ? await import("@/lib/coachAttachmentStorage") : null;
+  if (attachmentId && !attachmentUtils?.attachmentsEnabled())
+    return Response.json({ok:false,error:"Private photo attachments are not enabled."},{status:404});
+  const photoUrl = attachmentId
+    ? await attachmentUtils!.authorizeAttachedPhoto({id:attachmentId,email:memberEmail,coach:"fitness",conversationId}).catch(()=>null)
+    : null;
+  if (attachmentId && !photoUrl)
+    return Response.json({ok:false,error:"This photo is not available for this member or conversation."},{status:403});
   const effectiveMessage = continuePendingPlanRequest(message, pendingPlanRequest);
   const standaloneNoSaveWorkout = isStandaloneNoSaveWorkout(message);
   const mustConfirmSavedPlanMutation = requiresConfirmedSavedPlanMutation(effectiveMessage);
+  if (photoUrl && mustConfirmSavedPlanMutation)
+    return Response.json({ok:false,error:"Photos cannot be used to save or modify workouts. Ask for feedback without changing saved plans."},{status:400});
   const completionHistoryQuestion = !mustConfirmSavedPlanMutation && !standaloneNoSaveWorkout && isCompletionHistoryQuestion(message);
   // Only fetch completion history for explicit history questions or a clear request
   // to use recent workout completions. Ordinary conversation must not carry raw
@@ -2773,6 +2785,7 @@ async function postFitnessWithoutPreviewMeter(request: Request) {
             message: pickaxeMessage,
             userId: memberEmail,
             conversationId,
+            ...(photoUrl ? {imageUrls:[photoUrl]} : {}),
             stream: false,
           }),
           cache: "no-store",

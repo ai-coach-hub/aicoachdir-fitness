@@ -38,6 +38,7 @@ function hub(fetchImpl) {
   const module = { exports: {} };
   vm.runInNewContext(compiled.outputText, {
     module, exports: module.exports, console, crypto, Date, Intl, Uint32Array,
+    process: {env:{NEXT_PUBLIC_COACH_ATTACHMENT_UPLOADS_ENABLED:'false'}},
     Request, Response, Headers, URL, fetch: fetchImpl,
     window: { ...eventTarget, crypto, localStorage: { getItem: () => null, setItem: () => {} } },
     document: { ...eventTarget, visibilityState: 'visible' },
@@ -48,6 +49,7 @@ function hub(fetchImpl) {
       if (name === 'next/link') return { __esModule: true, default: 'a' };
       if (name === '@clerk/nextjs') return { useClerk: () => ({ signOut: async () => {} }) };
       if (name === '@/components/WorkoutHistoryList') return { __esModule: true, default: 'workout-history' };
+      if (name === '@/components/ChatAttachmentPicker' || name === '@/components/ChatPhotoAttachment') return { __esModule: true, default: 'attachment-component' };
       if (name === '@/lib/clientFetchRetry') return { withSingleNetworkRetry: (operation) => operation(), withTransientAuthRetry: (operation) => operation() };
       throw new Error('Unexpected import: ' + name);
     },
