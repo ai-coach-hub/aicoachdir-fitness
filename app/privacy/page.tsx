@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 // Section 5 remains part of the Terms, not an independent or conflicting policy.
 // Reuse the actual approved disclosure so this page never drifts from the Terms.
 function privacyNoticeHtml() {
-  const start = termsHtml.indexOf("<h2>5. Privacy and Data Notice");
+  const start = termsHtml.indexOf('<h2 id="privacy-data-notice">5. Privacy and Data Notice');
   const end = termsHtml.indexOf("<h2>6.", start);
   if (start < 0 || end <= start) {
     throw new Error("Privacy disclosure section not found in approved Terms");
