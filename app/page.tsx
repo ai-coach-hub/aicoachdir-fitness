@@ -167,9 +167,6 @@ export default function HomePage() {
         </article>
         {lifeVisible && (
           <article className="live-coach-card">
-            <div className="live-coach-status-row">
-              <span className="live-coach-badge">Available Now</span>
-            </div>
             <div className="live-coach-image-wrap">
               <Image
                 src="/images/ai-coaching-for-life.jpg"
@@ -247,6 +244,7 @@ export default function HomePage() {
         <div className="footer-links">
           <Link href={memberLoginUrl}>Member Login</Link>
           <Link href="/terms">Terms & Conditions</Link>
+          <Link href="/privacy">Privacy &amp; Data Notice</Link>
           <Link href="/manage-subscription">Manage Subscription</Link>
           <Link href="/contact">Contact Us</Link>
           <Link href="/fitness/signup">New Subscription</Link>
